@@ -1,34 +1,46 @@
-# Frontend — React
+# TechZone Pro — React storefront demo
 
-Định hướng **React + TypeScript + Vite**, tổ chức feature-first. Một ứng dụng React có các nhóm trang storefront, account, admin, warehouse và technician; dùng chung các feature thay vì sao chép logic giữa các trang.
+TechZone Pro is the React implementation of the approved TechZone redesign. It covers the cinematic landing page, storefront/catalogue, product variants, AI-assisted PC builder, cart and pickup checkout, customer account/order/warranty screens, staff order handover, warranty intake, technician workflow, and admin product/specification/promotion screens.
 
-```text
-src/
-├── app/
-│   ├── routes/       # Router, nhóm route và kiểm tra quyền ở UI
-│   ├── providers/    # Auth, query cache, theme, thông báo
-│   ├── layouts/      # Storefront, account, admin/workspace
-│   └── styles/       # Styles toàn cục và design tokens
-├── pages/            # Ghép các feature thành màn hình
-├── features/         # Tính năng nghiệp vụ; đặt file trong feature sở hữu
-├── shared/
-│   ├── api/          # HTTP client, format lỗi và xử lý phiên chung
-│   ├── ui/           # Component nền: button, modal, table, input...
-│   ├── hooks/
-│   ├── lib/
-│   ├── types/
-│   └── constants/
-└── assets/
+## Run
+
+```bash
+npm install
+npm run dev
 ```
 
-Khi một feature có code, mở thêm `api/`, `components/`, `hooks/`, `types/` bên trong feature theo nhu cầu. Không tạo sẵn hàng loạt lớp/thư mục rỗng cho từng màn hình.
+Open http://localhost:5173. The project uses React 19, Vite, React Router, Anime.js and the locally bundled Be Vietnam Pro font.
 
-Hướng phụ thuộc: `app/pages → features → shared`; `shared` không phụ thuộc feature, feature không import page. Feature chỉ công khai những API cần thiết; tránh gọi chéo nội bộ. Test nhỏ đặt cạnh component/hook; kịch bản tích hợp/E2E ở `tests/`.
+Validation commands:
 
-- Copy `.env.example` thành `.env` khi khởi tạo Vite.
-- `VITE_API_BASE_URL=http://localhost:8080/api` khớp context-path backend.
-- Không đặt password MySQL, AI key, secret OAuth/thanh toán vào biến `VITE_*`.
-- ID BIGINT từ backend dùng string; giá và tương thích hiển thị theo kết quả server.
-- Phân quyền UI giúp trải nghiệm; backend luôn kiểm tra quyền truy cập dữ liệu.
+```bash
+npm run lint
+npm run test
+npm run build
+npm run test:e2e
+```
 
-Hiện chưa có `package.json`, `index.html`, cấu hình Vite hoặc component React. Đây là khung thư mục, chưa có lệnh chạy frontend.
+## Demo roles
+
+The login page contains role buttons that fill demo accounts. The shared demo password is `Demo@123`. Customer, Staff, Technician and Admin routes are protected by client-side role guards so the screens can be explored without a backend.
+
+The demo state is stored in localStorage under `techzone-demo-v1`. Use the browser's storage controls to reset it when you want a fresh walkthrough. Session identity is kept in sessionStorage. These guards and credentials are for walkthroughs only; they are not authentication or authorization.
+
+## Important business behavior
+
+- Orders are pickup-only and snapshot product prices, quantities and warranty terms at creation.
+- Stock is reserved when an order is created, released once when an eligible order is cancelled, and physical handover requires payment plus one unique serial per purchased unit.
+- RAM is sold by individual stick. Builder validation checks the selected mainboard's slot count and capacity, memory type, CPU socket, PSU headroom, M.2 availability and case/cooler dimensions. Unknown technical metadata blocks purchase until the data is verified.
+- Promotions validate active dates, total quota and one-use-per-customer semantics. The home banner reads the active promotion/banner record and follows its configured link.
+- Warranty cards are created per physical unit and warranty intake prevents an open duplicate ticket for the same card.
+
+## Backend handoff
+
+The UI intentionally uses a local transactional demo service in `src/services/demoStore.js` so each flow is reviewable without an API. The `request(path, options)` helper is the integration boundary: set `VITE_API_BASE_URL` and replace demo actions with server calls for authentication, catalog, inventory reservation, promotion claims, orders/payments, serial handover, warranty tickets and admin CRUD.
+
+The AI builder currently uses a deterministic demo suggestion and a transparent compatibility validator. A production implementation should call an AI service only after loading verified product/specification data, then run the returned proposal through the same server-side validator. Payment is simulated as store collection; no card data is accepted or persisted.
+
+## Reference material
+
+The original static prototypes remain outside this app at `UI_UX_Design/techzone-redesign`. The copied manifest is in `docs/reference/manifest.json`; the implementation plan is in `docs/plans/2026-10-03-techzone-react.md`.
+

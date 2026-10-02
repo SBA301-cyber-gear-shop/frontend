@@ -1,0 +1,155 @@
+[
+  {
+    "id": "01-landing",
+    "title": "Hiệu năng mang dấu ấn của bạn",
+    "group": "Khách hàng",
+    "layout": "landing"
+  },
+  {
+    "id": "02-home",
+    "title": "Trang chủ cửa hàng",
+    "group": "Khách hàng"
+  },
+  {
+    "id": "03-monitors",
+    "title": "Danh mục màn hình",
+    "group": "Khách hàng"
+  },
+  {
+    "id": "04-laptops",
+    "title": "Danh mục laptop",
+    "group": "Khách hàng"
+  },
+  {
+    "id": "05-product",
+    "title": "Chi tiết sản phẩm & phiên bản",
+    "group": "Khách hàng"
+  },
+  {
+    "id": "06-builder",
+    "title": "AI Build PC · Cần xác minh",
+    "group": "Khách hàng"
+  },
+  {
+    "id": "06b-builder-verified",
+    "title": "AI Build PC · Đủ điều kiện",
+    "group": "Khách hàng"
+  },
+  {
+    "id": "07-cart",
+    "title": "Giỏ hàng",
+    "group": "Khách hàng"
+  },
+  {
+    "id": "08-checkout",
+    "title": "Đặt hàng & nhận tại cửa hàng",
+    "group": "Khách hàng"
+  },
+  {
+    "id": "08b-build-checkout",
+    "title": "Đặt mua cấu hình PC",
+    "group": "Khách hàng"
+  },
+  {
+    "id": "09-login",
+    "title": "Đăng nhập",
+    "group": "Khách hàng",
+    "layout": "store"
+  },
+  {
+    "id": "09b-register",
+    "title": "Đăng ký tài khoản",
+    "group": "Khách hàng",
+    "layout": "store"
+  },
+  {
+    "id": "10-orders",
+    "title": "Đơn hàng của tôi",
+    "group": "Khách hàng",
+    "layout": "store"
+  },
+  {
+    "id": "11-order-detail",
+    "title": "Chi tiết đơn hàng",
+    "group": "Khách hàng",
+    "layout": "store"
+  },
+  {
+    "id": "11a-order-created",
+    "title": "Đơn vừa được tạo",
+    "group": "Trạng thái"
+  },
+  {
+    "id": "12-warranty",
+    "title": "Bảo hành của tôi",
+    "group": "Khách hàng",
+    "layout": "store"
+  },
+  {
+    "id": "13-account",
+    "title": "Hồ sơ & thanh toán",
+    "group": "Khách hàng",
+    "layout": "store"
+  },
+  {
+    "id": "14-staff-orders",
+    "title": "Xử lý đơn hàng",
+    "group": "Vận hành",
+    "layout": "admin",
+    "role": "Staff"
+  },
+  {
+    "id": "15-handover",
+    "title": "Bàn giao đơn hàng",
+    "group": "Vận hành",
+    "layout": "admin",
+    "role": "Staff"
+  },
+  {
+    "id": "16-warranty-intake",
+    "title": "Tiếp nhận bảo hành",
+    "group": "Vận hành",
+    "layout": "admin",
+    "role": "Staff"
+  },
+  {
+    "id": "16b-new-intake",
+    "title": "Tạo phiếu tiếp nhận bảo hành",
+    "group": "Vận hành",
+    "layout": "admin",
+    "role": "Staff"
+  },
+  {
+    "id": "17-technician",
+    "title": "Xử lý kỹ thuật",
+    "group": "Vận hành",
+    "layout": "admin",
+    "role": "Technician"
+  },
+  {
+    "id": "18-admin-product",
+    "title": "Quản trị sản phẩm",
+    "group": "Quản trị",
+    "layout": "admin",
+    "role": "Admin"
+  },
+  {
+    "id": "19-admin-specs",
+    "title": "Danh mục & thông số",
+    "group": "Quản trị",
+    "layout": "admin",
+    "role": "Admin"
+  },
+  {
+    "id": "20-admin-promotion",
+    "title": "Khuyến mãi & banner",
+    "group": "Quản trị",
+    "layout": "admin",
+    "role": "Admin"
+  },
+  {
+    "id": "21-exception-states",
+    "title": "Các trạng thái cần xử lý",
+    "group": "Trạng thái"
+  }
+]
