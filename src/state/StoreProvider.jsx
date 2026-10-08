@@ -42,6 +42,7 @@ export default function StoreProvider({ children }) {
   }
   function signOut() {
     sessionStorage.removeItem("techzone-session");
+    sessionStorage.removeItem("techzone-token");
     setUser(null);
   }
   function addCart(id, quantity = 1) {

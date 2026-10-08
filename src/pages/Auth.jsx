@@ -1,90 +1,149 @@
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { demoAccounts } from "../data/seed";
 import { useStore } from "../state/context";
-import { delay } from "../services/demoStore";
+import { request } from "../services/demoStore";
 import { Logo, Icon, Notice, Modal, Button } from "../components/ui";
+
 export default function Auth({ register = false }) {
-  const { data, commit, signIn } = useStore(),
+  const { commit, signIn } = useStore(),
     navigate = useNavigate(),
     location = useLocation();
+
+  // Form states
   const [identity, setIdentity] = useState(""),
     [password, setPassword] = useState(""),
     [confirm, setConfirm] = useState(""),
     [name, setName] = useState(""),
     [phone, setPhone] = useState(""),
-    [show, setShow] = useState(false),
+    [showPassword, setShowPassword] = useState(false),
+    [showConfirm, setShowConfirm] = useState(false),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
     [help, setHelp] = useState(false);
+
+  // Field touched states for inline validation
+  const [touched, setTouched] = useState({});
+
+  const markTouched = (field) => {
+    setTouched((prev) => ({ ...prev, [field]: true }));
+  };
+
+  // Inline Validation logic
+  const getErrors = () => {
+    const errs = {};
+    if (register) {
+      if (!name.trim()) {
+        errs.name = "Vui lòng nhập họ và tên.";
+      } else if (name.trim().length < 2) {
+        errs.name = "Họ và tên phải có tối thiểu 2 ký tự.";
+      }
+
+      if (!phone.trim()) {
+        errs.phone = "Vui lòng nhập số điện thoại.";
+      } else if (!/^0\d{9}$/.test(phone.trim())) {
+        errs.phone = "Số điện thoại phải gồm 10 chữ số và bắt đầu bằng số 0.";
+      }
+
+      if (!identity.trim()) {
+        errs.identity = "Vui lòng nhập địa chỉ email.";
+      } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(identity.trim())) {
+        errs.identity = "Địa chỉ email không đúng định dạng (VD: ban@example.com).";
+      }
+
+      if (!password) {
+        errs.password = "Vui lòng nhập mật khẩu.";
+      } else if (password.length < 6) {
+        errs.password = "Mật khẩu phải có tối thiểu 6 ký tự.";
+      }
+
+      if (!confirm) {
+        errs.confirm = "Vui lòng nhập lại mật khẩu xác nhận.";
+      } else if (confirm !== password) {
+        errs.confirm = "Mật khẩu xác nhận không trùng khớp.";
+      }
+    } else {
+      if (!identity.trim()) {
+        errs.identity = "Vui lòng nhập email hoặc số điện thoại.";
+      }
+      if (!password) {
+        errs.password = "Vui lòng nhập mật khẩu.";
+      }
+    }
+    return errs;
+  };
+
+  const validationErrors = getErrors();
+
   async function submit(e) {
     e.preventDefault();
     setError("");
+
+    // Mark all relevant fields as touched
+    if (register) {
+      setTouched({ name: true, phone: true, identity: true, password: true, confirm: true });
+    } else {
+      setTouched({ identity: true, password: true });
+    }
+
+    const currentErrors = getErrors();
+    const errorKeys = Object.keys(currentErrors);
+    if (errorKeys.length > 0) {
+      setError(currentErrors[errorKeys[0]]);
+      return;
+    }
+
     setBusy(true);
     try {
       if (register) {
-        if (!name.trim() || !/^\S+@\S+\.\S+$/.test(identity))
-          throw new Error("Nhập họ tên và email hợp lệ.");
-        if (!/^0\d{9}$/.test(phone))
-          throw new Error("Số điện thoại gồm 10 chữ số, bắt đầu bằng 0.");
-        if (password.length < 8 || password !== confirm)
-          throw new Error("Mật khẩu tối thiểu 8 ký tự và xác nhận phải trùng.");
-        if (
-          [...demoAccounts, ...data.users].some(
-            (u) =>
-              u.email.toLowerCase() === identity.toLowerCase() ||
-              u.phone === phone,
-          )
-        )
-          throw new Error("Email hoặc số điện thoại đã được sử dụng.");
-        await delay();
-        const hash = Array.from(
-          new Uint8Array(
-            await crypto.subtle.digest(
-              "SHA-256",
-              new TextEncoder().encode(password),
-            ),
-          ),
-        )
-          .map((x) => x.toString(16).padStart(2, "0"))
-          .join("");
+        const res = await request("/api/auth/register", {
+          method: "POST",
+          body: JSON.stringify({
+            fullName: name.trim(),
+            email: identity.trim().toLowerCase(),
+            phone: phone.trim(),
+            password: password,
+            address: "",
+          }),
+        });
+
+        const authData = res?.data || res;
+        if (authData?.accessToken) {
+          sessionStorage.setItem("techzone-token", authData.accessToken);
+        }
+
         const u = {
-          id: crypto.randomUUID(),
-          name: name.trim(),
-          email: identity.toLowerCase(),
-          phone,
-          role: "Customer",
-          demoPasswordHash: hash,
+          id: authData.user.id,
+          name: authData.user.fullName,
+          email: authData.user.email,
+          phone: authData.user.phone,
+          role: authData.user.role,
         };
-        commit((d) => ({ ...d, users: [...d.users, u] }));
+
+        commit((d) => ({ ...d, users: [...(d.users || []), u] }));
         signIn(u);
         navigate("/tai-khoan");
       } else {
-        await delay();
-        const accounts = new Map(demoAccounts.map((u) => [u.id, u]));
-        data.users.forEach((u) =>
-          accounts.set(u.id, { ...accounts.get(u.id), ...u }),
-        );
-        const u = [...accounts.values()].find(
-          (u) =>
-            u.email.toLowerCase() === identity.trim().toLowerCase() ||
-            u.phone === identity.trim(),
-        );
-        const hash = Array.from(
-          new Uint8Array(
-            await crypto.subtle.digest(
-              "SHA-256",
-              new TextEncoder().encode(password),
-            ),
-          ),
-        )
-          .map((x) => x.toString(16).padStart(2, "0"))
-          .join("");
-        if (
-          !u ||
-          (u.password ? u.password !== password : u.demoPasswordHash !== hash)
-        )
-          throw new Error("Email, số điện thoại hoặc mật khẩu chưa đúng.");
+        const res = await request("/api/auth/login", {
+          method: "POST",
+          body: JSON.stringify({
+            identity: identity.trim(),
+            password: password,
+          }),
+        });
+
+        const authData = res?.data || res;
+        if (authData?.accessToken) {
+          sessionStorage.setItem("techzone-token", authData.accessToken);
+        }
+
+        const u = {
+          id: authData.user.id,
+          name: authData.user.fullName,
+          email: authData.user.email,
+          phone: authData.user.phone,
+          role: authData.user.role,
+        };
+
         signIn(u);
         const fallback =
           u.role === "Customer"
@@ -95,11 +154,12 @@ export default function Auth({ register = false }) {
         navigate(location.state?.from || fallback, { replace: true });
       }
     } catch (err) {
-      setError(err.message);
+      setError(err.message || "Xảy ra lỗi trong quá trình xử lý. Vui lòng thử lại.");
     } finally {
       setBusy(false);
     }
   }
+
   return (
     <div className="login-body">
       <header className="login-header">
@@ -108,6 +168,7 @@ export default function Auth({ register = false }) {
           ← Tiếp tục mua sắm
         </Link>
       </header>
+
       <main className="login-layout">
         <section className="login-scene">
           <div className="scene-grid" />
@@ -150,6 +211,7 @@ export default function Auth({ register = false }) {
             <span>Đặt online · Nhận tại cửa hàng</span>
           </div>
         </section>
+
         <section className="login-panel">
           <div className="form-shell">
             <div className="form-mark">
@@ -159,95 +221,195 @@ export default function Auth({ register = false }) {
               {register ? "BẮT ĐẦU HÀNH TRÌNH" : "CHÀO MỪNG TRỞ LẠI"}
             </p>
             <h2>{register ? "Tạo tài khoản" : "Đăng nhập"}</h2>
-            <p className="form-intro">Tiếp tục hành trình công nghệ của bạn.</p>
-            <form onSubmit={submit}>
+            <p className="form-intro">
+              {register
+                ? "Điền thông tin để tạo tài khoản mới tại TechZone."
+                : "Nhập thông tin xác thực để tiếp tục."}
+            </p>
+
+            <form onSubmit={submit} noValidate>
               {register && (
                 <>
+                  {/* Họ và tên */}
                   <div className="input-group">
-                    <label htmlFor="name">Họ và tên</label>
-                    <input
-                      id="name"
-                      className="input"
-                      required
-                      autoComplete="name"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                    />
+                    <label htmlFor="name">
+                      Họ và tên <span className="req">*</span>
+                    </label>
+                    <div
+                      className={`input-frame ${
+                        touched.name && validationErrors.name ? "has-error" : ""
+                      }`}
+                    >
+                      <Icon name="user" />
+                      <input
+                        id="name"
+                        autoComplete="name"
+                        placeholder="Ví dụ: Nguyễn Văn A"
+                        required
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        onBlur={() => markTouched("name")}
+                        aria-invalid={!!(touched.name && validationErrors.name)}
+                      />
+                    </div>
+                    {touched.name && validationErrors.name && (
+                      <p className="field-error">{validationErrors.name}</p>
+                    )}
                   </div>
+
+                  {/* Số điện thoại */}
                   <div className="input-group">
-                    <label htmlFor="phone">Số điện thoại</label>
-                    <input
-                      id="phone"
-                      className="input"
-                      required
-                      autoComplete="tel"
-                      type="tel"
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                    />
+                    <label htmlFor="phone">
+                      Số điện thoại <span className="req">*</span>
+                    </label>
+                    <div
+                      className={`input-frame ${
+                        touched.phone && validationErrors.phone ? "has-error" : ""
+                      }`}
+                    >
+                      <Icon name="phone" />
+                      <input
+                        id="phone"
+                        type="tel"
+                        autoComplete="tel"
+                        placeholder="Ví dụ: 0912 345 678"
+                        required
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value)}
+                        onBlur={() => markTouched("phone")}
+                        aria-invalid={!!(touched.phone && validationErrors.phone)}
+                      />
+                    </div>
+                    {touched.phone && validationErrors.phone && (
+                      <p className="field-error">{validationErrors.phone}</p>
+                    )}
                   </div>
                 </>
               )}
+
+              {/* Email (Register) / Email hoặc SĐT (Login) */}
               <div className="input-group">
                 <label htmlFor="identity">
-                  {register ? "Email" : "Email hoặc số điện thoại"}
+                  {register ? (
+                    <>
+                      Địa chỉ Email <span className="req">*</span>
+                    </>
+                  ) : (
+                    <>
+                      Email hoặc số điện thoại <span className="req">*</span>
+                    </>
+                  )}
                 </label>
-                <div className="input-frame">
-                  <Icon name="user" />
+                <div
+                  className={`input-frame ${
+                    touched.identity && validationErrors.identity ? "has-error" : ""
+                  }`}
+                >
+                  <Icon name={register ? "mail" : "user"} />
                   <input
                     id="identity"
                     autoComplete="username"
                     type={register ? "email" : "text"}
-                    placeholder="ban@example.com"
+                    placeholder={
+                      register
+                        ? "Ví dụ: ban@example.com"
+                        : "Nhập email hoặc số điện thoại của bạn"
+                    }
                     required
                     value={identity}
                     onChange={(e) => setIdentity(e.target.value)}
+                    onBlur={() => markTouched("identity")}
+                    aria-invalid={!!(touched.identity && validationErrors.identity)}
                   />
                 </div>
+                {touched.identity && validationErrors.identity && (
+                  <p className="field-error">{validationErrors.identity}</p>
+                )}
               </div>
+
+              {/* Mật khẩu */}
               <div className="input-group">
-                <label htmlFor="password">Mật khẩu</label>
-                <div className="input-frame">
-                  <Icon name="shield" />
+                <label htmlFor="password">
+                  Mật khẩu <span className="req">*</span>
+                </label>
+                <div
+                  className={`input-frame ${
+                    touched.password && validationErrors.password ? "has-error" : ""
+                  }`}
+                >
+                  <Icon name="lock" />
                   <input
                     id="password"
-                    autoComplete={
-                      register ? "new-password" : "current-password"
-                    }
-                    type={show ? "text" : "password"}
+                    autoComplete={register ? "new-password" : "current-password"}
+                    type={showPassword ? "text" : "password"}
                     required
+                    placeholder={
+                      register
+                        ? "Tối thiểu 6 ký tự"
+                        : "Nhập mật khẩu của bạn"
+                    }
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Nhập mật khẩu của bạn"
+                    onBlur={() => markTouched("password")}
+                    aria-invalid={!!(touched.password && validationErrors.password)}
                   />
                   <button
                     className="password-toggle"
                     type="button"
-                    aria-label={show ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
-                    aria-pressed={show}
-                    onClick={() => setShow(!show)}
+                    aria-label={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+                    onClick={() => setShowPassword(!showPassword)}
                   >
-                    {show ? "Ẩn" : "Hiện"}
+                    {showPassword ? "Ẩn" : "Hiện"}
                   </button>
                 </div>
+                {touched.password && validationErrors.password && (
+                  <p className="field-error">{validationErrors.password}</p>
+                )}
               </div>
+
+              {/* Xác nhận mật khẩu (Register only) */}
               {register && (
                 <div className="input-group">
-                  <label htmlFor="confirm">Xác nhận mật khẩu</label>
-                  <input
-                    id="confirm"
-                    className="input"
-                    type={show ? "text" : "password"}
-                    autoComplete="new-password"
-                    required
-                    value={confirm}
-                    onChange={(e) => setConfirm(e.target.value)}
-                  />
+                  <label htmlFor="confirm">
+                    Xác nhận mật khẩu <span className="req">*</span>
+                  </label>
+                  <div
+                    className={`input-frame ${
+                      touched.confirm && validationErrors.confirm ? "has-error" : ""
+                    }`}
+                  >
+                    <Icon name="lock" />
+                    <input
+                      id="confirm"
+                      autoComplete="new-password"
+                      type={showConfirm ? "text" : "password"}
+                      required
+                      placeholder="Nhập lại mật khẩu để xác nhận"
+                      value={confirm}
+                      onChange={(e) => setConfirm(e.target.value)}
+                      onBlur={() => markTouched("confirm")}
+                      aria-invalid={!!(touched.confirm && validationErrors.confirm)}
+                    />
+                    <button
+                      className="password-toggle"
+                      type="button"
+                      aria-label={showConfirm ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+                      onClick={() => setShowConfirm(!showConfirm)}
+                    >
+                      {showConfirm ? "Ẩn" : "Hiện"}
+                    </button>
+                  </div>
+                  {touched.confirm && validationErrors.confirm && (
+                    <p className="field-error">{validationErrors.confirm}</p>
+                  )}
                 </div>
               )}
+
               <div className="form-options">
                 <span className="password-hint">
-                  Có thể dán từ trình quản lý mật khẩu.
+                  {register
+                    ? "Mật khẩu nên chứa ít nhất 6 ký tự để bảo mật."
+                    : "Bảo mật tài khoản với phiên đăng nhập an toàn."}
                 </span>
                 <button
                   type="button"
@@ -257,64 +419,50 @@ export default function Auth({ register = false }) {
                   Cần hỗ trợ?
                 </button>
               </div>
+
               {error && <Notice tone="danger">{error}</Notice>}
-              <button className="login-submit" disabled={busy}>
-                {busy
-                  ? "Đang xử lý…"
-                  : register
-                    ? "Đăng ký tài khoản"
-                    : "Đăng nhập"}
+
+              <button className="login-submit" type="submit" disabled={busy}>
+                {busy ? (
+                  "Đang xử lý…"
+                ) : register ? (
+                  "Đăng ký tài khoản"
+                ) : (
+                  "Đăng nhập"
+                )}
                 <Icon name="arrow" />
               </button>
             </form>
+
             <div className="register-prompt">
               {register ? "Đã có tài khoản?" : "Chưa có tài khoản?"}{" "}
               <Link to={register ? "/dang-nhap" : "/dang-ky"}>
                 {register ? "Đăng nhập" : "Đăng ký ngay"} ↗
               </Link>
             </div>
-            <details className="demo-accounts">
-              <summary>Tài khoản trải nghiệm · Demo</summary>
-              <p className="small muted">
-                Dữ liệu lưu trên thiết bị; không dùng mật khẩu thật. Các nút
-                điền tài khoản mẫu, sau đó nhấn Đăng nhập.
-              </p>
-              <div className="chips">
-                {demoAccounts.map((u) => (
-                  <button
-                    key={u.id}
-                    type="button"
-                    className="chip"
-                    onClick={() => {
-                      setIdentity(u.email);
-                      setPassword(u.password);
-                    }}
-                  >
-                    {u.role}
-                  </button>
-                ))}
-              </div>
-              <small>Mật khẩu mẫu: Demo@123</small>
-            </details>
-            <p className="preview-note">
-              Chế độ demo · Chưa kết nối xác thực backend
-            </p>
           </div>
         </section>
       </main>
+
       <footer className="login-footer">
         <span>© 2026 TechZone Pro</span>
         <span>PC & linh kiện · Chọn đúng cho đam mê</span>
       </footer>
+
       {help && (
-        <Modal title="Cùng bạn kết nối lại." onClose={() => setHelp(false)}>
+        <Modal title="Hỗ trợ tài khoản" onClose={() => setHelp(false)}>
           <p>
-            Chọn tài khoản trải nghiệm ở dưới form để khám phá. Chức năng khôi
-            phục mật khẩu cần dịch vụ backend.
+            Nếu bạn quên mật khẩu hoặc gặp sự cố khi đăng nhập vào hệ thống,
+            vui lòng liên hệ với bộ phận chăm sóc khách hàng hoặc quản trị viên:
           </p>
-          <Button onClick={() => setHelp(false)}>Quay lại</Button>
+          <ul style={{ paddingLeft: "20px", margin: "12px 0", color: "#475569" }}>
+            <li>Hotline: <strong>1900 6868</strong> (8:00 - 21:00)</li>
+            <li>Email: <strong>support@techzone.pro</strong></li>
+          </ul>
+          <Button onClick={() => setHelp(false)}>Đã hiểu</Button>
         </Modal>
       )}
     </div>
   );
 }
+

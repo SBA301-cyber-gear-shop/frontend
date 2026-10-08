@@ -264,6 +264,15 @@
   font-weight: 650;
   margin-bottom: 8px;
 }
+.input-group > label .req {
+  color: #d91f31;
+  margin-left: 3px;
+  font-weight: 700;
+}
+.input-frame.has-error {
+  border-color: #be1729 !important;
+  box-shadow: 0 0 0 3px #be172915 !important;
+}
 .input-frame {
   display: flex;
   align-items: center;
