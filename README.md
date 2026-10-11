@@ -38,6 +38,8 @@ The demo state is stored in localStorage under `techzone-demo-v1`. Use the brows
 
 The UI intentionally uses a local transactional demo service in `src/services/demoStore.js` so each flow is reviewable without an API. The `request(path, options)` helper is the integration boundary: set `VITE_API_BASE_URL` and replace demo actions with server calls for authentication, catalog, inventory reservation, promotion claims, orders/payments, serial handover, warranty tickets and admin CRUD.
 
+The warranty screens (`/van-hanh/bao-hanh`, `/ky-thuat`, `/bao-hanh`) are the first flow wired to the backend. They call `src/services/aftersales.js`, which has two implementations returning the same data shape: after a real login (a backend token is in sessionStorage) it calls the `aftersales` API (`/api/warranty-cards`, `/api/service-requests`, `/api/my/warranty-cards`); in a demo session without a token it runs the same rules locally from `src/domain/commerce.js`. Orders and handover are still demo-only, so warranty cards created by a demo handover exist only in the browser and are not visible in API mode.
+
 The AI builder currently uses a deterministic demo suggestion and a transparent compatibility validator. A production implementation should call an AI service only after loading verified product/specification data, then run the returned proposal through the same server-side validator. Payment is simulated as store collection; no card data is accepted or persisted.
 
 ## Reference material
