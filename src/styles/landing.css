@@ -38,11 +38,12 @@
 .l-header {
   position: sticky;
   top: 0;
-  z-index: 40;
+  z-index: 100;
   background: #111d30f5;
   color: white;
   border-bottom: 1px solid #ffffff16;
   backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
 }
 .l-nav-shell {
   max-width: 1440px;
@@ -1700,62 +1701,6 @@
    UX ENHANCEMENTS & FEEDBACK STYLES (FRONTEND & UX SKILLS)
    ========================================================== */
 
-/* 1. Top Announcement & Voucher Bar */
-.l-top-bar {
-  background: linear-gradient(90deg, #111d30, #1c2738, #111d30);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  padding: 8px 0;
-  font-size: 13px;
-  color: #c3ccda;
-  z-index: 50;
-  position: relative;
-}
-.l-top-bar-inner {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  flex-wrap: wrap;
-}
-.l-top-bar-text {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.l-top-bar-text .badge.hot {
-  background: rgba(217, 31, 49, 0.2);
-  color: #ff5b6a;
-  border: 1px solid rgba(217, 31, 49, 0.4);
-  font-weight: 700;
-  font-size: 11px;
-  padding: 2px 8px;
-  border-radius: 4px;
-}
-.l-voucher-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px dashed rgba(255, 255, 255, 0.3);
-  color: #fff;
-  padding: 4px 12px;
-  border-radius: 6px;
-  font-size: 12px;
-  font-weight: 600;
-  transition: all 0.2s ease;
-  cursor: pointer;
-}
-.l-voucher-btn:hover {
-  background: rgba(217, 31, 49, 0.15);
-  border-color: #d91f31;
-  color: #fff;
-  transform: translateY(-1px);
-}
-.l-voucher-btn .icon {
-  width: 14px;
-  height: 14px;
-  color: #ff5b6a;
-}
 
 /* 2. Hero Eyebrow & Stage Transitions */
 .l-hero-eyebrow {
