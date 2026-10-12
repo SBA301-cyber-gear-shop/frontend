@@ -307,9 +307,17 @@ export const TICKET_STATUS = {
   received: "Đã tiếp nhận",
   inspecting: "Đang kiểm tra",
   repairing: "Đang sửa chữa",
-  completed: "Chờ trả khách",
+  waiting_for_parts: "Chờ linh kiện",
+  ready_for_return: "Chờ trả khách",
   returned: "Đã trả khách",
+  canceled: "Đã hủy",
+};
+export const TICKET_RESOLUTION = {
+  repaired: "Đã sửa xong",
+  replaced: "Đã đổi thiết bị",
   rejected: "Từ chối bảo hành",
+  no_fault_found: "Không tìm thấy lỗi",
+  withdrawn: "Khách rút yêu cầu",
 };
 export function createSeed() {
   const lines = [
@@ -323,7 +331,8 @@ export function createSeed() {
     warranty: 36,
   }));
   return {
-    version: 1,
+    // Tăng số này khi dạng dữ liệu demo đổi, để trình duyệt bỏ dữ liệu cũ và nạp lại seed.
+    version: 2,
     products: structuredClone(products),
     users: [],
     cart: [],
@@ -388,15 +397,44 @@ export function createSeed() {
     tickets: [
       {
         id: "BH-261001-0018",
-        warrantyId: "wc1",
+        requestCode: "BH-261001-0018",
+        warrantyCardId: "wc1",
         userId: "customer",
-        issue: "Máy đôi lúc không nhận đủ dung lượng RAM khi khởi động.",
+        issueDescription:
+          "Máy đôi lúc không nhận đủ dung lượng RAM khi khởi động.",
+        conditionNote: "Không trầy xước",
+        accessoriesNote: "Không có",
+        contactName: "Nguyễn Minh Anh",
+        contactPhone: "0900000128",
+        expectedReturnDate: "2026-10-08",
         status: "inspecting",
-        createdAt: "2026-10-01T10:15:00+07:00",
-        condition: "Không trầy xước",
-        accessories: "Không có",
-        note: "Đang kiểm tra theo mô tả của khách.",
+        resolution: null,
+        technicianNote: "Đang kiểm tra theo mô tả của khách.",
         publicNote: "Kỹ thuật viên đang kiểm tra thiết bị.",
+        createdAt: "2026-10-01T10:15:00+07:00",
+        completedAt: null,
+        assignedTechnicianId: "technician",
+        version: 1,
+        events: [
+          {
+            fromStatus: null,
+            toStatus: "received",
+            actorId: "staff",
+            actorName: "Nhân viên cửa hàng",
+            internalNote: "Tiếp nhận thiết bị tại quầy.",
+            publicNote: "Đã tiếp nhận thiết bị.",
+            createdAt: "2026-10-01T10:15:00+07:00",
+          },
+          {
+            fromStatus: "received",
+            toStatus: "inspecting",
+            actorId: "technician",
+            actorName: "Kỹ thuật viên",
+            internalNote: "Đang kiểm tra theo mô tả của khách.",
+            publicNote: "Kỹ thuật viên đang kiểm tra thiết bị.",
+            createdAt: "2026-10-01T11:00:00+07:00",
+          },
+        ],
       },
     ],
     promotions: [

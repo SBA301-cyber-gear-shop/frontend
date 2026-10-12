@@ -1,8 +1,14 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useStore } from "../state/context";
 import { dateTime, money, transitionOrder } from "../domain/commerce";
-import { ORDER_STATUS, PAYMENT_STATUS, TICKET_STATUS } from "../data/seed";
+import {
+  ORDER_STATUS,
+  PAYMENT_STATUS,
+  TICKET_RESOLUTION,
+  TICKET_STATUS,
+} from "../data/seed";
+import { useAftersales } from "../services/aftersales";
 import { AccountLayout } from "../components/Layouts";
 import { OrderLines } from "./Checkout";
 import {
@@ -338,13 +344,23 @@ export function OrderDetail() {
   );
 }
 export function Warranty() {
-  const { data, user } = useStore(),
+  const svc = useAftersales(),
+    [cards, setCards] = useState(null),
+    [error, setError] = useState(""),
     [search, setSearch] = useState(""),
     [selected, setSelected] = useState(null);
-  const cards = data.warranties.filter(
-    (w) =>
-      w.userId === user.id &&
-      w.serial.toLowerCase().includes(search.toLowerCase()),
+  useEffect(() => {
+    let alive = true;
+    svc
+      .myCards()
+      .then((found) => alive && setCards(found))
+      .catch((err) => alive && setError(err.message));
+    return () => {
+      alive = false;
+    };
+  }, [svc]);
+  const shown = (cards || []).filter((c) =>
+    c.serialNumber.toLowerCase().includes(search.toLowerCase()),
   );
   return (
     <AccountLayout>
@@ -363,72 +379,108 @@ export function Warranty() {
         Để yêu cầu bảo hành, mang thiết bị đến cửa hàng. Nhân viên sẽ đối chiếu
         serial và tiếp nhận trực tiếp.
       </Notice>
+      {error && <Notice tone="danger">{error}</Notice>}
       <div className="stack section">
-        {cards.length ? (
-          cards.map((w) => {
-            const p = data.products.find((p) => p.id === w.productId),
-              tickets = data.tickets.filter(
-                (t) => t.warrantyId === w.id && t.userId === user.id,
-              );
-            return (
-              <Panel key={w.id}>
-                <div className="between">
-                  <div className="row">
-                    <Art type={p?.category} className="mini" />
-                    <div>
-                      <h3>{p?.name}</h3>
-                      <p className="small mono">{w.serial}</p>
-                    </div>
+        {shown.length ? (
+          shown.map((c) => (
+            <Panel key={c.id}>
+              <div className="between">
+                <div className="row">
+                  <Art className="mini" />
+                  <div>
+                    <h3>{c.productName}</h3>
+                    <p className="small mono">{c.serialNumber}</p>
                   </div>
-                  <Badge
-                    tone={new Date(w.end) > new Date() ? "success" : "warning"}
-                  >
-                    {new Date(w.end) > new Date() ? "Còn bảo hành" : "Hết hạn"}
-                  </Badge>
                 </div>
-                <div className="two-col section">
-                  <KV label="Bắt đầu">
-                    {new Date(w.start).toLocaleDateString("vi-VN")}
-                  </KV>
-                  <KV label="Kết thúc">
-                    {new Date(w.end).toLocaleDateString("vi-VN")}
-                  </KV>
-                </div>
-                <Link className="text-button" to={"/don-hang/" + w.orderId}>
+                <Badge tone={c.valid ? "success" : "warning"}>
+                  {c.status === "replaced"
+                    ? "Đã đổi thiết bị"
+                    : c.status !== "active"
+                      ? "Thẻ bị vô hiệu"
+                      : c.valid
+                        ? "Còn bảo hành"
+                        : "Hết hạn"}
+                </Badge>
+              </div>
+              <div className="two-col section">
+                <KV label="Bắt đầu">
+                  {new Date(c.startDate).toLocaleDateString("vi-VN")}
+                </KV>
+                <KV label="Kết thúc">
+                  {new Date(c.endDate).toLocaleDateString("vi-VN")}
+                </KV>
+              </div>
+              {c.replacedBySerialNumber && (
+                <p className="small muted">
+                  Thiết bị đã được đổi sang serial{" "}
+                  <b className="mono">{c.replacedBySerialNumber}</b>.
+                </p>
+              )}
+              {/* Đơn hàng trên BE chưa có trang chi tiết, nên chỉ bản demo mới có liên kết. */}
+              {svc.mode === "demo" ? (
+                <Link className="text-button" to={"/don-hang/" + c.orderCode}>
                   Xem đơn mua →
                 </Link>
-                {tickets.map((t) => (
-                  <button
-                    className="ticket-preview between full"
-                    key={t.id}
-                    onClick={() => setSelected(t)}
-                  >
-                    <b>{t.id}</b>
-                    <Badge tone="info">{TICKET_STATUS[t.status]}</Badge>
-                    <span>Xem tiến trình →</span>
-                  </button>
-                ))}
-              </Panel>
-            );
-          })
+              ) : (
+                <p className="small muted">Đơn mua {c.orderCode}</p>
+              )}
+              {c.requests.map((t) => (
+                <button
+                  className="ticket-preview between full"
+                  key={t.id}
+                  onClick={() => setSelected(t)}
+                >
+                  <b>{t.requestCode}</b>
+                  <Badge tone="info">{TICKET_STATUS[t.status]}</Badge>
+                  <span>Xem tiến trình →</span>
+                </button>
+              ))}
+            </Panel>
+          ))
         ) : (
           <Empty
-            title="Chưa có thiết bị phù hợp"
+            title={
+              cards
+                ? "Chưa có thiết bị phù hợp"
+                : error
+                  ? "Không tải được thẻ bảo hành"
+                  : "Đang tải thẻ bảo hành"
+            }
             description="Thẻ bảo hành xuất hiện sau khi đơn được bàn giao."
           />
         )}
       </div>
       {selected && (
         <Modal
-          title={"Yêu cầu " + selected.id}
+          title={"Yêu cầu " + selected.requestCode}
           onClose={() => setSelected(null)}
         >
-          <Badge tone="info">{TICKET_STATUS[selected.status]}</Badge>
+          <Badge tone="info">{TICKET_STATUS[selected.status]}</Badge>{" "}
+          {selected.resolution && (
+            <Badge>{TICKET_RESOLUTION[selected.resolution]}</Badge>
+          )}
           <KV label="Tiếp nhận">{dateTime(selected.createdAt)}</KV>
+          {selected.expectedReturnDate && (
+            <KV label="Ngày hẹn trả">
+              {new Date(selected.expectedReturnDate).toLocaleDateString(
+                "vi-VN",
+              )}
+            </KV>
+          )}
           <h3 className="section">Lỗi đã báo</h3>
-          <p>{selected.issue}</p>
+          <p>{selected.issueDescription}</p>
           <h3 className="section">Thông tin từ cửa hàng</h3>
           <p>{selected.publicNote || "Cửa hàng đang xử lý yêu cầu."}</p>
+          <h3 className="section">Tiến trình</h3>
+          {selected.timeline.map((e, i) => (
+            <div className="ticket-preview" key={i}>
+              <div className="row wrap-row between">
+                <b>{TICKET_STATUS[e.status]}</b>
+                <span className="small muted">{dateTime(e.createdAt)}</span>
+              </div>
+              {e.publicNote && <p className="small">{e.publicNote}</p>}
+            </div>
+          ))}
           <p className="tiny muted section">
             Ghi chú nội bộ chỉ dành cho nhân viên phụ trách.
           </p>

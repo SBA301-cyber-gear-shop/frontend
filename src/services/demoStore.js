@@ -4,7 +4,7 @@ export function readState() {
   try {
     const data = JSON.parse(localStorage.getItem(KEY));
     if (
-      data?.version === 1 &&
+      data?.version === 2 &&
       Array.isArray(data.products) &&
       Array.isArray(data.orders) &&
       Array.isArray(data.tickets)
@@ -50,7 +50,8 @@ export async function request(path, options = {}) {
     } catch {
       /* ignore json parse failure */
     }
-    throw new Error(msg);
+    // Kèm mã HTTP để nơi gọi phân biệt được hết phiên đăng nhập (401) với lỗi nghiệp vụ.
+    throw Object.assign(new Error(msg), { status: response.status });
   }
   return response.status === 204 ? null : response.json();
 }

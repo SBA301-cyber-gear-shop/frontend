@@ -185,21 +185,24 @@ test("admin product and specification updates persist", async ({ page }) => {
     page.getByRole("switch", { name: "Bộ lọc Chuẩn RAM", exact: true }),
   ).toHaveAttribute("aria-checked", "false");
 });
-test("intake avoids duplicates and technician can progress ticket", async ({
+test("intake avoids duplicates, technician repairs and staff returns the device", async ({
   page,
 }) => {
+  const lookup = async (text) => {
+    await page.getByLabel("Tra cứu serial hoặc số điện thoại").fill(text);
+    await page.getByRole("button", { name: "Tra cứu", exact: true }).click();
+  };
   await session(page, staff);
   await page.goto("/van-hanh/bao-hanh");
+  await lookup("KST26A000428");
   await expect(
     page.getByText("Không tạo trùng ticket cho cùng lần tiếp nhận."),
   ).toBeVisible();
-  await page
-    .getByLabel("Tra cứu serial hoặc số điện thoại")
-    .fill("KST26A000429");
-  await page.getByRole("button", { name: "Tra cứu", exact: true }).click();
+  await lookup("KST26A000429");
   await page.getByLabel("Mô tả lỗi khách báo").fill("Lỗi nhận RAM");
   await page.getByLabel("Tình trạng ngoại quan").fill("Không trầy");
   await page.getByLabel("Phụ kiện nhận giữ").fill("Không có");
+  await page.getByLabel("Ngày hẹn trả").fill("2029-01-15");
   await page
     .getByLabel("Đã đối chiếu serial và nhận thiết bị từ khách.")
     .check();
@@ -219,6 +222,30 @@ test("intake avoids duplicates and technician can progress ticket", async ({
   await expect(
     page.getByRole("button", { name: "Bắt đầu sửa chữa" }),
   ).toBeVisible();
+  // Trả khách là việc của lễ tân, kỹ thuật viên không có nút này.
+  await page.getByLabel("Ghi chú nội bộ kỹ thuật").fill("Thay khe RAM");
+  await page.getByRole("button", { name: "Bắt đầu sửa chữa" }).click();
+  await page.getByLabel("Ghi chú nội bộ kỹ thuật").fill("Chạy thử 30 phút");
+  await page
+    .getByLabel("Thông tin hiển thị cho khách")
+    .fill("Đã sửa xong, mời bạn đến nhận.");
+  await page.getByRole("button", { name: "Hoàn tất sửa chữa" }).click();
+  await expect(page.getByText("Đã sửa xong").first()).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Xác nhận đã trả khách" }),
+  ).toHaveCount(0);
+  await page.evaluate(
+    (u) => sessionStorage.setItem("techzone-session", JSON.stringify(u)),
+    staff,
+  );
+  await page.goto("/van-hanh/bao-hanh");
+  await lookup("KST26A000429");
+  await page.getByLabel("Ghi chú bàn giao hoặc lý do").fill("Khách đã kiểm tra");
+  await page.getByRole("button", { name: "Xác nhận đã trả khách" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Thông tin tiếp nhận" }),
+  ).toBeVisible();
+  await expect(page.getByText("Đã trả khách").first()).toBeVisible();
 });
 test("customer cannot access administration", async ({ page }) => {
   await session(page, customer);
