@@ -15,6 +15,7 @@ export default function Auth({ register = false }) {
     [confirm, setConfirm] = useState(""),
     [name, setName] = useState(""),
     [phone, setPhone] = useState(""),
+    [rememberMe, setRememberMe] = useState(true),
     [showPassword, setShowPassword] = useState(false),
     [showConfirm, setShowConfirm] = useState(false),
     [error, setError] = useState(""),
@@ -161,87 +162,92 @@ export default function Auth({ register = false }) {
   }
 
   return (
-    <div className="login-body">
-      <header className="login-header">
-        <Logo />
-        <Link className="back-store" to="/cua-hang">
-          ← Tiếp tục mua sắm
-        </Link>
+    <div className="auth-page">
+      {/* Top Header */}
+      <header className="auth-header">
+        <div className="auth-header-inner">
+          <Logo />
+          <div className="auth-nav-actions">
+            <Link className="auth-back-link" to="/cua-hang">
+              <Icon name="arrow" style={{ transform: "rotate(180deg)" }} />
+              <span>Về trang chủ</span>
+            </Link>
+            <div className="auth-header-divider" />
+            <div className="auth-hotline-badge">
+              <span className="auth-pulse-dot" />
+              <span>Hotline: <strong>1900 6868</strong></span>
+            </div>
+          </div>
+        </div>
       </header>
 
-      <main className="login-layout">
-        <section className="login-scene">
-          <div className="scene-grid" />
-          <div className="scene-glow" />
-          <div className="scene-copy">
-            <div className="scene-eyebrow">
-              <span />
-              KHÔNG GIAN CÔNG NGHỆ CỦA BẠN
+      {/* Main Content: Centered Minimal Card */}
+      <main className="auth-main">
+        <div className="auth-card-wrapper">
+          <div className="auth-card">
+            {/* Header badge & titles */}
+            <div className="auth-card-header">
+              <div className="auth-privilege-badge">
+                <Icon name="spark" />
+                <span>TECHZONE MEMBER PRIVILEGE</span>
+              </div>
+              <h1>{register ? "Tạo Tài Khoản Mới" : "Đăng Nhập Tài Khoản"}</h1>
+              <p className="auth-card-subtitle">
+                {register
+                  ? "Đăng ký thành viên để nhận ưu đãi VIP và bảo hành theo serial thiết bị."
+                  : "Truy cập để quản lý đơn hàng, danh sách yêu thích và bảo hành điện tử."}
+              </p>
             </div>
-            <h1>
-              Đam mê công nghệ.
-              <br />
-              <em>Kết nối tại đây.</em>
-            </h1>
-            <p>
-              Mọi đơn hàng, mọi thiết bị.
-              <br />
-              Một tài khoản để theo dõi tất cả.
-            </p>
-          </div>
-          <div className="hardware-stage">
-            <img
-              className="hardware-image"
-              src="/assets/landing-stage.webp"
-              alt="PC minh họa TechZone"
-              width="1536"
-              height="1024"
-            />
-            <div className="stage-orbit" />
-            <span className="stage-label">TECHZONE / YOUR NEXT SETUP</span>
-          </div>
-          <div className="scene-feature">
-            <Icon name="shield" />
-            <div>
-              <strong>Bảo hành theo từng thiết bị</strong>
-              <p>Tra cứu serial và tình trạng bảo hành sau khi nhận hàng.</p>
-            </div>
-          </div>
-          <div className="scene-bottom">
-            <span>Đặt online · Nhận tại cửa hàng</span>
-          </div>
-        </section>
 
-        <section className="login-panel">
-          <div className="form-shell">
-            <div className="form-mark">
-              <Icon name="user" />
+            {/* Segmented Tab Switcher */}
+            <div className="auth-tabs" role="tablist">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={!register}
+                className={`auth-tab-btn ${!register ? "active" : ""}`}
+                onClick={() => {
+                  setError("");
+                  navigate("/dang-nhap");
+                }}
+              >
+                <Icon name="login" />
+                <span>Đăng Nhập</span>
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={register}
+                className={`auth-tab-btn ${register ? "active" : ""}`}
+                onClick={() => {
+                  setError("");
+                  navigate("/dang-ky");
+                }}
+              >
+                <Icon name="userPlus" />
+                <span>Đăng Ký Mới</span>
+              </button>
             </div>
-            <p className="form-eyebrow">
-              {register ? "BẮT ĐẦU HÀNH TRÌNH" : "CHÀO MỪNG TRỞ LẠI"}
-            </p>
-            <h2>{register ? "Tạo tài khoản" : "Đăng nhập"}</h2>
-            <p className="form-intro">
-              {register
-                ? "Điền thông tin để tạo tài khoản mới tại TechZone."
-                : "Nhập thông tin xác thực để tiếp tục."}
-            </p>
 
-            <form onSubmit={submit} noValidate>
+            {/* Auth Form */}
+            <form className="auth-form" onSubmit={submit} noValidate>
               {register && (
                 <>
                   {/* Họ và tên */}
-                  <div className="input-group">
-                    <label htmlFor="name">
+                  <div className="auth-field">
+                    <label className="auth-label" htmlFor="name">
                       Họ và tên <span className="req">*</span>
                     </label>
                     <div
-                      className={`input-frame ${
+                      className={`auth-input-wrapper ${
                         touched.name && validationErrors.name ? "has-error" : ""
                       }`}
                     >
-                      <Icon name="user" />
+                      <span className="auth-input-icon">
+                        <Icon name="user" />
+                      </span>
                       <input
+                        className="auth-input"
                         id="name"
                         autoComplete="name"
                         placeholder="Ví dụ: Nguyễn Văn A"
@@ -258,17 +264,20 @@ export default function Auth({ register = false }) {
                   </div>
 
                   {/* Số điện thoại */}
-                  <div className="input-group">
-                    <label htmlFor="phone">
+                  <div className="auth-field">
+                    <label className="auth-label" htmlFor="phone">
                       Số điện thoại <span className="req">*</span>
                     </label>
                     <div
-                      className={`input-frame ${
+                      className={`auth-input-wrapper ${
                         touched.phone && validationErrors.phone ? "has-error" : ""
                       }`}
                     >
-                      <Icon name="phone" />
+                      <span className="auth-input-icon">
+                        <Icon name="phone" />
+                      </span>
                       <input
+                        className="auth-input"
                         id="phone"
                         type="tel"
                         autoComplete="tel"
@@ -288,32 +297,35 @@ export default function Auth({ register = false }) {
               )}
 
               {/* Email (Register) / Email hoặc SĐT (Login) */}
-              <div className="input-group">
-                <label htmlFor="identity">
+              <div className="auth-field">
+                <label className="auth-label" htmlFor="identity">
                   {register ? (
                     <>
                       Địa chỉ Email <span className="req">*</span>
                     </>
                   ) : (
                     <>
-                      Email hoặc số điện thoại <span className="req">*</span>
+                      Email hoặc Số điện thoại <span className="req">*</span>
                     </>
                   )}
                 </label>
                 <div
-                  className={`input-frame ${
+                  className={`auth-input-wrapper ${
                     touched.identity && validationErrors.identity ? "has-error" : ""
                   }`}
                 >
-                  <Icon name={register ? "mail" : "user"} />
+                  <span className="auth-input-icon">
+                    <Icon name={register ? "mail" : "user"} />
+                  </span>
                   <input
+                    className="auth-input"
                     id="identity"
                     autoComplete="username"
                     type={register ? "email" : "text"}
                     placeholder={
                       register
                         ? "Ví dụ: ban@example.com"
-                        : "Nhập email hoặc số điện thoại của bạn"
+                        : "Nhập email hoặc số điện thoại"
                     }
                     required
                     value={identity}
@@ -328,17 +340,31 @@ export default function Auth({ register = false }) {
               </div>
 
               {/* Mật khẩu */}
-              <div className="input-group">
-                <label htmlFor="password">
-                  Mật khẩu <span className="req">*</span>
-                </label>
+              <div className="auth-field">
+                <div className="auth-label-row">
+                  <label className="auth-label" htmlFor="password">
+                    Mật khẩu <span className="req">*</span>
+                  </label>
+                  {!register && (
+                    <button
+                      type="button"
+                      className="auth-forgot-btn"
+                      onClick={() => setHelp(true)}
+                    >
+                      Quên mật khẩu?
+                    </button>
+                  )}
+                </div>
                 <div
-                  className={`input-frame ${
+                  className={`auth-input-wrapper ${
                     touched.password && validationErrors.password ? "has-error" : ""
                   }`}
                 >
-                  <Icon name="lock" />
+                  <span className="auth-input-icon">
+                    <Icon name="lock" />
+                  </span>
                   <input
+                    className="auth-input has-toggle"
                     id="password"
                     autoComplete={register ? "new-password" : "current-password"}
                     type={showPassword ? "text" : "password"}
@@ -354,7 +380,7 @@ export default function Auth({ register = false }) {
                     aria-invalid={!!(touched.password && validationErrors.password)}
                   />
                   <button
-                    className="password-toggle"
+                    className="auth-eye-btn"
                     type="button"
                     aria-label={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
                     title={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
@@ -370,17 +396,20 @@ export default function Auth({ register = false }) {
 
               {/* Xác nhận mật khẩu (Register only) */}
               {register && (
-                <div className="input-group">
-                  <label htmlFor="confirm">
+                <div className="auth-field">
+                  <label className="auth-label" htmlFor="confirm">
                     Xác nhận mật khẩu <span className="req">*</span>
                   </label>
                   <div
-                    className={`input-frame ${
+                    className={`auth-input-wrapper ${
                       touched.confirm && validationErrors.confirm ? "has-error" : ""
                     }`}
                   >
-                    <Icon name="lock" />
+                    <span className="auth-input-icon">
+                      <Icon name="lock" />
+                    </span>
                     <input
+                      className="auth-input has-toggle"
                       id="confirm"
                       autoComplete="new-password"
                       type={showConfirm ? "text" : "password"}
@@ -392,7 +421,7 @@ export default function Auth({ register = false }) {
                       aria-invalid={!!(touched.confirm && validationErrors.confirm)}
                     />
                     <button
-                      className="password-toggle"
+                      className="auth-eye-btn"
                       type="button"
                       aria-label={showConfirm ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
                       title={showConfirm ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
@@ -407,66 +436,92 @@ export default function Auth({ register = false }) {
                 </div>
               )}
 
-              <div className="form-options">
-                {register ? (
-                  <span className="password-hint">
-                    Mật khẩu nên chứa ít nhất 6 ký tự để bảo mật.
-                  </span>
-                ) : (
-                  <span />
-                )}
-                <button
-                  type="button"
-                  className="text-button"
-                  onClick={() => setHelp(true)}
-                >
-                  {register ? "Cần hỗ trợ?" : "Quên mật khẩu?"}
-                </button>
-              </div>
+              {/* Checkbox ghi nhớ / đồng ý điều khoản */}
+              <label className="auth-checkbox-row">
+                <input
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                />
+                <span>
+                  {register
+                    ? "Tôi đồng ý với Điều khoản dịch vụ & Chính sách bảo mật của TechZone"
+                    : "Ghi nhớ đăng nhập trên thiết bị này"}
+                </span>
+              </label>
 
+              {/* Thông báo lỗi nếu có */}
               {error && <Notice tone="danger">{error}</Notice>}
 
-              <button className="login-submit" type="submit" disabled={busy}>
-                {busy ? (
-                  "Đang xử lý…"
-                ) : register ? (
-                  "Đăng ký tài khoản"
-                ) : (
-                  "Đăng nhập"
-                )}
+              {/* Nút Submit */}
+              <button className="auth-submit-btn" type="submit" disabled={busy}>
+                <span>
+                  {busy
+                    ? "Đang xử lý…"
+                    : register
+                      ? "Đăng ký tài khoản"
+                      : "Đăng nhập tài khoản"}
+                </span>
                 <Icon name="arrow" />
               </button>
             </form>
 
-            <div className="register-prompt">
-              {register ? "Đã có tài khoản?" : "Chưa có tài khoản?"}{" "}
-              <Link to={register ? "/dang-nhap" : "/dang-ky"}>
-                {register ? "Đăng nhập" : "Đăng ký ngay"} ↗
-              </Link>
+            {/* Trust & Security Badge */}
+            <div className="auth-security-footer">
+              <div className="auth-security-badge">
+                <Icon name="shield" />
+                <span>Bảo mật chuẩn SSL 256-bit · Dữ liệu được mã hóa an toàn</span>
+              </div>
             </div>
           </div>
-        </section>
+
+          {/* Bottom simple assistance */}
+          <div className="auth-assistance">
+            Bạn gặp khó khăn khi đăng nhập?{" "}
+            <button type="button" onClick={() => setHelp(true)}>
+              Trung tâm trợ giúp
+            </button>
+          </div>
+        </div>
       </main>
 
-      <footer className="login-footer">
-        <span>© 2026 TechZone Pro</span>
-        <span>PC & linh kiện · Chọn đúng cho đam mê</span>
+      {/* Minimal Footer */}
+      <footer className="auth-footer">
+        <div className="auth-footer-inner">
+          <p>© 2026 TECHZONE Pro. Tất cả quyền được bảo lưu.</p>
+          <div className="auth-footer-links">
+            <a href="#dieukhoan" onClick={(e) => { e.preventDefault(); setHelp(true); }}>
+              Điều khoản dịch vụ
+            </a>
+            <span className="auth-footer-dot">·</span>
+            <a href="#baomat" onClick={(e) => { e.preventDefault(); setHelp(true); }}>
+              Chính sách bảo mật
+            </a>
+            <span className="auth-footer-dot">·</span>
+            <a href="#baohanh" onClick={(e) => { e.preventDefault(); setHelp(true); }}>
+              Bảo hành điện tử
+            </a>
+          </div>
+        </div>
       </footer>
 
+      {/* Modal Hỗ trợ */}
       {help && (
-        <Modal title="Hỗ trợ tài khoản" onClose={() => setHelp(false)}>
+        <Modal title="Hỗ trợ tài khoản TechZone" onClose={() => setHelp(false)}>
           <p>
             Nếu bạn quên mật khẩu hoặc gặp sự cố khi đăng nhập vào hệ thống,
             vui lòng liên hệ với bộ phận chăm sóc khách hàng hoặc quản trị viên:
           </p>
-          <ul style={{ paddingLeft: "20px", margin: "12px 0", color: "#475569" }}>
-            <li>Hotline: <strong>1900 6868</strong> (8:00 - 21:00)</li>
-            <li>Email: <strong>support@techzone.pro</strong></li>
+          <ul style={{ paddingLeft: "20px", margin: "14px 0", color: "#475569", lineHeight: "1.7" }}>
+            <li>Hotline miễn phí: <strong>1900 6868</strong> (8:00 - 21:00 hàng ngày)</li>
+            <li>Email hỗ trợ: <strong>support@techzone.pro</strong></li>
+            <li>Hỗ trợ trực tiếp: Tại tất cả các showroom TechZone trên toàn quốc</li>
           </ul>
-          <Button onClick={() => setHelp(false)}>Đã hiểu</Button>
+          <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "16px" }}>
+            <Button onClick={() => setHelp(false)}>Đã hiểu</Button>
+          </div>
         </Modal>
       )}
     </div>
   );
 }
-
