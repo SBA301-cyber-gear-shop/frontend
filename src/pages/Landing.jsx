@@ -199,7 +199,6 @@ export default function Landing() {
     [imageLoaded, setImageLoaded] = useState(false),
     [imageError, setImageError] = useState(false),
     [imageRetryKey, setImageRetryKey] = useState(0),
-    [copiedVoucher, setCopiedVoucher] = useState(false),
     [activeFaqId, setActiveFaqId] = useState(null),
     [toast, setToast] = useState(null);
 
@@ -234,26 +233,6 @@ export default function Landing() {
   const f = fits[tab];
   const b = budgetPresets[budgetIndex];
 
-  // Voucher copy handler with Toast feedback
-  const handleCopyVoucher = () => {
-    const code = "TECHZONE500";
-    if (navigator.clipboard) {
-      navigator.clipboard.writeText(code).then(() => {
-        setCopiedVoucher(true);
-        setToast({
-          type: "success",
-          message: `Đã sao chép mã ưu đãi ${code}! Giảm 500.000₫ cho đơn máy đầu tiên.`,
-        });
-        setTimeout(() => setCopiedVoucher(false), 4000);
-      });
-    } else {
-      setToast({
-        type: "success",
-        message: `Mã ưu đãi của bạn: ${code}`,
-      });
-    }
-  };
-
   // Toggle FAQ item (Single accordion mode)
   const toggleFaq = (id) => {
     setActiveFaqId((prev) => (prev === id ? null : id));
@@ -271,25 +250,6 @@ export default function Landing() {
         type={toast?.type}
         onClose={() => setToast(null)}
       />
-
-      {/* Top Announcement Bar */}
-      <div className="l-top-bar" role="region" aria-label="Thông báo ưu đãi">
-        <div className="l-container between l-top-bar-inner">
-          <div className="l-top-bar-text">
-            <span className="badge hot">Ưu đãi mùa hè</span>
-            <span>Tặng gói cân màu màn hình & lắp ráp vệ sinh miễn phí trọn đời khi mua PC.</span>
-          </div>
-          <button
-            type="button"
-            className="l-voucher-btn"
-            onClick={handleCopyVoucher}
-            aria-label="Sao chép mã ưu đãi 500k"
-          >
-            <Icon name={copiedVoucher ? "check" : "copy"} />
-            <span>{copiedVoucher ? "Đã sao chép TECHZONE500" : "Nhận mã giảm 500k: TECHZONE500"}</span>
-          </button>
-        </div>
-      </div>
 
       <header className="l-header">
         <div className="l-nav-shell">
