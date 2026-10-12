@@ -357,9 +357,10 @@ export default function Auth({ register = false }) {
                     className="password-toggle"
                     type="button"
                     aria-label={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+                    title={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
                     onClick={() => setShowPassword(!showPassword)}
                   >
-                    {showPassword ? "Ẩn" : "Hiện"}
+                    <Icon name={showPassword ? "eyeOff" : "eye"} />
                   </button>
                 </div>
                 {touched.password && validationErrors.password && (
@@ -394,9 +395,10 @@ export default function Auth({ register = false }) {
                       className="password-toggle"
                       type="button"
                       aria-label={showConfirm ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+                      title={showConfirm ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
                       onClick={() => setShowConfirm(!showConfirm)}
                     >
-                      {showConfirm ? "Ẩn" : "Hiện"}
+                      <Icon name={showConfirm ? "eyeOff" : "eye"} />
                     </button>
                   </div>
                   {touched.confirm && validationErrors.confirm && (
@@ -406,17 +408,19 @@ export default function Auth({ register = false }) {
               )}
 
               <div className="form-options">
-                <span className="password-hint">
-                  {register
-                    ? "Mật khẩu nên chứa ít nhất 6 ký tự để bảo mật."
-                    : "Bảo mật tài khoản với phiên đăng nhập an toàn."}
-                </span>
+                {register ? (
+                  <span className="password-hint">
+                    Mật khẩu nên chứa ít nhất 6 ký tự để bảo mật.
+                  </span>
+                ) : (
+                  <span />
+                )}
                 <button
                   type="button"
                   className="text-button"
                   onClick={() => setHelp(true)}
                 >
-                  Cần hỗ trợ?
+                  {register ? "Cần hỗ trợ?" : "Quên mật khẩu?"}
                 </button>
               </div>
 

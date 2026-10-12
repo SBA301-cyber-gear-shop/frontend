@@ -314,21 +314,25 @@
   display: grid;
   place-items: center;
   width: 36px;
-  height: 44px;
+  height: 36px;
   flex-shrink: 0;
   background: transparent;
   border: 0;
-  color: #657185;
+  border-radius: 8px;
+  color: #718096;
+  cursor: pointer;
+  transition:
+    color 0.15s ease,
+    background-color 0.15s ease;
 }
+.password-toggle:hover {
+  color: #1a202c;
+  background-color: #f1f5f9;
+}
+.password-toggle .icon,
 .password-toggle svg {
-  width: 21px;
-  height: 21px;
-}
-.eye-slash {
-  display: none;
-}
-.password-toggle[aria-pressed="true"] .eye-slash {
-  display: block;
+  width: 20px;
+  height: 20px;
 }
 .input-frame:has([aria-invalid="true"]) {
   border-color: #be1729;
