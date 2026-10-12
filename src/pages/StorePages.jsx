@@ -194,7 +194,7 @@ export function Home() {
           className="voucher-banner section"
           to={
             promo.bannerLink?.startsWith("/") &&
-            !promo.bannerLink.startsWith("//")
+              !promo.bannerLink.startsWith("//")
               ? promo.bannerLink
               : "/san-pham"
           }
@@ -521,7 +521,7 @@ export function Product() {
             tại cửa hàng
           </p>
           <div className="section">
-            <b className="small">Chọn phiên bản</b>
+            <b className="small">Xem chi tiết</b>
             <div className="variant-select">
               {variants.map((v) => (
                 <button
