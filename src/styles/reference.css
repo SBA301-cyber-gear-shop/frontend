@@ -1303,21 +1303,8 @@ td.nowrap,
   max-width: 430px;
   line-height: 1.2;
 }
-.auth-form {
-  padding: 43px 62px;
-}
-.auth-form h1 {
-  font-size: 29px;
-}
-.auth-form .field {
-  margin-top: 19px;
-}
-.auth-form .btn {
-  margin-top: 23px;
-}
-.auth-form .tabs {
-  margin: 22px 0;
-}
+/* Legacy .auth-form removed - modern auth scoped in login.css */
+
 .admin-body {
   background: #f5f7fa;
 }
@@ -1557,9 +1544,6 @@ footer p {
   }
   .admin-sidebar nav a {
     font-size: 12px;
-  }
-  .auth-form {
-    padding: 30px;
   }
 }
 @media (max-width: 680px) {
@@ -1855,9 +1839,6 @@ footer p {
   }
   .auth-visual {
     display: none;
-  }
-  .auth-form {
-    padding: 26px;
   }
   .auth-grid {
     min-height: 0;

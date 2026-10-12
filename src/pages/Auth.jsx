@@ -15,12 +15,16 @@ export default function Auth({ register = false }) {
     [confirm, setConfirm] = useState(""),
     [name, setName] = useState(""),
     [phone, setPhone] = useState(""),
-    [rememberMe, setRememberMe] = useState(true),
+    [rememberMe, setRememberMe] = useState(false),
+    [agreeTerms, setAgreeTerms] = useState(false),
     [showPassword, setShowPassword] = useState(false),
     [showConfirm, setShowConfirm] = useState(false),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
-    [help, setHelp] = useState(false);
+    [activeModal, setActiveModal] = useState(null), // "forgot" | "terms" | "privacy" | "warranty" | "help"
+    [forgotIdentity, setForgotIdentity] = useState(""),
+    [forgotSent, setForgotSent] = useState(false),
+    [forgotError, setForgotError] = useState("");
 
   // Field touched states for inline validation
   const [touched, setTouched] = useState({});
@@ -62,6 +66,10 @@ export default function Auth({ register = false }) {
       } else if (confirm !== password) {
         errs.confirm = "Mật khẩu xác nhận không trùng khớp.";
       }
+
+      if (!agreeTerms) {
+        errs.agreeTerms = "Vui lòng tích chọn đồng ý với Điều khoản dịch vụ & Chính sách bảo mật.";
+      }
     } else {
       if (!identity.trim()) {
         errs.identity = "Vui lòng nhập email hoặc số điện thoại.";
@@ -81,7 +89,14 @@ export default function Auth({ register = false }) {
 
     // Mark all relevant fields as touched
     if (register) {
-      setTouched({ name: true, phone: true, identity: true, password: true, confirm: true });
+      setTouched({
+        name: true,
+        phone: true,
+        identity: true,
+        password: true,
+        confirm: true,
+        agreeTerms: true,
+      });
     } else {
       setTouched({ identity: true, password: true });
     }
@@ -89,7 +104,17 @@ export default function Auth({ register = false }) {
     const currentErrors = getErrors();
     const errorKeys = Object.keys(currentErrors);
     if (errorKeys.length > 0) {
-      setError(currentErrors[errorKeys[0]]);
+      const firstKey = errorKeys[0];
+      setError(currentErrors[firstKey]);
+
+      // Chuyển focus đến trường lỗi đầu tiên để người dùng dễ thao tác
+      setTimeout(() => {
+        const el = document.getElementById(firstKey);
+        if (el) {
+          el.focus();
+          el.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+      }, 0);
       return;
     }
 
@@ -108,6 +133,9 @@ export default function Auth({ register = false }) {
         });
 
         const authData = res?.data || res;
+        // Phiên đăng ký: lưu mặc định vào sessionStorage
+        sessionStorage.removeItem("techzone-token");
+        localStorage.removeItem("techzone-token");
         if (authData?.accessToken) {
           sessionStorage.setItem("techzone-token", authData.accessToken);
         }
@@ -121,7 +149,7 @@ export default function Auth({ register = false }) {
         };
 
         commit((d) => ({ ...d, users: [...(d.users || []), u] }));
-        signIn(u);
+        signIn(u, false);
         navigate("/tai-khoan");
       } else {
         const res = await request("/api/auth/login", {
@@ -133,8 +161,12 @@ export default function Auth({ register = false }) {
         });
 
         const authData = res?.data || res;
+        // Ghi nhớ đăng nhập: lưu vào localStorage nếu rememberMe = true, ngược lại lưu sessionStorage
+        const targetStorage = rememberMe ? localStorage : sessionStorage;
+        const otherStorage = rememberMe ? sessionStorage : localStorage;
+        otherStorage.removeItem("techzone-token");
         if (authData?.accessToken) {
-          sessionStorage.setItem("techzone-token", authData.accessToken);
+          targetStorage.setItem("techzone-token", authData.accessToken);
         }
 
         const u = {
@@ -145,7 +177,7 @@ export default function Auth({ register = false }) {
           role: authData.user.role,
         };
 
-        signIn(u);
+        signIn(u, rememberMe);
         const fallback =
           u.role === "Customer"
             ? "/cua-hang"
@@ -159,6 +191,18 @@ export default function Auth({ register = false }) {
     } finally {
       setBusy(false);
     }
+  }
+
+  function handleForgotSubmit(e) {
+    e.preventDefault();
+    setForgotError("");
+    const val = forgotIdentity.trim();
+    if (!val) {
+      setForgotError("Vui lòng nhập email hoặc số điện thoại đã đăng ký.");
+      return;
+    }
+    // Gửi yêu cầu đặt lại mật khẩu thành công
+    setForgotSent(true);
   }
 
   return (
@@ -189,9 +233,9 @@ export default function Auth({ register = false }) {
             <div className="auth-card-header">
               <div className="auth-privilege-badge">
                 <Icon name="spark" />
-                <span>TECHZONE MEMBER PRIVILEGE</span>
+                <span>Đặc quyền thành viên</span>
               </div>
-              <h1>{register ? "Tạo Tài Khoản Mới" : "Đăng Nhập Tài Khoản"}</h1>
+              <h1>{register ? "Tạo tài khoản mới" : "Đăng nhập tài khoản"}</h1>
               <p className="auth-card-subtitle">
                 {register
                   ? "Đăng ký thành viên để nhận ưu đãi VIP và bảo hành theo serial thiết bị."
@@ -212,7 +256,7 @@ export default function Auth({ register = false }) {
                 }}
               >
                 <Icon name="login" />
-                <span>Đăng Nhập</span>
+                <span>Đăng nhập</span>
               </button>
               <button
                 type="button"
@@ -225,7 +269,7 @@ export default function Auth({ register = false }) {
                 }}
               >
                 <Icon name="userPlus" />
-                <span>Đăng Ký Mới</span>
+                <span>Đăng ký mới</span>
               </button>
             </div>
 
@@ -349,7 +393,12 @@ export default function Auth({ register = false }) {
                     <button
                       type="button"
                       className="auth-forgot-btn"
-                      onClick={() => setHelp(true)}
+                      onClick={() => {
+                        setForgotSent(false);
+                        setForgotError("");
+                        setForgotIdentity(identity);
+                        setActiveModal("forgot");
+                      }}
                     >
                       Quên mật khẩu?
                     </button>
@@ -436,19 +485,63 @@ export default function Auth({ register = false }) {
                 </div>
               )}
 
-              {/* Checkbox ghi nhớ / đồng ý điều khoản */}
-              <label className="auth-checkbox-row">
-                <input
-                  type="checkbox"
-                  checked={rememberMe}
-                  onChange={(e) => setRememberMe(e.target.checked)}
-                />
-                <span>
-                  {register
-                    ? "Tôi đồng ý với Điều khoản dịch vụ & Chính sách bảo mật của TechZone"
-                    : "Ghi nhớ đăng nhập trên thiết bị này"}
-                </span>
-              </label>
+              {/* Checkbox ghi nhớ (login) hoặc đồng ý điều khoản (register) */}
+              {register ? (
+                <div className="auth-checkbox-group">
+                  <label className="auth-checkbox-row" htmlFor="agreeTerms">
+                    <input
+                      id="agreeTerms"
+                      type="checkbox"
+                      checked={agreeTerms}
+                      onChange={(e) => {
+                        setAgreeTerms(e.target.checked);
+                        markTouched("agreeTerms");
+                      }}
+                      aria-invalid={!!(touched.agreeTerms && validationErrors.agreeTerms)}
+                    />
+                    <span className="auth-checkbox-label">
+                      Tôi đồng ý với{" "}
+                      <button
+                        type="button"
+                        className="auth-inline-link"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setActiveModal("terms");
+                        }}
+                      >
+                        Điều khoản dịch vụ
+                      </button>{" "}
+                      &amp;{" "}
+                      <button
+                        type="button"
+                        className="auth-inline-link"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setActiveModal("privacy");
+                        }}
+                      >
+                        Chính sách bảo mật
+                      </button>{" "}
+                      của TechZone
+                    </span>
+                  </label>
+                  {touched.agreeTerms && validationErrors.agreeTerms && (
+                    <p className="field-error">{validationErrors.agreeTerms}</p>
+                  )}
+                </div>
+              ) : (
+                <label className="auth-checkbox-row" htmlFor="rememberMe">
+                  <input
+                    id="rememberMe"
+                    type="checkbox"
+                    checked={rememberMe}
+                    onChange={(e) => setRememberMe(e.target.checked)}
+                  />
+                  <span className="auth-checkbox-label">Ghi nhớ đăng nhập trên thiết bị này</span>
+                </label>
+              )}
 
               {/* Thông báo lỗi nếu có */}
               {error && <Notice tone="danger">{error}</Notice>}
@@ -478,7 +571,7 @@ export default function Auth({ register = false }) {
           {/* Bottom simple assistance */}
           <div className="auth-assistance">
             Bạn gặp khó khăn khi đăng nhập?{" "}
-            <button type="button" onClick={() => setHelp(true)}>
+            <button type="button" onClick={() => setActiveModal("help")}>
               Trung tâm trợ giúp
             </button>
           </div>
@@ -490,35 +583,234 @@ export default function Auth({ register = false }) {
         <div className="auth-footer-inner">
           <p>© 2026 TECHZONE Pro. Tất cả quyền được bảo lưu.</p>
           <div className="auth-footer-links">
-            <a href="#dieukhoan" onClick={(e) => { e.preventDefault(); setHelp(true); }}>
+            <a href="#dieukhoan" onClick={(e) => { e.preventDefault(); setActiveModal("terms"); }}>
               Điều khoản dịch vụ
             </a>
             <span className="auth-footer-dot">·</span>
-            <a href="#baomat" onClick={(e) => { e.preventDefault(); setHelp(true); }}>
+            <a href="#baomat" onClick={(e) => { e.preventDefault(); setActiveModal("privacy"); }}>
               Chính sách bảo mật
             </a>
             <span className="auth-footer-dot">·</span>
-            <a href="#baohanh" onClick={(e) => { e.preventDefault(); setHelp(true); }}>
+            <a href="#baohanh" onClick={(e) => { e.preventDefault(); setActiveModal("warranty"); }}>
               Bảo hành điện tử
             </a>
           </div>
         </div>
       </footer>
 
-      {/* Modal Hỗ trợ */}
-      {help && (
-        <Modal title="Hỗ trợ tài khoản TechZone" onClose={() => setHelp(false)}>
-          <p>
-            Nếu bạn quên mật khẩu hoặc gặp sự cố khi đăng nhập vào hệ thống,
-            vui lòng liên hệ với bộ phận chăm sóc khách hàng hoặc quản trị viên:
-          </p>
-          <ul style={{ paddingLeft: "20px", margin: "14px 0", color: "#475569", lineHeight: "1.7" }}>
-            <li>Hotline miễn phí: <strong>1900 6868</strong> (8:00 - 21:00 hàng ngày)</li>
-            <li>Email hỗ trợ: <strong>support@techzone.pro</strong></li>
-            <li>Hỗ trợ trực tiếp: Tại tất cả các showroom TechZone trên toàn quốc</li>
-          </ul>
-          <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "16px" }}>
-            <Button onClick={() => setHelp(false)}>Đã hiểu</Button>
+      {/* 1. Modal Quên mật khẩu */}
+      {activeModal === "forgot" && (
+        <Modal title="Khôi phục mật khẩu tài khoản" onClose={() => setActiveModal(null)}>
+          <div className="auth-modal-body">
+            {!forgotSent ? (
+              <form onSubmit={handleForgotSubmit} className="auth-modal-section">
+                <p>
+                  Nhập email hoặc số điện thoại đã liên kết với tài khoản TechZone của bạn.
+                  Chúng tôi sẽ gửi hướng dẫn xác thực để đặt lại mật khẩu an toàn.
+                </p>
+                <div className="auth-field" style={{ marginTop: "10px" }}>
+                  <label className="auth-label" htmlFor="forgotInput">
+                    Email hoặc Số điện thoại <span className="req">*</span>
+                  </label>
+                  <div className="auth-input-wrapper">
+                    <span className="auth-input-icon">
+                      <Icon name="mail" />
+                    </span>
+                    <input
+                      id="forgotInput"
+                      className="auth-input"
+                      type="text"
+                      placeholder="Ví dụ: ban@example.com hoặc 0912..."
+                      value={forgotIdentity}
+                      onChange={(e) => setForgotIdentity(e.target.value)}
+                      autoFocus
+                    />
+                  </div>
+                  {forgotError && <p className="field-error">{forgotError}</p>}
+                </div>
+                <div className="auth-modal-info-card" style={{ marginTop: "12px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px", fontWeight: "600", color: "#0f172a" }}>
+                    <Icon name="phone" style={{ width: "16px", height: "16px", color: "#dc2626" }} />
+                    <span>Hỗ trợ nhanh qua tổng đài:</span>
+                  </div>
+                  <p style={{ margin: 0, fontSize: "12.5px", color: "#475569" }}>
+                    Gọi ngay <strong>1900 6868</strong> (8:00 - 21:00) nếu bạn không còn quyền truy cập email hoặc SĐT.
+                  </p>
+                </div>
+                <div className="auth-modal-actions">
+                  <Button tone="ghost" type="button" onClick={() => setActiveModal(null)}>
+                    Hủy bỏ
+                  </Button>
+                  <Button tone="primary" type="submit">
+                    Gửi hướng dẫn đặt lại
+                  </Button>
+                </div>
+              </form>
+            ) : (
+              <div className="auth-modal-section">
+                <div style={{ textAlign: "center", padding: "12px 0" }}>
+                  <div style={{ width: "48px", height: "48px", borderRadius: "50%", background: "#dcfce7", color: "#16a34a", display: "inline-flex", alignItems: "center", justifyContent: "center", margin: "0 auto 12px" }}>
+                    <Icon name="check" style={{ width: "24px", height: "24px" }} />
+                  </div>
+                  <h4 style={{ justifyContent: "center", fontSize: "16px", marginBottom: "6px" }}>
+                    Đã gửi hướng dẫn thành công!
+                  </h4>
+                  <p style={{ color: "#475569" }}>
+                    Chúng tôi đã gửi đường dẫn đặt lại mật khẩu đến:
+                    <br />
+                    <strong style={{ color: "#0f172a" }}>{forgotIdentity}</strong>
+                  </p>
+                  <p style={{ fontSize: "12.5px", color: "#64748b", marginTop: "10px" }}>
+                    Vui lòng kiểm tra hộp thư đến (và mục Thư rác/Spam). Đường dẫn có hiệu lực trong vòng 15 phút.
+                  </p>
+                </div>
+                <div className="auth-modal-actions" style={{ justifyContent: "center" }}>
+                  <Button tone="primary" onClick={() => setActiveModal(null)}>
+                    Đã hiểu &amp; Quay lại
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        </Modal>
+      )}
+
+      {/* 2. Modal Điều khoản dịch vụ */}
+      {activeModal === "terms" && (
+        <Modal title="Điều khoản dịch vụ TechZone" onClose={() => setActiveModal(null)}>
+          <div className="auth-modal-body">
+            <div className="auth-modal-section">
+              <h4>1. Tài khoản &amp; Trách nhiệm thành viên</h4>
+              <p>
+                Người dùng chịu trách nhiệm bảo quản thông tin tài khoản và mật khẩu của mình. TechZone khuyến cáo không chia sẻ thông tin đăng nhập cho bên thứ ba hoặc đăng nhập trên thiết bị công cộng mà không đăng xuất.
+              </p>
+            </div>
+
+            <div className="auth-modal-section">
+              <h4>2. Mua hàng &amp; Cam kết chính hãng</h4>
+              <p>
+                Mọi đơn hàng tạo trên website đều được xác nhận tự động và liên kết với tài khoản thành viên. TechZone cam kết 100% linh kiện máy tính, laptop và phụ kiện đều là hàng chính hãng có tem phân phối chính thức.
+              </p>
+            </div>
+
+            <div className="auth-modal-section">
+              <h4>3. Chính sách bảo hành điện tử</h4>
+              <p>
+                Sản phẩm mua tại hệ thống TechZone được kích hoạt bảo hành điện tử theo số Serial/IMEI. Khách hàng có thể tra cứu và gửi yêu cầu dịch vụ trực tiếp trong trang quản lý tài khoản.
+              </p>
+            </div>
+
+            <div className="auth-modal-section">
+              <h4>4. Quyền thay đổi điều khoản</h4>
+              <p>
+                TechZone có quyền cập nhật các điều khoản dịch vụ để phù hợp với quy định pháp luật và nâng cao trải nghiệm khách hàng. Các thay đổi sẽ được thông báo công khai trên website.
+              </p>
+            </div>
+
+            <div className="auth-modal-actions">
+              <Button tone="primary" onClick={() => setActiveModal(null)}>
+                Đồng ý &amp; Đóng
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* 3. Modal Chính sách bảo mật */}
+      {activeModal === "privacy" && (
+        <Modal title="Chính sách bảo mật thông tin" onClose={() => setActiveModal(null)}>
+          <div className="auth-modal-body">
+            <div className="auth-modal-section">
+              <h4>1. Mục đích thu thập dữ liệu</h4>
+              <p>
+                Chúng tôi thu thập họ tên, số điện thoại, email và địa chỉ nhằm mục đích xử lý đơn hàng, cấp mã bảo hành điện tử và hỗ trợ chăm sóc kỹ thuật sau bán hàng.
+              </p>
+            </div>
+
+            <div className="auth-modal-section">
+              <h4>2. Tiêu chuẩn mã hóa &amp; Lưu trữ an toàn</h4>
+              <p>
+                Mật khẩu của bạn được mã hóa một chiều an toàn bằng thuật toán BCrypt. Toàn bộ thông tin truyền tải giữa trình duyệt và máy chủ được mã hóa qua giao thức SSL/TLS 256-bit chuẩn quốc tế.
+              </p>
+            </div>
+
+            <div className="auth-modal-section">
+              <h4>3. Cam kết không chia sẻ thông tin</h4>
+              <p>
+                TechZone cam kết không bán, chia sẻ hoặc chuyển giao thông tin cá nhân của bạn cho bất kỳ đơn vị quảng cáo hoặc bên thứ ba nào, ngoại trừ các đơn vị vận chuyển đối tác để giao nhận hàng hóa.
+              </p>
+            </div>
+
+            <div className="auth-modal-section">
+              <h4>4. Quyền kiểm soát dữ liệu của bạn</h4>
+              <p>
+                Bạn có toàn quyền tra cứu, cập nhật thông tin cá nhân hoặc yêu cầu khóa/xóa tài khoản vĩnh viễn bất kỳ lúc nào bằng cách liên hệ với bộ phận hỗ trợ khách hàng của chúng tôi.
+              </p>
+            </div>
+
+            <div className="auth-modal-actions">
+              <Button tone="primary" onClick={() => setActiveModal(null)}>
+                Đã hiểu &amp; Đóng
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* 4. Modal Bảo hành điện tử */}
+      {activeModal === "warranty" && (
+        <Modal title="Chính sách bảo hành điện tử TechZone" onClose={() => setActiveModal(null)}>
+          <div className="auth-modal-body">
+            <div className="auth-modal-section">
+              <h4>1. Bảo hành theo Serial / IMEI</h4>
+              <p>
+                Toàn bộ linh kiện và laptop xuất xưởng từ TechZone đều được gán mã bảo hành điện tử theo số Serial duy nhất. Bạn không cần giữ hóa đơn giấy cồng kềnh.
+              </p>
+            </div>
+
+            <div className="auth-modal-section">
+              <h4>2. Thời hạn bảo hành</h4>
+              <p>
+                Áp dụng bảo hành chính hãng từ 12 đến 36 tháng theo tiêu chuẩn nhà sản xuất (Intel, AMD, ASUS, MSI, Gigabyte, v.v.). Đổi mới 1-đổi-1 trong 30 ngày đầu nếu có lỗi phần cứng từ nhà sản xuất.
+              </p>
+            </div>
+
+            <div className="auth-modal-section">
+              <h4>3. Tra cứu &amp; Tiếp nhận kỹ thuật</h4>
+              <p>
+                Khách hàng chỉ cần nhập số Serial hoặc số điện thoại tại mục Tra cứu bảo hành để xem tình trạng bảo hành và tiến độ xử lý phiếu kỹ thuật trực tiếp theo thời gian thực.
+              </p>
+            </div>
+
+            <div className="auth-modal-actions">
+              <Button tone="primary" onClick={() => setActiveModal(null)}>
+                Đóng
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* 5. Modal Trung tâm trợ giúp */}
+      {activeModal === "help" && (
+        <Modal title="Trung tâm trợ giúp khách hàng TechZone" onClose={() => setActiveModal(null)}>
+          <div className="auth-modal-body">
+            <p>
+              Nếu bạn gặp khó khăn trong quá trình đăng nhập, đăng ký hoặc cần giải đáp thắc mắc về đơn hàng, đội ngũ TechZone luôn sẵn sàng hỗ trợ:
+            </p>
+            <div className="auth-modal-info-card">
+              <ul style={{ margin: 0, paddingLeft: "18px", color: "#334155", lineHeight: "1.8" }}>
+                <li>Hotline miễn phí: <strong>1900 6868</strong> (8:00 - 21:00 hàng ngày)</li>
+                <li>Email hỗ trợ: <strong>support@techzone.pro</strong></li>
+                <li>Kỹ thuật viên trực tuyến: Hỗ trợ kiểm tra máy &amp; tư vấn cấu hình từ xa</li>
+                <li>Hệ thống Showroom: Hà Nội, Đà Nẵng, TP. Hồ Chí Minh</li>
+              </ul>
+            </div>
+            <div className="auth-modal-actions">
+              <Button tone="primary" onClick={() => setActiveModal(null)}>
+                Đã hiểu
+              </Button>
+            </div>
           </div>
         </Modal>
       )}

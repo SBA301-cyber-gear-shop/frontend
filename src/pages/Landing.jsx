@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState, useMemo } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { animate, createScope, stagger } from "animejs";
-import { Logo, Icon, Art, Skeleton, Toast, Empty, Button } from "../components/ui";
+import { Logo, Icon, Art, Skeleton, Toast } from "../components/ui";
 
 const fits = [
   {

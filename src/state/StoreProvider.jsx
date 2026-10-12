@@ -5,7 +5,10 @@ export default function StoreProvider({ children }) {
   const [data, setData] = useState(readState),
     [user, setUser] = useState(() => {
       try {
-        return JSON.parse(sessionStorage.getItem("techzone-session"));
+        const stored =
+          sessionStorage.getItem("techzone-session") ||
+          localStorage.getItem("techzone-session");
+        return stored ? JSON.parse(stored) : null;
       } catch {
         return null;
       }
@@ -33,16 +36,21 @@ export default function StoreProvider({ children }) {
     setData(next);
     return next;
   }
-  function signIn(profile) {
+  function signIn(profile, remember = false) {
     const { password, demoPasswordHash, ...safe } = profile;
     void password;
     void demoPasswordHash;
-    sessionStorage.setItem("techzone-session", JSON.stringify(safe));
+    const targetStorage = remember ? localStorage : sessionStorage;
+    const otherStorage = remember ? sessionStorage : localStorage;
+    otherStorage.removeItem("techzone-session");
+    targetStorage.setItem("techzone-session", JSON.stringify(safe));
     setUser(safe);
   }
   function signOut() {
     sessionStorage.removeItem("techzone-session");
     sessionStorage.removeItem("techzone-token");
+    localStorage.removeItem("techzone-session");
+    localStorage.removeItem("techzone-token");
     setUser(null);
   }
   function addCart(id, quantity = 1) {

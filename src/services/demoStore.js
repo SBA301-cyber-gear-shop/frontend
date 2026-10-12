@@ -27,9 +27,13 @@ export function safeRead(key, fallback) {
 }
 export const delay = (ms = 300) =>
   new Promise((resolve) => setTimeout(resolve, ms));
+export function getAuthToken() {
+  return sessionStorage.getItem("techzone-token") || localStorage.getItem("techzone-token");
+}
+
 export async function request(path, options = {}) {
   const base = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
-  const token = sessionStorage.getItem("techzone-token");
+  const token = getAuthToken();
   const authHeaders = token ? { Authorization: `Bearer ${token}` } : {};
   const response = await fetch(base + path, {
     ...options,

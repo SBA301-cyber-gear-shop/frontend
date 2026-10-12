@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useStore } from "../state/context";
-import { readState, request } from "./demoStore";
+import { getAuthToken, readState, request } from "./demoStore";
 import {
   addTicketNote,
   createTicket,
@@ -82,7 +82,7 @@ export function useAftersales() {
   // Tạo một lần cho cả vòng đời màn hình, để effect tải dữ liệu không chạy lại mỗi lần vẽ.
   // Giữ các hàm của lần vẽ đầu là an toàn: chúng chỉ dùng ref và setState của StoreProvider.
   const [service] = useState(() =>
-    sessionStorage.getItem("techzone-token")
+    getAuthToken()
       ? api((message) => {
           // Đăng xuất làm RequireRole chuyển về trang đăng nhập và nhớ trang đang xem.
           signOut();
