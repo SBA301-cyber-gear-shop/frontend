@@ -4,8 +4,9 @@ export default defineConfig({
   fullyParallel: false,
   workers: 1,
   timeout: 30000,
+  globalSetup: "./tests/e2e/global-setup.js",
   use: {
-    baseURL: "http://127.0.0.1:5173",
+    baseURL: "http://127.0.0.1:4175",
     channel: "chrome",
     headless: true,
     viewport: { width: 1440, height: 1000 },
@@ -13,10 +14,4 @@ export default defineConfig({
     trace: "retain-on-failure",
   },
   reporter: [["list"], ["html", { open: "never" }]],
-  webServer: {
-    command: "npm run dev -- --host 127.0.0.1 --port 5173 --strictPort",
-    url: "http://127.0.0.1:5173",
-    reuseExistingServer: true,
-    timeout: 30000,
-  },
 });

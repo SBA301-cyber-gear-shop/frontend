@@ -1,17 +1,11 @@
-import test from "node:test";
+import { test } from "vitest";
 import assert from "node:assert/strict";
-import { createSeed, defaultBuild, demoAccounts } from "../src/data/seed.js";
-import {
-  totalOf,
-  validateBuild,
-  suggestBuild,
-  quote,
-  promotionQuote,
-  placeOrder,
-  transitionOrder,
-  createTicket,
-  transitionTicket,
-} from "../src/domain/commerce.js";
+import { createSeed, defaultBuild, demoAccounts } from "@/store/demo";
+import { totalOf, quote } from "@/features/products";
+import { validateBuild, suggestBuild } from "@/features/pc-builder";
+import { promotionQuote } from "@/features/promotions";
+import { placeOrder, transitionOrder } from "@/features/orders";
+import { createTicket, transitionTicket } from "@/features/warranty";
 const now = new Date("2026-10-03T12:00:00+07:00");
 test("reference build total is 22,430,000 and missing size remains unknown", () => {
   const s = createSeed();

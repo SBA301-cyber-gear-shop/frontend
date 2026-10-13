@@ -1,9 +1,55 @@
 import { test, expect } from "@playwright/test";
-import { demoAccounts } from "../../src/data/seed.js";
+import { demoAccounts } from "../../src/store/demo/index.js";
 const customer = demoAccounts[0],
   staff = demoAccounts[1],
   technician = demoAccounts[2],
   admin = demoAccounts[3];
+// Auth now uses the backend. Intercept it in tests instead of relying on
+// removed demo-login buttons or contacting a developer's live API.
+test.beforeEach(async ({ page }) => {
+  await page.route("**/api/auth/login", async (route) => {
+    const payload = route.request().postDataJSON();
+    const account = demoAccounts.find(
+      (user) =>
+        (user.email === payload.identity || user.phone === payload.identity) &&
+        user.password === payload.password,
+    );
+    await route.fulfill({
+      status: account ? 200 : 401,
+      json: account
+        ? {
+            data: {
+              accessToken: "test-token",
+              user: {
+                id: account.id,
+                fullName: account.name,
+                email: account.email,
+                phone: account.phone,
+                role: account.role,
+              },
+            },
+          }
+        : { message: "Thông tin đăng nhập không đúng." },
+    });
+  });
+  await page.route("**/api/auth/register", async (route) => {
+    const payload = route.request().postDataJSON();
+    await route.fulfill({
+      json: {
+        data: {
+          accessToken: "test-register-token",
+          user: {
+            id: "registered-customer",
+            fullName: payload.fullName,
+            email: payload.email,
+            phone: payload.phone,
+            role: "Customer",
+          },
+        },
+      },
+    });
+  });
+});
 async function session(page, user) {
   await page.goto("/");
   await page.evaluate((u) => {
@@ -12,8 +58,9 @@ async function session(page, user) {
 }
 async function login(page, role = "Customer") {
   await page.goto("/dang-nhap");
-  await page.getByText("Tài khoản trải nghiệm · Demo").click();
-  await page.getByRole("button", { name: role, exact: true }).click();
+  const account = demoAccounts.find((user) => user.role === role);
+  await page.locator("#identity").fill(account.email);
+  await page.locator("#password").fill(account.password);
   await page.getByRole("button", { name: "Đăng nhập", exact: true }).click();
   await expect(page).not.toHaveURL(/dang-nhap/);
 }
@@ -93,8 +140,8 @@ test("shopping, authentication, checkout, staff payment and per-unit handover", 
   await expect(page.locator(".total")).toContainText("4.090.000");
   await page.getByRole("link", { name: "Tiếp tục đặt hàng" }).click();
   await expect(page).toHaveURL(/dang-nhap/);
-  await page.getByText("Tài khoản trải nghiệm · Demo").click();
-  await page.getByRole("button", { name: "Customer", exact: true }).click();
+  await page.locator("#identity").fill(customer.email);
+  await page.locator("#password").fill(customer.password);
   await page.getByRole("button", { name: "Đăng nhập", exact: true }).click();
   await expect(page).toHaveURL(/thanh-toan/);
   await page.getByRole("button", { name: "Xác nhận đặt hàng" }).click();
@@ -236,4 +283,66 @@ test("catalog filters and variant price change", async ({ page }) => {
   await expect(page.locator(".product-detail .price")).toContainText(
     "2.100.000",
   );
+});
+
+test("registration validates fields and stores the API session", async ({
+  page,
+}) => {
+  await page.goto("/dang-ky");
+  await page
+    .getByRole("button", { name: "Đăng ký tài khoản", exact: true })
+    .click();
+  await expect(page.locator("#identity")).toHaveAttribute(
+    "aria-invalid",
+    "true",
+  );
+  await page.locator("#name").fill("Khách kiểm thử");
+  await page.locator("#phone").fill("0912345678");
+  await page.locator("#identity").fill("New.User@example.com");
+  await page.locator("#password").fill("Example123");
+  await page.locator("#confirm").fill("Example123");
+  const requestPromise = page.waitForRequest("**/api/auth/register");
+  await page
+    .getByRole("button", { name: "Đăng ký tài khoản", exact: true })
+    .click();
+  const request = await requestPromise;
+  expect(request.postDataJSON()).toEqual({
+    fullName: "Khách kiểm thử",
+    phone: "0912345678",
+    email: "new.user@example.com",
+    password: "Example123",
+    address: "",
+  });
+  await expect(page).toHaveURL(/tai-khoan/);
+  expect(
+    await page.evaluate(() => sessionStorage.getItem("techzone-token")),
+  ).toBe("test-register-token");
+});
+
+test("login keeps API errors visible and preserves the requested destination", async ({
+  page,
+}) => {
+  await page.goto("/don-hang");
+  await expect(page).toHaveURL(/dang-nhap/);
+  await page.locator("#identity").fill(customer.email);
+  await page.locator("#password").fill("wrong-password");
+  await page.getByRole("button", { name: "Đăng nhập", exact: true }).click();
+  await expect(page.getByText("Thông tin đăng nhập không đúng.")).toBeVisible();
+  await page.locator("#password").fill(customer.password);
+  await page.getByRole("button", { name: "Đăng nhập", exact: true }).click();
+  await expect(page).toHaveURL(/don-hang/);
+});
+
+test("legacy URLs and not-found behavior survive the route split", async ({
+  page,
+}) => {
+  await page.goto("/03-monitors.html");
+  await expect(page).toHaveURL(/danh-muc\/monitor/);
+  await expect(page.locator(".product-card").first()).toBeVisible();
+  await page.goto("/san-pham/missing-product");
+  await expect(page.getByText("Sản phẩm không còn khả dụng")).toBeVisible();
+  await page.goto("/missing-route");
+  await expect(
+    page.getByRole("heading", { name: "Không tìm thấy trang" }),
+  ).toBeVisible();
 });

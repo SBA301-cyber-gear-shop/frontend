@@ -1,0 +1,63 @@
+import { useEffect, useState } from "react";
+import { useStore } from "@/store";
+
+export function useStoreHome() {
+  const { data } = useStore(),
+    [slide, setSlide] = useState(0),
+    [playing, setPlaying] = useState(false),
+    [hover, setHover] = useState(false);
+  useEffect(() => {
+    if (
+      !playing ||
+      hover ||
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    )
+      return;
+    const id = setInterval(() => setSlide((s) => (s + 1) % 3), 5500);
+    return () => clearInterval(id);
+  }, [playing, hover]);
+  const slides = [
+    [
+      "Chiếc PC tiếp theo.",
+      "Đúng với nhu cầu bạn.",
+      "Khám phá linh kiện, chọn từng phiên bản và xây dựng cấu hình theo ngân sách. Đặt online, nhận trực tiếp tại cửa hàng.",
+      "/build-pc",
+      "Tư vấn cấu hình",
+    ],
+    [
+      "Mở rộng góc nhìn.",
+      "Nâng tầm trải nghiệm.",
+      "Khám phá màn hình theo độ phân giải, tấm nền và tần số quét.",
+      "/danh-muc/monitor",
+      "Khám phá màn hình",
+    ],
+    [
+      "Hiệu năng linh hoạt.",
+      "Đồng hành mỗi ngày.",
+      "Laptop cho học tập, làm việc và sáng tạo. Chọn đúng cấu hình cho nhu cầu của bạn.",
+      "/danh-muc/laptop",
+      "Khám phá laptop",
+    ],
+  ];
+  const s = slides[slide],
+    promos = data.promotions
+      .filter(
+        (p) =>
+          p.active &&
+          p.bannerActive &&
+          new Date() >= new Date(p.start) &&
+          new Date() <= new Date(p.end),
+      )
+      .sort((a, b) => a.bannerOrder - b.bannerOrder);
+  return {
+    data,
+    slide,
+    setSlide,
+    playing,
+    setPlaying,
+    setHover,
+    slides,
+    s,
+    promos,
+  };
+}

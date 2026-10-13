@@ -1,32 +1,49 @@
-# Implementation notes
+# Bản đồ màn hình và hành vi được giữ lại
 
-## Screen map
+| Khu vực              | Routes                                                                |
+| -------------------- | --------------------------------------------------------------------- |
+| Giới thiệu, cửa hàng | /, /cua-hang, /san-pham, /danh-muc/:category, /san-pham/:id           |
+| Build PC và mua hàng | /build-pc, /gio-hang, /thanh-toan, /trang-thai                        |
+| Khách hàng           | /dang-nhap, /dang-ky, /don-hang, /don-hang/:id, /bao-hanh, /tai-khoan |
+| Vận hành             | /van-hanh/don-hang, /van-hanh/ban-giao, /van-hanh/bao-hanh, /ky-thuat |
+| Quản trị             | /quan-tri/san-pham, /quan-tri/thong-so, /quan-tri/khuyen-mai          |
 
-| Area                  | Routes                                                                            |
-| --------------------- | --------------------------------------------------------------------------------- |
-| Brand and storefront  | `/`, `/cua-hang`, `/san-pham`, `/danh-muc/:category`, `/san-pham/:id`             |
-| PC builder and buying | `/build-pc`, `/gio-hang`, `/thanh-toan`, `/trang-thai`                            |
-| Customer              | `/dang-nhap`, `/dang-ky`, `/don-hang`, `/don-hang/:id`, `/bao-hanh`, `/tai-khoan` |
-| Store operations      | `/van-hanh/don-hang`, `/van-hanh/ban-giao`, `/van-hanh/bao-hanh`, `/ky-thuat`     |
-| Administration        | `/quan-tri/san-pham`, `/quan-tri/thong-so`, `/quan-tri/khuyen-mai`                |
+URL .html cũ tiếp tục chuyển hướng qua `src/routes/legacyAliases.ts`.
+Chi tiết tổ chức mã nguồn nằm trong [ARCHITECTURE.md](ARCHITECTURE.md).
 
-The old prototype filenames are available as aliases in `src/App.jsx`, so links from the original design continue to resolve to the corresponding React route.
+## Giao diện
 
-## Design conversion
+Giữ nội dung, class CSS, hình ảnh, font Be Vietnam Pro, animation Anime.js,
+responsive navigation và các trạng thái tương tác. CSS chuyển vào
+`src/assets/styles`, giữ thứ tự import ở `global.css`.
 
-The approved prototype CSS and local reference assets were converted into regular React components. Landing, commerce, authentication and operations layouts have separate shells, while shared controls live in `src/components/ui.jsx`. The app uses a local Be Vietnam Pro font, responsive navigation, keyboard-accessible tabs, labelled form controls, reduced-motion handling and scoped Anime.js v4 entrance animation.
+Khung xác thực chuyển sang AuthLayout; form giữ validation, lỗi API,
+ẩn/hiện mật khẩu, hỗ trợ và đăng nhập về URL đã yêu cầu.
 
-## Demo domain
+## Luồng nghiệp vụ demo
 
-`src/domain/commerce.js` is deliberately pure. It validates merged quantities, snapshots quotes, caps promotion discounts, reserves/releases stock, requires payment before handover, creates unique physical-unit warranties and enforces the warranty ticket state machine. `src/data/seed.js` includes the demo catalog and compatibility metadata. The builder suggestion is deterministic demo logic; the final validator is the safety boundary that a production AI response must pass.
+- Đơn nhận tại cửa hàng, chụp giá/số lượng/thời hạn bảo hành khi tạo.
+- Đặt đơn giữ kho; hủy đơn hợp lệ trả kho; bàn giao cần thanh toán và serial
+  riêng cho từng thiết bị.
+- RAM bán từng thanh. Build kiểm tra số khe, dung lượng, chuẩn RAM, socket,
+  nguồn, M.2 và kích thước. Thiếu dữ liệu kiểm định chặn mua cấu hình.
+- Voucher kiểm tra ngày hiệu lực, hạn mức và quy tắc dùng của từng tài khoản.
+- Thẻ bảo hành theo thiết bị; không tạo ticket đang mở trùng thẻ.
 
-`src/state/StoreProvider.jsx` and `src/services/demoStore.js` provide browser persistence. The app labels simulated authentication, payment, AI and local storage clearly in the UI. `request()` is the future API seam and is never presented as a live backend.
+Các quy tắc trên chuyển về `features/*/domain`, không thay đổi để trở thành
+giao dịch backend. State demo và session vẫn được lưu ở trình duyệt.
+Riêng đăng nhập/đăng ký gọi API thật thông qua `features/auth/api`.
 
-## Verification
+## Kiểm thử
 
-- `npm run test`: 11 domain tests passed.
-- `npm run lint`: passed with generated Playwright reports ignored.
-- `npm run build`: Vite production build passed.
-- `npm run test:e2e`: 8 browser tests passed, including 21 routes at 1440px and 390px, shopping to serial handover, builder compatibility, admin persistence, duplicate warranty intake, authorization and catalogue filtering.
+Đã xác minh ngày 13/10/2026: lint/kiểm tra kiến trúc, TypeScript và production
+build đều thành công; 11/11 domain tests và 11/11 E2E tests thành công.
 
-The browser tests use the demo state and do not replace server-side security, inventory transactions, payment provider callbacks or AI evaluation tests.
+- Domain: 11 trường hợp gồm tính giá, tương thích, voucher, tồn kho, serial
+  và vòng đời bảo hành.
+- E2E: render 21 màn hình ở 1440px và 390px; mua hàng đến bàn giao; build PC;
+  quản trị; bảo hành; phân quyền; bộ lọc; đăng ký; lỗi đăng nhập và redirect;
+  URL cũ và trang không tìm thấy.
+- Đối chiếu trước/sau restructuring: 42/42 ảnh trùng khớp từng pixel.
+- API auth được mock chỉ trong test. Các kiểm thử này không xác nhận
+  backend, cổng thanh toán hoặc AI production hoạt động.
