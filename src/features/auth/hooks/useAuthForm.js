@@ -23,6 +23,7 @@ export function useAuthForm({ register = false }) {
   };
   const getErrors = () => {
     const errs = {};
+    // Register
     if (register) {
       if (!name.trim()) {
         errs.name = "Vui lòng nhập họ và tên.";
@@ -54,7 +55,7 @@ export function useAuthForm({ register = false }) {
       } else if (confirm !== password) {
         errs.confirm = "Mật khẩu xác nhận không trùng khớp.";
       }
-    } else {
+    } else { // Login
       if (!identity.trim()) {
         errs.identity = "Vui lòng nhập email hoặc số điện thoại.";
       }
