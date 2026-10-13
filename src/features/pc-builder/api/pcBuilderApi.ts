@@ -1,4 +1,4 @@
-import { request, endpoints } from "@/services";
+import { axiosClient, endpoints } from "@/services";
 import type {
   AiBuildRequestPayload,
   AiBuildSuggestionResponse,
@@ -7,10 +7,10 @@ export const pcBuilderApi = {
   async suggest(
     payload: AiBuildRequestPayload,
   ): Promise<AiBuildSuggestionResponse> {
-    const response = await request(endpoints.pcBuilder.suggest, {
-      method: "POST",
-      body: JSON.stringify(payload),
-    });
-    return response?.data ?? response;
+    const { data } = await axiosClient.post<
+      AiBuildSuggestionResponse | { data: AiBuildSuggestionResponse }
+    >(endpoints.pcBuilder.suggest, payload);
+    if (data == null) return null;
+    return "data" in data ? data.data : data;
   },
 };

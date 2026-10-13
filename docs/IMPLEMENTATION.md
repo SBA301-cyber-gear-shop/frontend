@@ -34,13 +34,31 @@ Các quy tắc trên chuyển về `features/*/domain`, không thay đổi để
 giao dịch backend. State demo và session vẫn được lưu ở trình duyệt.
 Riêng đăng nhập/đăng ký gọi API thật thông qua `features/auth/api`.
 
+## Chuyển HTTP sang Axios
+
+Toàn bộ lời gọi Fetch API được thay bằng Axios client dùng chung tại
+`src/services/axiosClient.ts`, export qua `@/services`. Các nơi sử dụng:
+
+- `features/auth/api/authApi.ts`: đăng nhập và đăng ký, có type cho payload
+  và response; trả HTTP body để hook xử lý envelope như trước.
+- `features/pc-builder/api/pcBuilderApi.ts`: gửi yêu cầu đề xuất PC và trả
+  nội dung đề xuất. Đây vẫn là API chưa được UI demo gọi.
+
+Client giữ base URL, Bearer token theo session, thông báo lỗi backend và
+phản hồi 204 như luồng cũ. Không thay đổi giao diện hoặc quy tắc nghiệp vụ.
+Hướng dẫn thêm API nằm trong mục HTTP với Axios của ARCHITECTURE.md.
+
 ## Kiểm thử
 
 Đã xác minh ngày 13/10/2026: lint/kiểm tra kiến trúc, TypeScript và production
-build đều thành công; 11/11 domain tests và 11/11 E2E tests thành công.
+build đều thành công; 26/26 Vitest tests (11 domain + 15 API) và 11/11 E2E
+tests thành công sau khi chuyển sang Axios.
 
 - Domain: 11 trường hợp gồm tính giá, tương thích, voucher, tồn kho, serial
   và vòng đời bảo hành.
+- API: JSON payload, base URL, envelope/bare response, token thay đổi và
+  logout, header riêng, 204, lỗi HTTP/validation, JSON sai, lỗi mạng và hủy
+  request. HTTP server test chỉ lắng nghe ở loopback, không gọi backend thật.
 - E2E: render 21 màn hình ở 1440px và 390px; mua hàng đến bàn giao; build PC;
   quản trị; bảo hành; phân quyền; bộ lọc; đăng ký; lỗi đăng nhập và redirect;
   URL cũ và trang không tìm thấy.

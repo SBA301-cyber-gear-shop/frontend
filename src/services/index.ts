@@ -1,2 +1,2 @@
-export { request } from "./httpClient";
+export { axiosClient } from "./axiosClient";
 export { endpoints } from "./endpoints";

@@ -24,6 +24,8 @@ Xem [hướng dẫn kiến trúc và bản đồ chuyển đổi](docs/ARCHITECT
 - `layouts/`, `routes/` quản lý khung trang, định tuyến và route guard.
 - `components/ui`, `components/form` chứa giao diện dùng chung.
 - Import xuyên tầng bằng alias `@/`; import feature qua `index.ts`.
+- API dùng Axios client chung tại `src/services/axiosClient.ts`; feature
+  gọi qua `@/services`, gửi object trực tiếp và lấy dữ liệu từ `response.data`.
 
 ## Kiểm tra
 
@@ -36,7 +38,8 @@ npm run test:e2e
 ```
 
 Lint kiểm tra cả ranh giới kiến trúc và vòng lặp import. Test domain dùng
-Vitest. Playwright dùng Chrome, cổng riêng 4175 và mock API auth; không cần
+Vitest; test API kiểm tra Axios với HTTP server cục bộ. Playwright dùng Chrome,
+cổng riêng 4175 và mock API auth; không cần
 backend thật. Server test được tạo/dừng trong process để hỗ trợ Windows.
 
 State demo dùng localStorage `techzone-demo-v1`; phiên đăng nhập dùng

@@ -29,7 +29,7 @@ src/
   pages/                      Home/HomePage.tsx, Login/LoginPage.tsx, ...
   routes/                     AppRoutes, PrivateRoute, ScrollToTop,
                               legacyAliases và index.ts
-  services/                   httpClient.js, endpoints.ts, index.ts
+  services/                   axiosClient.ts, endpoints.ts, index.ts
   store/                      StoreProvider, context, index.ts
     demo/                     seed.js, persistence.js, index.js
   types/                      common.types.ts, index.ts
@@ -39,6 +39,7 @@ src/
   vite-env.d.ts
 scripts/check-architecture.mjs
 tests/domain.test.js
+tests/api.test.js
 tests/e2e/flows.spec.js
 vite.config.ts
 vitest.config.ts
@@ -47,7 +48,8 @@ tsconfig.node.json
 ```
 
 Mọi feature đều có public API tại `index.ts`. Chỉ tạo thư mục có mã thực tế;
-không thêm api/store rỗng, Redux, Axios hoặc CSS Module chỉ để khớp tên mẫu.
+không thêm api/store rỗng, Redux hoặc CSS Module chỉ để khớp tên mẫu.
+Các lời gọi HTTP dùng Axios thông qua client chung trong services.
 Ảnh giữ trong public để không đổi URL; font vẫn bundle từ Fontsource.
 
 ## Page chỉ ghép màn hình
@@ -71,7 +73,7 @@ Khung tài khoản/xác thực được ghép ở Page.
 Luồng đăng nhập:
 
 ```text
-LoginPage → useAuthForm → authApi → services/request → backend
+LoginPage → useAuthForm → authApi → services/axiosClient → backend
           ↘ AuthLayout + LoginForm + AuthHelp
 ```
 
@@ -132,6 +134,48 @@ Ranh giới tích hợp giữ như trước khi restructuring:
 Khi tích hợp API tiếp theo: thêm api trong feature, đổi hook và ánh xạ DTO.
 Giữ Page và giao diện ổn định. Không gọi HTTP trong Page.
 
+## HTTP với Axios
+
+Import `axiosClient` và `endpoints` từ barrel `@/services` trong thư mục
+`features/<tên>/api`. Không tạo client riêng hoặc gọi HTTP trong Page/hook.
+
+```ts
+import { axiosClient, endpoints } from "@/services";
+import type { LoginPayload, AuthResponse } from "../types/auth.types";
+
+async function login(payload: LoginPayload) {
+  const { data } = await axiosClient.post<
+    AuthResponse | { data: AuthResponse }
+  >(endpoints.auth.login, payload);
+  return data;
+}
+```
+
+- Base URL: `VITE_API_BASE_URL`, mặc định `http://localhost:8080`.
+- Gửi object trực tiếp; Axios chuyển payload sang JSON. Không dùng `body`
+  hoặc `JSON.stringify` như Fetch API.
+- Request interceptor đọc `techzone-token` từ sessionStorage ở mỗi lần gọi.
+  Header được truyền riêng ở request có ưu tiên cao hơn header mặc định.
+- Client trả `AxiosResponse`; `response.data` là HTTP body. Nếu backend
+  bọc nội dung trong `{ data: ... }`, đây là một lớp envelope riêng.
+  Auth API trả body cho hook hiện tại xử lý; AI API trả nội dung đề xuất
+  sau khi bỏ envelope. Cả hai hỗ trợ body trực tiếp và body có envelope.
+- Phản hồi `204` có data là `null`; JSON sai định dạng bị từ chối.
+- Với HTTP lỗi: ưu tiên `message`, rồi nối `validationErrors`, cuối cùng
+  dùng `Yêu cầu thất bại (<status>).`. Giữ nguyên AxiosError để vẫn đọc
+  được `response.status`, `response.data` và nhận diện request bị hủy.
+- Hành vi hiện tại không tự refresh token, retry, đặt timeout hoặc đăng xuất
+  khi gặp 401. Không bật cookie cho request khác origin.
+- Hủy request khi cần bằng config `{ signal: controller.signal }` của
+  `AbortController`; không dùng CancelToken cũ.
+
+`authApi.ts` dùng LoginPayload, RegisterPayload và AuthResponse có sẵn;
+`pcBuilderApi.ts` dùng type request/response của feature. TypeScript kiểm tra
+hợp đồng ở bước phát triển, không thay thế validation dữ liệu tại runtime.
+
+Tham khảo API chính thức: [Axios instance](https://axios.rest/pages/advanced/create-an-instance)
+và [interceptors](https://axios.rest/pages/advanced/interceptors).
+
 ## Kiểm tra
 
 ```bash
@@ -171,7 +215,7 @@ vì nút demo login mà test cũ dùng đã bị bỏ khỏi UI trước đợt 
 | pages/Landing.jsx                          | features/landing + pages/Landing                              |
 | components/Layouts.jsx                     | layouts và routes/PrivateRoute, ScrollToTop                   |
 | domain/commerce.js                         | domain của products, orders, promotions, pc-builder, warranty |
-| services/demoStore.js                      | store/demo/persistence + services/httpClient + utils/delay    |
+| services/demoStore.js                      | store/demo/persistence + services/axiosClient + utils/delay   |
 | state/                                     | store/                                                        |
 | data/seed.js                               | store/demo/seed.js và constants của feature                   |
 | hooks nghiệp vụ trùng Page, chưa được dùng | hook thực sự được dùng trong feature                          |
