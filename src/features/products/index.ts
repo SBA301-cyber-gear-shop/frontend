@@ -8,4 +8,6 @@ export { ProductCard } from "./components/ProductCard";
 export { totalOf } from "./domain";
 export { quote } from "./domain";
 export { categories } from "./constants";
+export { VariantModal } from "./components/VariantModal";
+export { productApi } from "./api/productApi";
 export type * from "./types/product.types";
