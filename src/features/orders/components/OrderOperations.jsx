@@ -35,7 +35,29 @@ export function OrderOperations({ handover = false }) {
     update,
     count,
     finish,
+    demoMode,
+    busy,
+    loading,
+    error,
+    refresh,
+    warrantyLines,
+    recipientPhone,
+    setRecipientPhone,
+    receivedAmount,
+    setReceivedAmount,
+    reference,
+    setReference,
+    cancelConfirm,
+    setCancelConfirm,
   } = useOrderOperations();
+  if (loading) return <Notice>Đang tải danh sách đơn hàng…</Notice>;
+  if (error)
+    return (
+      <div className="stack">
+        <Notice tone="danger">{error}</Notice>
+        <Button onClick={refresh}>Tải lại đơn hàng</Button>
+      </div>
+    );
   return (
     <>
       <Heading
@@ -49,11 +71,13 @@ export function OrderOperations({ handover = false }) {
           aria-label="Tra cứu đơn hàng"
           placeholder="Mã đơn, số điện thoại hoặc tên khách"
           value={search}
+          disabled={busy}
           onChange={(e) => setSearch(e.target.value)}
         />
         <select
           className="input"
           aria-label="Lọc trạng thái đơn"
+          disabled={busy}
           value={status}
           onChange={(e) => setStatus(e.target.value)}
         >
@@ -69,6 +93,7 @@ export function OrderOperations({ handover = false }) {
         {filtered.map((o) => (
           <button
             key={o.id}
+            disabled={busy}
             className={"chip " + (o.id === selected?.id ? "active" : "")}
             onClick={() => {
               setParams({ id: o.id });
@@ -118,7 +143,7 @@ export function OrderOperations({ handover = false }) {
                   được tạo khi xác nhận bàn giao.
                 </Notice>
                 <div className="stack section">
-                  {selected.lines
+                  {warrantyLines
                     .flatMap((l) =>
                       Array.from({ length: l.quantity }, (_, i) => ({
                         line: l,
@@ -139,6 +164,18 @@ export function OrderOperations({ handover = false }) {
                       />
                     ))}
                 </div>
+                {!demoMode && (
+                  <div className="section">
+                    <Field
+                      label="Số điện thoại người đến nhận để đối chiếu"
+                      value={recipientPhone}
+                      maxLength={20}
+                      onChange={(event) =>
+                        setRecipientPhone(event.target.value)
+                      }
+                    />
+                  </div>
+                )}
                 <label className="filter-option section">
                   <input
                     type="checkbox"
@@ -168,11 +205,17 @@ export function OrderOperations({ handover = false }) {
               {selected.payment !== "SUCCESS" &&
                 !["canceled", "completed"].includes(selected.status) && (
                   <>
-                    <Button className="full" onClick={() => setConfirm(true)}>
+                    <Button
+                      className="full"
+                      disabled={busy}
+                      onClick={() => setConfirm(true)}
+                    >
                       Xác nhận đã thu đủ
                     </Button>
                     <p className="tiny muted section">
-                      Demo: chỉ xác nhận sau khi đối chiếu khoản thu.
+                      {demoMode
+                        ? "Demo: chỉ xác nhận sau khi đối chiếu khoản thu."
+                        : "Chỉ xác nhận sau khi thực tế đã nhận đủ tiền của khách."}
                     </p>
                   </>
                 )}
@@ -181,7 +224,11 @@ export function OrderOperations({ handover = false }) {
               {["pending", "confirmed", "preparing"].includes(
                 selected.status,
               ) && (
-                <Button className="full" onClick={() => update("advance")}>
+                <Button
+                  className="full"
+                  disabled={busy}
+                  onClick={() => update("advance")}
+                >
                   {selected.status === "pending"
                     ? "Xác nhận đơn"
                     : selected.status === "confirmed"
@@ -195,7 +242,8 @@ export function OrderOperations({ handover = false }) {
                   disabled={
                     selected.status !== "ready_for_pickup" ||
                     selected.payment !== "SUCCESS" ||
-                    !checked
+                    !checked ||
+                    busy
                   }
                   onClick={finish}
                 >
@@ -206,7 +254,8 @@ export function OrderOperations({ handover = false }) {
                   className="full"
                   disabled={
                     selected.status !== "ready_for_pickup" ||
-                    selected.payment !== "SUCCESS"
+                    selected.payment !== "SUCCESS" ||
+                    busy
                   }
                   onClick={() =>
                     navigate("/van-hanh/ban-giao?id=" + selected.id)
@@ -220,24 +269,70 @@ export function OrderOperations({ handover = false }) {
                   Đã bàn giao và kích hoạt bảo hành.
                 </Notice>
               )}
+              {!demoMode &&
+                !["completed", "canceled"].includes(selected.status) && (
+                  <Button
+                    tone="ghost"
+                    className="full"
+                    disabled={
+                      busy ||
+                      (selected.payment === "SUCCESS" && selected.final > 0)
+                    }
+                    onClick={() => setCancelConfirm(true)}
+                  >
+                    Hủy đơn hàng
+                  </Button>
+                )}
             </Panel>
           </aside>
         </div>
       )}
-      {confirm && (
+      {confirm && selected && (
         <Modal
           title="Xác nhận đã nhận đủ tiền?"
           onClose={() => setConfirm(false)}
         >
           <p>
             Đơn {selected.id} · {money(selected.final)}. Thao tác cập nhật khoản
-            thu trong dữ liệu demo.
+            thu {demoMode ? "trong dữ liệu demo" : "thực tế tại cửa hàng"}.
           </p>
+          {!demoMode && (
+            <div className="stack section">
+              <Field
+                label="Số tiền thực tế đã nhận (VND)"
+                type="number"
+                min="0"
+                value={receivedAmount}
+                onChange={(event) => setReceivedAmount(event.target.value)}
+              />
+              <Field
+                label="Mã chứng từ thu tiền (nếu có)"
+                maxLength={255}
+                value={reference}
+                onChange={(event) => setReference(event.target.value)}
+              />
+            </div>
+          )}
           <div className="row section">
             <Button tone="secondary" onClick={() => setConfirm(false)}>
               Quay lại
             </Button>
-            <Button onClick={() => update("pay")}>Đã thu đủ tiền</Button>
+            <Button disabled={busy} onClick={() => update("pay")}>
+              Đã thu đủ tiền
+            </Button>
+          </div>
+        </Modal>
+      )}
+      {cancelConfirm && selected && (
+        <Modal title="Hủy đơn hàng?" onClose={() => setCancelConfirm(false)}>
+          <p>Hủy đơn {selected.id} và hoàn lại số lượng đã giữ vào kho.</p>
+          <div className="row section">
+            <Button tone="secondary" onClick={() => setCancelConfirm(false)}>
+              Giữ đơn
+            </Button>
+            <Button disabled={busy} onClick={() => update("cancel")}>
+              Xác nhận hủy
+            </Button>
           </div>
         </Modal>
       )}

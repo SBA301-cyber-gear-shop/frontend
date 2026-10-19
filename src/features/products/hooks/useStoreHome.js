@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { useStore } from "@/store";
+import { useVisiblePromotions } from "@/features/promotions";
 
 export function useStoreHome() {
-  const { data } = useStore(),
+  const { data, demoMode } = useStore(),
     [slide, setSlide] = useState(0),
     [playing, setPlaying] = useState(false),
     [hover, setHover] = useState(false);
@@ -39,8 +40,9 @@ export function useStoreHome() {
       "Khám phá laptop",
     ],
   ];
+  const remote = useVisiblePromotions();
   const s = slides[slide],
-    promos = data.promotions
+    promos = (demoMode ? data.promotions : remote.promotions)
       .filter(
         (p) =>
           p.active &&
@@ -59,5 +61,6 @@ export function useStoreHome() {
     slides,
     s,
     promos,
+    promotionError: remote.error,
   };
 }

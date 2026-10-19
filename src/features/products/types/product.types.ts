@@ -98,6 +98,10 @@ export interface SpecificationValue {
  * Đây là shape mà API trả về sau khi JOIN Products + Variants + Brand + Specs.
  */
 export interface ProductDisplay {
+  averageRating?: number;
+  reviewCount?: number;
+  /** Số tài khoản khác nhau có đơn completed cho phiên bản này. */
+  buyerCount?: number;
   id: number; // variant id
   productId: number;
   name: string; // từ Products.name

@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { categories } from "../constants";
 import { money } from "@/utils";
-import { Button, Icon } from "@/components/ui";
+import { Button, Icon, Notice } from "@/components/ui";
 import { ProductCard } from "./ProductCard";
 import { useStoreHome } from "../hooks/useStoreHome";
 
@@ -16,9 +16,16 @@ export function StoreHome() {
     slides,
     s,
     promos,
+    promotionError,
   } = useStoreHome();
   return (
     <>
+      {promotionError && (
+        <Notice tone="warning">
+          Chưa tải được chương trình khuyến mãi. Bạn vẫn có thể xem sản phẩm và
+          nhập mã ở checkout.
+        </Notice>
+      )}
       <section
         className="hero home-carousel"
         aria-label="Nội dung nổi bật"

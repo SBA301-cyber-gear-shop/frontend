@@ -1,6 +1,7 @@
 import { Button, Empty, Heading, Notice, Panel } from "@/components/ui";
 import { Field } from "@/components/form";
 import { useAccountProfile } from "../hooks/useAccountProfile";
+import { demoMode } from "@/utils";
 
 export function AccountProfile() {
   const { user, name, setName, phone, setPhone, address, setAddress, save } =
@@ -37,7 +38,7 @@ export function AccountProfile() {
                 onChange={(e) => setAddress(e.target.value)}
               />
             </div>
-            <Button type="submit" className="section">
+            <Button type="submit" className="section" disabled={!demoMode}>
               Lưu thay đổi
             </Button>
           </form>
@@ -49,8 +50,9 @@ export function AccountProfile() {
           />
         </Panel>
         <Notice tone="neutral">
-          Dữ liệu demo lưu tại trình duyệt. Không nhập thông tin thẻ hoặc dữ
-          liệu nhạy cảm thật.
+          {demoMode
+            ? "Dữ liệu demo lưu tại trình duyệt. Không nhập thông tin thẻ hoặc dữ liệu nhạy cảm thật."
+            : "Thông tin tài khoản lấy từ lần đăng nhập. Chức năng cập nhật hồ sơ đang được hoàn thiện."}
         </Notice>
       </div>
     </>

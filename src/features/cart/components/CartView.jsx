@@ -19,7 +19,33 @@ export function CartView() {
     hasRam,
     updateQuantity,
     removeFromCart,
+    user,
+    demoMode,
+    cartLoading,
+    cartError,
+    cartBusy,
+    reloadCart,
   } = useCart();
+  if (!demoMode && !user)
+    return (
+      <Empty
+        title="Đăng nhập để xem giỏ hàng"
+        action={
+          <Button to="/dang-nhap" state={{ from: "/gio-hang" }}>
+            Đăng nhập
+          </Button>
+        }
+      />
+    );
+  if (cartLoading && !data.cart.length)
+    return <Notice>Đang tải giỏ hàng…</Notice>;
+  if (cartError)
+    return (
+      <div className="stack">
+        <Notice tone="danger">{cartError}</Notice>
+        <Button onClick={() => reloadCart()}>Tải lại giỏ hàng</Button>
+      </div>
+    );
   if (!data.cart.length)
     return (
       <>
@@ -54,6 +80,7 @@ export function CartView() {
             editable
             onChange={updateQuantity}
             onRemove={removeFromCart}
+            disabled={cartBusy || cartLoading}
           />
           <Notice>
             Nhận trực tiếp tại cửa hàng. Thông tin người nhận được xác nhận ở
@@ -74,7 +101,11 @@ export function CartView() {
             <KV label="Tạm tính" total>
               {money(totalAmount)}
             </KV>
-            <Button className="full" to="/thanh-toan">
+            <Button
+              className="full"
+              to={cartBusy || cartLoading ? undefined : "/thanh-toan"}
+              disabled={cartBusy || cartLoading}
+            >
               Tiếp tục đặt hàng →
             </Button>
             <p className="small muted section">

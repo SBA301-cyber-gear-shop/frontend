@@ -1,12 +1,37 @@
 import { Link } from "react-router-dom";
 import { dateTime, money } from "@/utils";
 import { ORDER_STATUS, PAYMENT_STATUS } from "../constants";
-import { Art, Badge, Button, Empty, Heading, Panel } from "@/components/ui";
+import {
+  Art,
+  Badge,
+  Button,
+  Empty,
+  Heading,
+  Panel,
+  Notice,
+} from "@/components/ui";
 import { useCustomerOrders } from "../hooks/useCustomerOrders";
 
 export function CustomerOrders() {
-  const { data, filter, setFilter, search, setSearch, orders } =
-    useCustomerOrders();
+  const {
+    data,
+    filter,
+    setFilter,
+    search,
+    setSearch,
+    orders,
+    loading,
+    error,
+    refresh,
+  } = useCustomerOrders();
+  if (loading) return <Notice>Đang tải đơn hàng…</Notice>;
+  if (error)
+    return (
+      <div className="stack">
+        <Notice tone="danger">{error}</Notice>
+        <Button onClick={refresh}>Tải lại đơn hàng</Button>
+      </div>
+    );
   return (
     <>
       <Heading

@@ -11,3 +11,5 @@ export { categories } from "./constants";
 export { VariantModal } from "./components/VariantModal";
 export { productApi } from "./api/productApi";
 export type * from "./types/product.types";
+export { catalogApi } from "./api/catalogApi";
+export { CatalogConnection } from "./components/CatalogConnection";

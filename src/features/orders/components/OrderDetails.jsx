@@ -35,7 +35,19 @@ export function OrderDetails() {
     labels,
     index,
     saveReview,
+    loading,
+    error,
+    refresh,
+    busy,
   } = useOrderDetails();
+  if (loading) return <Notice>Đang tải đơn hàng…</Notice>;
+  if (error)
+    return (
+      <div className="stack">
+        <Notice tone="danger">{error}</Notice>
+        <Button onClick={refresh}>Tải lại đơn hàng</Button>
+      </div>
+    );
   if (!order)
     return (
       <Empty
@@ -171,13 +183,15 @@ export function OrderDetails() {
         <Modal title="Hủy đơn hàng?" onClose={() => setConfirm(false)}>
           <p>
             Hàng đã giữ sẽ được giải phóng. Voucher đã gắn đơn không được chuyển
-            sang đơn khác theo chính sách demo.
+            sang đơn khác theo chính sách mỗi khách dùng một lần.
           </p>
           <div className="row section">
             <Button tone="secondary" onClick={() => setConfirm(false)}>
               Giữ đơn
             </Button>
-            <Button onClick={() => act("cancel")}>Xác nhận hủy</Button>
+            <Button disabled={busy} onClick={() => act("cancel")}>
+              Xác nhận hủy
+            </Button>
           </div>
         </Modal>
       )}
@@ -209,7 +223,9 @@ export function OrderDetails() {
               />
             )}
           </Field>
-          <Button onClick={saveReview}>Lưu đánh giá</Button>
+          <Button disabled={busy} onClick={saveReview}>
+            Lưu đánh giá
+          </Button>
         </Modal>
       )}
     </>

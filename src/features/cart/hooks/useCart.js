@@ -1,15 +1,51 @@
 import { useStore } from "@/store";
 import { totalOf } from "@/features/products";
+import { useLocation, useNavigate } from "react-router-dom";
+import { cartApi } from "../api/cartApi";
 export function useCart() {
-  const { data, commit, notify } = useStore();
+  const {
+    data,
+    user,
+    commit,
+    notify,
+    demoMode,
+    cartLoading,
+    cartError,
+    cartBusy,
+    reloadCart,
+    mutateCart,
+  } = useStore();
+  const navigate = useNavigate(),
+    location = useLocation();
   const totalCount = data.cart.reduce((sum, line) => sum + line.quantity, 0);
-  const totalAmount = totalOf(data.cart, data.products);
+  const totalAmount = demoMode
+    ? totalOf(data.cart, data.products)
+    : data.cart.reduce((sum, line) => sum + line.unitPrice * line.quantity, 0);
   const hasRam = data.cart.some(
     (line) =>
       data.products.find((product) => product.id === line.id)?.category ===
       "ram",
   );
-  function addToCart(id, quantity = 1) {
+  async function remoteChange(operation) {
+    try {
+      return await mutateCart(operation);
+    } catch (error) {
+      notify(error.message, "danger");
+      return false;
+    }
+  }
+  async function addToCart(id, quantity = 1) {
+    if (!demoMode) {
+      if (!user) {
+        navigate("/dang-nhap", {
+          state: { from: location.pathname + location.search },
+        });
+        return false;
+      }
+      const success = await remoteChange(() => cartApi.add(id, quantity));
+      if (success) notify("Đã thêm vào giỏ hàng.");
+      return success;
+    }
     try {
       commit((current) => {
         const p = current.products.find((p) => p.id === id);
@@ -28,12 +64,19 @@ export function useCart() {
         return { ...current, cart };
       });
       notify("Đã thêm vào giỏ hàng.");
+      return true;
     } catch (error) {
       notify(error.message, "danger");
+      return false;
     }
   }
 
   function updateQuantity(id, quantity) {
+    if (!demoMode) {
+      const line = data.cart.find((item) => item.id === id);
+      if (!line) return;
+      return remoteChange(() => cartApi.update(line.cartItemId, quantity));
+    }
     commit((current) => ({
       ...current,
       cart: current.cart.map((line) =>
@@ -42,6 +85,11 @@ export function useCart() {
     }));
   }
   function removeFromCart(id) {
+    if (!demoMode) {
+      const line = data.cart.find((item) => item.id === id);
+      if (!line) return;
+      return remoteChange(() => cartApi.remove(line.cartItemId));
+    }
     commit((current) => ({
       ...current,
       cart: current.cart.filter((line) => line.id !== id),
@@ -49,6 +97,12 @@ export function useCart() {
   }
   return {
     data,
+    user,
+    demoMode,
+    cartLoading,
+    cartError,
+    cartBusy,
+    reloadCart,
     totalCount,
     totalAmount,
     hasRam,

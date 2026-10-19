@@ -4,14 +4,61 @@ import { Field, Select } from "@/components/form";
 import { usePromotionManagement } from "../hooks/usePromotionManagement";
 
 export function PromotionManagement() {
-  const { p, set, used, reserved, save } = usePromotionManagement();
+  const {
+    p,
+    set,
+    used,
+    reserved,
+    save,
+    demoMode,
+    promotions,
+    select,
+    create,
+    busy,
+    loading,
+    error,
+    refresh,
+  } = usePromotionManagement();
+  if (loading) return <Notice>Đang tải khuyến mãi…</Notice>;
+  if (error)
+    return (
+      <div className="stack">
+        <Notice tone="danger">{error}</Notice>
+        <Button onClick={refresh}>Tải lại khuyến mãi</Button>
+      </div>
+    );
   return (
     <>
       <Heading
-        title={"Chương trình " + p.code}
+        title={p.id ? "Chương trình " + p.code : "Tạo chương trình khuyến mãi"}
         sub="Quản lý mã giảm giá và banner liên kết."
         eyebrow="QUẢN TRỊ / KHUYẾN MÃI"
+        action={
+          !demoMode && (
+            <Button disabled={busy} onClick={create}>
+              Tạo mã mới
+            </Button>
+          )
+        }
       />
+      {!demoMode && (
+        <div className="row wrap-row section-title">
+          {promotions.map((promotion) => (
+            <Button
+              key={promotion.id}
+              tone={p.id === promotion.id ? "primary" : "secondary"}
+              disabled={busy}
+              onClick={() => select(promotion.id)}
+            >
+              {promotion.code}
+              {promotion.active ? "" : " · Đã tắt"}
+            </Button>
+          ))}
+          <Button tone="ghost" disabled={busy} onClick={refresh}>
+            Tải lại
+          </Button>
+        </div>
+      )}
       <form onSubmit={save}>
         <div className="split">
           <div className="stack">
@@ -28,12 +75,14 @@ export function PromotionManagement() {
                   label="Mã giảm giá"
                   value={p.code}
                   required
+                  maxLength={50}
                   onChange={(e) => set("code", e.target.value)}
                 />
                 <Field
                   label="Tên chương trình"
                   value={p.name}
                   required
+                  maxLength={150}
                   onChange={(e) => set("name", e.target.value)}
                 />
                 <Select
@@ -72,14 +121,14 @@ export function PromotionManagement() {
                   Kích hoạt chương trình
                 </label>
                 <Field
-                  label="Bắt đầu"
+                  label={demoMode ? "Bắt đầu" : "Bắt đầu (UTC+07)"}
                   type="datetime-local"
                   value={p.start}
                   required
                   onChange={(e) => set("start", e.target.value)}
                 />
                 <Field
-                  label="Kết thúc"
+                  label={demoMode ? "Kết thúc" : "Kết thúc (UTC+07)"}
                   type="datetime-local"
                   value={p.end}
                   required
@@ -97,11 +146,14 @@ export function PromotionManagement() {
               <Field
                 label="Tiêu đề"
                 value={p.bannerTitle}
-                required
+                required={p.bannerActive}
+                maxLength={150}
                 onChange={(e) => set("bannerTitle", e.target.value)}
               />
               <Field
                 label="Ảnh banner"
+                required={p.bannerActive}
+                maxLength={255}
                 value={p.bannerImage}
                 onChange={(e) => set("bannerImage", e.target.value)}
               />
@@ -157,11 +209,13 @@ export function PromotionManagement() {
               </p>
             </Panel>
             <Panel title="Lưu cấu hình">
-              <Button type="submit" className="full">
-                Lưu thay đổi
+              <Button type="submit" className="full" disabled={busy}>
+                {busy ? "Đang lưu…" : "Lưu thay đổi"}
               </Button>
               <p className="small muted section">
-                Thay đổi có hiệu lực trong dữ liệu demo trên thiết bị này.
+                {demoMode
+                  ? "Thay đổi có hiệu lực trong dữ liệu demo trên thiết bị này."
+                  : "Đơn đã tạo giữ nguyên số tiền giảm đã chốt. Hạn mức bao gồm lượt đang giữ."}
               </p>
             </Panel>
           </aside>

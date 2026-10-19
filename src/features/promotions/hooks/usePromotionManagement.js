@@ -1,7 +1,13 @@
 import { useState } from "react";
 import { useStore } from "@/store";
+import { demoMode } from "@/utils";
+import { useLivePromotionManagement } from "./useLivePromotionManagement";
 
-export function usePromotionManagement() {
+export const usePromotionManagement = demoMode
+  ? useDemoPromotionManagement
+  : useLivePromotionManagement;
+
+function useDemoPromotionManagement() {
   const { data, commit, notify } = useStore(),
     [p, setP] = useState({ ...data.promotions[0] });
   const set = (k, v) => setP((f) => ({ ...f, [k]: v })),
@@ -53,5 +59,5 @@ export function usePromotionManagement() {
       notify(err.message, "danger");
     }
   }
-  return { p, set, used, reserved, save };
+  return { p, set, used, reserved, save, demoMode: true };
 }

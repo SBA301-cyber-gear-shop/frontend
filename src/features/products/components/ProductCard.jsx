@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { Art } from "@/components/ui";
 import { money } from "@/utils";
+import { ProductFeedback } from "./ProductFeedback";
 
 export function ProductCard({ product: p }) {
   return (
@@ -11,6 +12,7 @@ export function ProductCard({ product: p }) {
         <h3>{p.name}</h3>
       </Link>
       <p className="variant">{p.variant}</p>
+      <ProductFeedback product={p} />
       <div className="chips">
         {Object.values(p.specs)
           .slice(0, 3)

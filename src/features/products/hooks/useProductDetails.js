@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useStore } from "@/store";
+import { useProductReviews } from "@/features/reviews";
 
 export function useProductDetails() {
   const { id } = useParams(),
-    { data } = useStore(),
+    { data, catalogLoading, catalogError, demoMode } = useStore(),
     navigate = useNavigate(),
     [quantity, setQuantity] = useState(1),
     [tab, setTab] = useState("description");
@@ -12,10 +13,13 @@ export function useProductDetails() {
   const variants = data.products.filter(
     (v) => v.productId === p?.productId && v.status === "active",
   );
-  const reviews = data.reviews.filter((r) => r.productId === p?.id);
-  const primary = data.specSettings[p?.category]
-    ?.filter((s) => s.primary)
-    .map((s) => s.name);
+  const remoteReviews = useProductReviews(p?.id);
+  const reviews = demoMode
+    ? data.reviews.filter((r) => r.productId === p?.id)
+    : remoteReviews.reviews;
+  const primary =
+    p?.primarySpecs ??
+    data.specSettings[p?.category]?.filter((s) => s.primary).map((s) => s.name);
   return {
     id,
     navigate,
@@ -27,5 +31,8 @@ export function useProductDetails() {
     variants,
     reviews,
     primary,
+    catalogLoading,
+    catalogError,
+    reviewError: remoteReviews.error,
   };
 }

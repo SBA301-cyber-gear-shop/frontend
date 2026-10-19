@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, NavLink, Outlet } from "react-router-dom";
 import { useSession } from "@/features/auth";
 import { Logo, Icon, Badge } from "@/components/ui";
+import { demoMode } from "@/utils";
 
 const menu = [
   ["/van-hanh/don-hang", "bag", "Đơn hàng", ["Staff", "Admin"]],
@@ -40,7 +41,11 @@ export function AdminLayout() {
         </nav>
         <div className="sidebar-bottom">
           <Badge tone="info">{user.role}</Badge>
-          <p className="small muted">Môi trường demo · Dữ liệu trên thiết bị</p>
+          <p className="small muted">
+            {demoMode
+              ? "Môi trường demo · Dữ liệu trên thiết bị"
+              : "Chức năng vận hành đang được hoàn thiện"}
+          </p>
           <Link to="/cua-hang">← Xem cửa hàng</Link>
           <button className="text-button" onClick={signOut}>
             Đăng xuất

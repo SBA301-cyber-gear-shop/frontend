@@ -4,8 +4,12 @@ import { useStore } from "@/store";
 import { totalOf } from "@/features/products";
 import { promotionQuote } from "@/features/promotions";
 import { placeOrder } from "../domain";
+import { demoMode } from "@/utils";
+import { useLiveCheckout } from "./useLiveCheckout";
 
-export function useCheckout() {
+export const useCheckout = demoMode ? useDemoCheckout : useLiveCheckout;
+
+function useDemoCheckout() {
   const { data, user, commit, notify } = useStore(),
     [params] = useSearchParams(),
     navigate = useNavigate(),
@@ -74,6 +78,7 @@ export function useCheckout() {
   }
   return {
     data,
+    demoMode: true,
     user,
     fromBuild,
     lines,
