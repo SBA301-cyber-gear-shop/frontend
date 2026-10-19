@@ -1,5 +1,3 @@
-import "./Notice.scss";
-
 export function Notice({ tone = "info", children }) {
   return (
     <div
@@ -10,5 +8,3 @@ export function Notice({ tone = "info", children }) {
     </div>
   );
 }
-
-export default Notice;

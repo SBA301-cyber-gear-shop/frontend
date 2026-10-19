@@ -1,6 +1,5 @@
 import { Link } from "react-router-dom";
 import { Icon } from "../Icon";
-import "./Logo.scss";
 
 export function Logo() {
   return (
@@ -16,5 +15,3 @@ export function Logo() {
     </Link>
   );
 }
-
-export default Logo;

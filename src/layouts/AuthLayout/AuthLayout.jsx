@@ -1,6 +1,5 @@
 import { Link } from "react-router-dom";
 import { Logo, Icon } from "@/components/ui";
-import "./AuthLayout.scss";
 export function AuthLayout({ children, overlay }) {
   return (
     <div className="login-body">
@@ -66,6 +65,3 @@ export function AuthLayout({ children, overlay }) {
     </div>
   );
 }
-
-export default AuthLayout;
-

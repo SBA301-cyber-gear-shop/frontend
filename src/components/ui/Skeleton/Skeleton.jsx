@@ -1,5 +1,3 @@
-import "./Skeleton.scss";
-
 export function Skeleton({
   className = "",
   width,
@@ -20,5 +18,3 @@ export function Skeleton({
     />
   );
 }
-
-export default Skeleton;

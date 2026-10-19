@@ -1,5 +1,3 @@
-import "./Heading.scss";
-
 export function Heading({ title, sub, action, eyebrow = "TECHZONE PRO" }) {
   return (
     <div className="page-head between">
@@ -12,5 +10,3 @@ export function Heading({ title, sub, action, eyebrow = "TECHZONE PRO" }) {
     </div>
   );
 }
-
-export default Heading;

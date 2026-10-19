@@ -1,5 +1,3 @@
-import "./Steps.scss";
-
 export function Steps({ labels, current = 0 }) {
   return (
     <ol className="steps">
@@ -18,5 +16,3 @@ export function Steps({ labels, current = 0 }) {
     </ol>
   );
 }
-
-export default Steps;

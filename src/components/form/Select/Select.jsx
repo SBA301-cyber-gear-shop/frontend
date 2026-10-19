@@ -1,5 +1,4 @@
 import { Field } from "../Field";
-import "./Select.scss";
 
 export function Select({ label, options, ...props }) {
   return (
@@ -16,5 +15,3 @@ export function Select({ label, options, ...props }) {
     </Field>
   );
 }
-
-export default Select;

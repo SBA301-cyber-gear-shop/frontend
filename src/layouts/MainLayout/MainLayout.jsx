@@ -5,7 +5,6 @@ import { useCart } from "@/features/cart";
 import { money } from "@/utils";
 
 import { Logo, Icon } from "@/components/ui";
-import "./MainLayout.scss";
 
 export function MainLayout() {
   const { user } = useSession();
@@ -111,6 +110,3 @@ export function MainLayout() {
     </>
   );
 }
-
-export default MainLayout;
-

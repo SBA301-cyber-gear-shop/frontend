@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Link, NavLink, Outlet } from "react-router-dom";
 import { useSession } from "@/features/auth";
 import { Logo, Icon, Badge } from "@/components/ui";
-import "./AdminLayout.scss";
 
 const menu = [
   ["/van-hanh/don-hang", "bag", "Đơn hàng", ["Staff", "Admin"]],
@@ -63,5 +62,3 @@ export function AdminLayout() {
     </div>
   );
 }
-
-export default AdminLayout;

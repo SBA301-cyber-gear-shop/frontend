@@ -1,7 +1,6 @@
 import { Component } from "react";
 import { Empty } from "../Empty";
 import { Button } from "../Button";
-import "./ErrorBoundary.scss";
 
 export class ErrorBoundary extends Component {
   state = { error: false };
@@ -24,5 +23,3 @@ export class ErrorBoundary extends Component {
     return this.props.children;
   }
 }
-
-export default ErrorBoundary;

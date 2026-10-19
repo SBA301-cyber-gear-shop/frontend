@@ -1,5 +1,4 @@
 import { Link } from "react-router-dom";
-import "./Button.scss";
 
 export function Button({
   to,
@@ -22,5 +21,3 @@ export function Button({
     </button>
   );
 }
-
-export default Button;

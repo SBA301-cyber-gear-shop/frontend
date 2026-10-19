@@ -1,6 +1,5 @@
 import { useEffect } from "react";
 import { Icon } from "../Icon";
-import "./Toast.scss";
 
 export function Toast({ message, type = "success", onClose }) {
   useEffect(() => {
@@ -32,5 +31,3 @@ export function Toast({ message, type = "success", onClose }) {
     </div>
   );
 }
-
-export default Toast;
