@@ -3,12 +3,14 @@ import { ProductEditor } from "./ProductEditor";
 import { useProductManagement } from "../hooks/useProductManagement";
 
 export function ProductManagement() {
-  const { data, selected, setSelected } = useProductManagement();
+  const { distinctProducts, selected, setSelected, selectedProduct } =
+    useProductManagement();
+
   return (
     <>
       <Heading
         title="Sản phẩm & phiên bản"
-        sub="Thông tin chung của sản phẩm và dữ liệu của từng SKU."
+        sub="Quản lý thông tin sản phẩm và các biến thể SKU bán lẻ."
         eyebrow="QUẢN TRỊ / SẢN PHẨM"
         action={
           <Button onClick={() => setSelected("new")}>+ Thêm sản phẩm</Button>
@@ -21,15 +23,15 @@ export function ProductManagement() {
         onChange={(e) => setSelected(e.target.value)}
       >
         <option value="new">Tạo sản phẩm mới</option>
-        {data.products.map((p) => (
-          <option key={p.id} value={p.id}>
-            {p.name} · {p.variant}
+        {distinctProducts.map((p) => (
+          <option key={p.productId} value={p.id}>
+            {p.name} ({p.variantCount} phiên bản) · {p.brand}
           </option>
         ))}
       </select>
       <ProductEditor
         key={selected}
-        product={data.products.find((p) => p.id === selected)}
+        product={selectedProduct}
         onCreated={setSelected}
       />
     </>

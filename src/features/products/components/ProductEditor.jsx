@@ -1,34 +1,48 @@
 import { categories } from "../constants";
 import { money } from "@/utils";
-import { Art, Badge, Button, Notice, Panel } from "@/components/ui";
+import { Art, Badge, Button, Notice, Panel, Empty } from "@/components/ui";
 import { Field, Select } from "@/components/form";
 import { useProductEditor } from "../hooks/useProductEditor";
+import { VariantModal } from "./VariantModal";
 
 export function ProductEditor({ product, onCreated }) {
-  const { form, specText, setSpecText, update, save } = useProductEditor({
-    product,
-    onCreated,
-  });
+  const {
+    productForm,
+    updateProduct,
+    variants,
+    activePreviewVariant,
+    setPreviewVariantId,
+    modalOpen,
+    editingVariant,
+    openAddVariantModal,
+    openEditVariantModal,
+    closeVariantModal,
+    handleSaveVariant,
+    handleDeleteVariant,
+    handleSaveProduct,
+  } = useProductEditor({ product, onCreated });
+
   return (
     <>
       <div className="split">
         <div className="stack">
-          <Panel title="Thông tin sản phẩm">
+          {/* MASTER PRODUCT DETAILS */}
+          <Panel title="Thông tin chung sản phẩm">
             <div className="two-col">
               <Field
                 label="Tên sản phẩm *"
-                value={form.name}
-                onChange={(e) => update("name", e.target.value)}
+                value={productForm.name}
+                onChange={(e) => updateProduct("name", e.target.value)}
               />
               <Field
                 label="Thương hiệu *"
-                value={form.brand}
-                onChange={(e) => update("brand", e.target.value)}
+                value={productForm.brand}
+                onChange={(e) => updateProduct("brand", e.target.value)}
               />
               <Select
                 label="Danh mục"
-                value={form.category}
-                onChange={(e) => update("category", e.target.value)}
+                value={productForm.category}
+                onChange={(e) => updateProduct("category", e.target.value)}
                 options={categories.map((c) => ({
                   value: c.id,
                   label: c.name,
@@ -38,116 +52,191 @@ export function ProductEditor({ product, onCreated }) {
                 label="Bảo hành (tháng)"
                 type="number"
                 min="0"
-                value={form.warranty}
-                onChange={(e) => update("warranty", e.target.value)}
+                value={productForm.warranty}
+                onChange={(e) => updateProduct("warranty", e.target.value)}
               />
             </div>
             <div className="section">
-              <Field label="Mô tả">
+              <Field label="Mô tả sản phẩm">
                 {(id) => (
                   <textarea
                     id={id}
                     className="input full"
-                    value={form.description || ""}
-                    onChange={(e) => update("description", e.target.value)}
+                    rows="3"
+                    value={productForm.description || ""}
+                    onChange={(e) => updateProduct("description", e.target.value)}
                   />
                 )}
               </Field>
             </div>
           </Panel>
-          <Panel title="Phiên bản đang chỉnh sửa">
-            <div className="two-col">
-              <Field
-                label="Tên phiên bản *"
-                value={form.variant}
-                onChange={(e) => update("variant", e.target.value)}
+
+          {/* VARIANTS (DETAIL) MANAGEMENT */}
+          <Panel
+            title={`Danh sách biến thể (SKU) · ${variants.length} phiên bản`}
+            action={
+              <Button onClick={openAddVariantModal}>+ Thêm biến thể</Button>
+            }
+          >
+            {variants.length === 0 ? (
+              <Empty
+                title="Chưa có phiên bản nào"
+                sub="Sản phẩm cần có ít nhất một phiên bản (SKU) với giá bán và tồn kho để đăng bán."
+                action={
+                  <Button onClick={openAddVariantModal}>
+                    + Tạo phiên bản đầu tiên
+                  </Button>
+                }
               />
-              <Field
-                label="Mã SKU *"
-                value={form.sku}
-                onChange={(e) => update("sku", e.target.value)}
-              />
-              <Field
-                label="Giá bán (₫)"
-                type="number"
-                min="1"
-                value={form.price}
-                onChange={(e) => update("price", e.target.value)}
-              />
-              <Field
-                label="Giá gốc (₫)"
-                type="number"
-                min="0"
-                value={form.originalPrice}
-                onChange={(e) => update("originalPrice", e.target.value)}
-              />
-              <Field
-                label="Lượng còn có thể bán"
-                type="number"
-                min="0"
-                value={form.stock}
-                onChange={(e) => update("stock", e.target.value)}
-              />
-              <Field
-                label="Mã nhóm sản phẩm"
-                hint="Cùng mã nhóm để liên kết các phiên bản."
-                value={form.productId}
-                onChange={(e) => update("productId", e.target.value)}
-              />
-            </div>
-            <div className="section">
-              <Field
-                label="URL ảnh phiên bản"
-                value={form.image}
-                onChange={(e) => update("image", e.target.value)}
-                placeholder="/assets/... hoặc https://..."
-              />
-            </div>
-          </Panel>
-          <Panel title="Thông số của phiên bản">
-            <Field
-              label="Tên thông số: Giá trị"
-              hint="Mỗi dòng một thông số. Dữ liệu kỹ thuật cần kiểm chứng trước khi đưa vào bộ kiểm tra build."
-            >
-              {(id) => (
-                <textarea
-                  id={id}
-                  className="input full mono"
-                  rows="7"
-                  value={specText}
-                  onChange={(e) => setSpecText(e.target.value)}
-                  placeholder={"Chuẩn RAM: DDR5\nDung lượng: 16GB"}
-                />
-              )}
-            </Field>
+            ) : (
+              <div className="table-wrap">
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th>SKU</th>
+                      <th>Phiên bản</th>
+                      <th>Giá bán</th>
+                      <th>Tồn kho</th>
+                      <th>Thông số</th>
+                      <th style={{ textAlign: "right" }}>Thao tác</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {variants.map((v) => {
+                      const isSelected = activePreviewVariant?.id === v.id;
+                      const specSummary = v.specs
+                        ? Object.entries(v.specs)
+                            .map(([k, val]) => `${k}: ${val}`)
+                            .slice(0, 2)
+                            .join(", ")
+                        : "";
+
+                      return (
+                        <tr
+                          key={v.id}
+                          style={{
+                            backgroundColor: isSelected
+                              ? "var(--surface-active, rgba(255,255,255,0.05))"
+                              : undefined,
+                          }}
+                        >
+                          <td>
+                            <code className="mono">{v.sku || v.serialCode}</code>
+                          </td>
+                          <td>
+                            <strong>{v.variant || v.variantName || "Mặc định"}</strong>
+                          </td>
+                          <td>
+                            <strong>{money(Number(v.price))}</strong>
+                            {v.originalPrice > v.price && (
+                              <div className="small muted strike" style={{ textDecoration: "line-through" }}>
+                                {money(Number(v.originalPrice))}
+                              </div>
+                            )}
+                          </td>
+                          <td>
+                            <Badge tone={Number(v.stock) > 0 ? "success" : "danger"}>
+                              {v.stock || 0} cái
+                            </Badge>
+                          </td>
+                          <td className="small muted">
+                            {specSummary || "—"}
+                          </td>
+                          <td style={{ textAlign: "right" }}>
+                            <div className="row" style={{ justifyContent: "flex-end", gap: "0.5rem" }}>
+                              <Button
+                                size="small"
+                                tone={isSelected ? "primary" : "secondary"}
+                                onClick={() => setPreviewVariantId(v.id)}
+                              >
+                                {isSelected ? "Đang xem" : "Xem"}
+                              </Button>
+                              <Button
+                                size="small"
+                                tone="secondary"
+                                onClick={() => openEditVariantModal(v)}
+                              >
+                                Sửa
+                              </Button>
+                              <Button
+                                size="small"
+                                tone="danger"
+                                onClick={() => handleDeleteVariant(v.id)}
+                              >
+                                Xóa
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </Panel>
         </div>
+
+        {/* ASIDE PREVIEW */}
         <aside className="stack">
-          <Panel title="Xem trước phiên bản">
-            <Art type={form.category} image={form.image} name={form.name} />
-            <div className="eyebrow section">{form.brand || "THƯƠNG HIỆU"}</div>
-            <h3>{form.name || "Tên sản phẩm"}</h3>
-            <p className="muted small">{form.variant}</p>
-            <div className="price section">{money(Number(form.price))}</div>
-            <Badge tone={form.status === "active" ? "success" : "warning"}>
-              {form.status === "active" ? "Đang bán" : "Bản nháp"}
-            </Badge>
+          <Panel title="Xem trước trên cửa hàng">
+            <Art
+              type={productForm.category}
+              image={activePreviewVariant?.image || activePreviewVariant?.imageUrl}
+              name={productForm.name}
+            />
+            <div className="eyebrow section">{productForm.brand || "THƯƠNG HIỆU"}</div>
+            <h3>{productForm.name || "Tên sản phẩm"}</h3>
+            <p className="muted small">
+              {activePreviewVariant
+                ? activePreviewVariant.variant || activePreviewVariant.variantName
+                : "Chưa chọn phiên bản"}
+            </p>
+            <div className="price section">
+              {money(Number(activePreviewVariant?.price || 0))}
+            </div>
+            <div className="row" style={{ gap: "0.5rem" }}>
+              <Badge tone={productForm.status === "active" ? "success" : "warning"}>
+                {productForm.status === "active" ? "Đang bán" : "Bản nháp"}
+              </Badge>
+              {activePreviewVariant && (
+                <Badge tone={Number(activePreviewVariant.stock) > 0 ? "success" : "danger"}>
+                  Tồn kho: {activePreviewVariant.stock || 0}
+                </Badge>
+              )}
+            </div>
           </Panel>
+
           <Notice tone="neutral">
-            Giá mới áp dụng cho lần mua tiếp theo. Giá chụp trong đơn đã đặt
-            được giữ nguyên.
+            Sản phẩm cần có ít nhất 1 biến thể SKU có thông số chính xác trước khi Đăng bán ra toàn hệ thống.
           </Notice>
         </aside>
       </div>
+
+      {/* FOOTER ACTIONS */}
       <div className="editor-actions">
-        <p className="small muted">Chỉ áp dụng thay đổi sau khi lưu.</p>
+        <p className="small muted">
+          {variants.length} biến thể khả dụng · Trạng thái hiện tại:{" "}
+          <strong>{productForm.status === "active" ? "ACTIVE" : "DRAFT"}</strong>
+        </p>
         <div className="row">
-          <Button tone="secondary" onClick={() => save("draft")}>
+          <Button tone="secondary" onClick={() => handleSaveProduct("draft")}>
             Lưu nháp
           </Button>
-          <Button onClick={() => save("active")}>Lưu & đăng bán</Button>
+          <Button onClick={() => handleSaveProduct("active")}>
+            Đăng bán sản phẩm (Publish)
+          </Button>
         </div>
       </div>
+
+      {/* VARIANT ADD / EDIT MODAL */}
+      {modalOpen && (
+        <VariantModal
+          variant={editingVariant}
+          onSave={handleSaveVariant}
+          onClose={closeVariantModal}
+        />
+      )}
     </>
   );
 }
