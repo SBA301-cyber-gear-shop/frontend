@@ -1,3 +1,5 @@
+import "./Art.scss";
+
 export function Art({ type = "ram", className = "", image, name }) {
   return image ? (
     <img
@@ -18,3 +20,5 @@ export function Art({ type = "ram", className = "", image, name }) {
     />
   );
 }
+
+export default Art;

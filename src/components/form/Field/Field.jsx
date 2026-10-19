@@ -1,4 +1,5 @@
 import { useId } from "react";
+import "./Field.scss";
 
 export function Field({ label, hint, error, children, ...props }) {
   const id = useId();
@@ -25,3 +26,5 @@ export function Field({ label, hint, error, children, ...props }) {
     </div>
   );
 }
+
+export default Field;

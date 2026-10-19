@@ -1,0 +1,332 @@
+.admin-body {
+  background: #f5f7fa;
+  position: relative;
+  min-height: 100vh;
+}
+
+.admin-menu {
+  display: none;
+}
+
+.admin-sidebar {
+  width: 260px;
+  position: absolute;
+  min-height: 100%;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  background: #111d30;
+  color: #d2dbe8;
+  padding: 31px 19px;
+  display: flex;
+  flex-direction: column;
+  z-index: 50;
+
+  .logo {
+    font-size: 22px;
+    color: white;
+    margin: 0 10px 41px;
+
+    small {
+      color: #7789a3;
+    }
+  }
+
+  .eyebrow {
+    color: #6f819c;
+    font-size: 9px;
+    letter-spacing: 1.6px;
+    margin-left: 14px;
+  }
+
+  nav {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+
+    a {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 13px;
+      padding: 13px 14px;
+      border-radius: 7px;
+
+      &.active {
+        background: #d91f31;
+        color: white;
+      }
+    }
+  }
+
+  .icon {
+    width: 18px;
+    height: 18px;
+  }
+
+  .text-button {
+    display: block;
+    color: #c3ccda;
+    margin-top: 16px;
+  }
+}
+
+.sidebar-bottom {
+  margin-top: auto;
+  padding: 25px 13px 0;
+  border-top: 1px solid #29374b;
+  font-size: 12px;
+
+  p {
+    margin: 10px 0 20px;
+    color: #8495ae;
+  }
+}
+
+.admin-work {
+  margin-left: 260px;
+}
+
+.admin-top {
+  height: 72px;
+  background: white;
+  border-bottom: 1px solid var(--line);
+  padding: 0 38px;
+}
+
+.admin-main {
+  padding: 32px 38px 55px;
+  max-width: 1800px;
+  margin: auto;
+
+  h1 {
+    font-size: 30px;
+  }
+
+  .split {
+    grid-template-columns: minmax(0, 1fr) 330px;
+    gap: 24px;
+  }
+
+  .pad {
+    padding: 23px;
+  }
+}
+
+@media (max-width: 1200px) {
+  .admin-sidebar {
+    width: 230px;
+    padding-left: 12px;
+    padding-right: 12px;
+
+    .logo {
+      font-size: 19px;
+      margin-left: 4px;
+    }
+  }
+
+  .admin-work {
+    margin-left: 230px;
+  }
+
+  .admin-main {
+    padding: 28px 24px;
+
+    .split {
+      grid-template-columns: minmax(0, 1fr);
+
+      > aside {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+  }
+}
+
+@media (max-width: 1000px) {
+  .admin-sidebar {
+    width: 210px;
+
+    nav a {
+      font-size: 12px;
+    }
+  }
+
+  .admin-work {
+    margin-left: 210px;
+  }
+
+  .admin-main {
+    padding: 25px;
+
+    .split {
+      grid-template-columns: 1fr;
+    }
+  }
+}
+
+@media (max-width: 850px) {
+  .admin-sidebar {
+    width: 200px;
+  }
+
+  .admin-work {
+    margin-left: 200px;
+  }
+
+  .admin-main {
+    > .two-col {
+      grid-template-columns: 1fr;
+    }
+
+    .three-col {
+      grid-template-columns: 1fr;
+    }
+
+    .page-head {
+      align-items: flex-start;
+    }
+  }
+}
+
+@media (max-width: 680px) {
+  .admin-sidebar {
+    position: static;
+    min-height: 0;
+    width: 100%;
+    padding: 18px;
+
+    nav {
+      display: none;
+    }
+
+    .logo {
+      margin: 0;
+    }
+
+    .eyebrow {
+      display: none;
+    }
+  }
+
+  .sidebar-bottom {
+    display: none;
+  }
+
+  .admin-work {
+    margin-left: 0;
+  }
+
+  .admin-top {
+    height: 50px;
+    padding: 0 18px;
+  }
+
+  .admin-main {
+    padding: 23px 16px;
+
+    h1 {
+      font-size: 26px;
+    }
+
+    .four-col {
+      grid-template-columns: repeat(2, 1fr);
+    }
+
+    .two-col,
+    .three-col {
+      grid-template-columns: 1fr;
+    }
+  }
+}
+
+@media (max-width: 600px) {
+  .admin-sidebar {
+    display: none;
+    width: 260px;
+    box-shadow: 15px 0 70px #0004;
+    position: absolute;
+    min-height: 100%;
+
+    &.is-open {
+      display: flex;
+    }
+
+    .logo {
+      margin-top: 48px;
+    }
+
+    nav {
+      display: flex;
+    }
+
+    .eyebrow {
+      display: block;
+    }
+  }
+
+  .sidebar-bottom {
+    display: block;
+  }
+
+  .admin-work {
+    margin-left: 0;
+  }
+
+  .admin-main {
+    padding: 22px 16px;
+
+    h1 {
+      font-size: 26px;
+    }
+
+    .split > aside {
+      display: flex;
+    }
+
+    .row.section-title {
+      flex-wrap: wrap;
+
+      input {
+        flex-basis: 100%;
+      }
+    }
+  }
+
+  .admin-top {
+    height: 60px;
+    padding: 0 16px 0 60px;
+    font-size: 11px;
+
+    .row {
+      font-size: 11px;
+    }
+  }
+
+  .admin-menu {
+    display: block;
+    position: fixed;
+    top: 10px;
+    left: 12px;
+    z-index: 60;
+    background: var(--white);
+    border-radius: 6px;
+    color: var(--ink);
+  }
+}
+
+@media print {
+  .admin-sidebar,
+  .admin-top,
+  .admin-menu {
+    display: none !important;
+  }
+
+  .admin-work {
+    margin: 0;
+  }
+
+  .admin-main {
+    padding: 0;
+  }
+}

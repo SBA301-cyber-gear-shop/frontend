@@ -1,6 +1,7 @@
 import { Link, NavLink } from "react-router-dom";
 import { useSession } from "@/features/auth";
 import { Icon } from "@/components/ui";
+import "./AccountLayout.scss";
 
 export function AccountLayout({ children }) {
   const { user, signOut } = useSession();
@@ -32,3 +33,5 @@ export function AccountLayout({ children }) {
     </div>
   );
 }
+
+export default AccountLayout;

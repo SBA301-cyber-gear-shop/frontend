@@ -1,0 +1,311 @@
+.login-panel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 35px 48px;
+}
+
+.form-shell {
+  width: 100%;
+  max-width: 412px;
+}
+
+.form-mark {
+  width: 46px;
+  height: 46px;
+  display: grid;
+  place-items: center;
+  background: #fff0f2;
+  color: #d91f31;
+  border: 1px solid #f4d4d9;
+  border-radius: 13px;
+  margin-bottom: 23px;
+}
+
+.form-mark .icon {
+  width: 23px;
+  height: 23px;
+}
+
+.form-eyebrow {
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: 2px;
+  color: #657185;
+  margin: 0 0 10px;
+}
+
+.form-shell h2 {
+  font-size: 36px;
+  line-height: 1.2;
+  letter-spacing: -1.2px;
+  margin: 0 0 12px;
+  font-weight: 750;
+}
+
+.form-intro {
+  font-size: 14px;
+  color: #657185;
+  margin: 0 0 30px;
+}
+
+.input-group {
+  margin-bottom: 17px;
+}
+
+.input-group > label {
+  display: block;
+  font-size: 13px;
+  font-weight: 650;
+  margin-bottom: 8px;
+}
+
+.input-group > label .req {
+  color: #d91f31;
+  margin-left: 3px;
+  font-weight: 700;
+}
+
+.input-frame.has-error {
+  border-color: #be1729 !important;
+  box-shadow: 0 0 0 3px #be172915 !important;
+}
+
+.input-frame {
+  display: flex;
+  align-items: center;
+  border: 1px solid #d6dde6;
+  background: #fff;
+  border-radius: 10px;
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s;
+  padding: 0 14px;
+  gap: 11px;
+}
+
+.input-frame > .icon {
+  color: #8190a4;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+.input-frame:focus-within {
+  border-color: #d91f31;
+  box-shadow: 0 0 0 4px #d91f3110;
+}
+
+.input-frame input {
+  height: 53px;
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  color: #152237;
+  background: transparent;
+  font-size: 14px;
+  padding: 0;
+}
+
+.input-frame input::placeholder {
+  color: #7d8899;
+}
+
+.password-toggle {
+  padding: 0;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 44px;
+  flex-shrink: 0;
+  background: transparent;
+  border: 0;
+  color: #657185;
+}
+
+.password-toggle svg {
+  width: 21px;
+  height: 21px;
+}
+
+.eye-slash {
+  display: none;
+}
+
+.password-toggle[aria-pressed="true"] .eye-slash {
+  display: block;
+}
+
+.input-frame:has([aria-invalid="true"]) {
+  border-color: #be1729;
+}
+
+.field-error {
+  color: #b91c2e;
+  font-size: 12px;
+  margin: 5px 0 0;
+}
+
+.field-error:empty {
+  display: none;
+}
+
+#caps-warning {
+  font-size: 12px;
+  color: #825615;
+  margin: 5px 0;
+}
+
+.form-options {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin: 0 0 22px;
+}
+
+.password-hint {
+  font-size: 10px;
+  color: #657185;
+}
+
+.text-button {
+  border: 0;
+  padding: 8px 0;
+  background: transparent;
+  color: #be1b2b;
+  font-size: 12px !important;
+  font-weight: 650 !important;
+  white-space: nowrap;
+}
+
+.login-submit {
+  border: 0;
+  border-radius: 10px;
+  background: #d91f31;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 15px;
+  width: 100%;
+  height: 53px;
+  font-weight: 700 !important;
+  box-shadow: 0 8px 20px #d91f3125;
+  transition:
+    background 0.2s,
+    box-shadow 0.2s;
+}
+
+.login-submit:hover {
+  background: #bd1728;
+  box-shadow: 0 10px 27px #d91f3140;
+}
+
+.login-submit .icon {
+  width: 19px;
+  height: 19px;
+  transition: transform 0.2s;
+}
+
+.login-submit:hover .icon {
+  transform: translateX(4px);
+}
+
+.login-submit:active {
+  background: #a91424;
+}
+
+.register-prompt {
+  text-align: center;
+  font-size: 13px;
+  color: #657185;
+  margin: 25px 0 30px;
+}
+
+.register-prompt a {
+  font-weight: 700;
+  color: #be1b2b;
+  text-decoration: none;
+  margin-left: 5px;
+}
+
+.account-benefits {
+  border-top: 1px solid #e2e7ed;
+  padding-top: 23px;
+  display: flex;
+  justify-content: center;
+  gap: 24px;
+  font-size: 11px;
+  color: #657185;
+}
+
+.account-benefits span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.account-benefits .icon {
+  width: 16px;
+  height: 16px;
+}
+
+.preview-note {
+  font-size: 10px;
+  color: #657185;
+  line-height: 1.7;
+  margin-top: 19px;
+  text-align: center;
+}
+
+#form-status {
+  font-size: 13px;
+  line-height: 1.6;
+  padding: 13px 15px;
+  border: 1px solid #efd4a8;
+  background: #fff9ef;
+  color: #76511c;
+  border-radius: 9px;
+  margin-top: 16px;
+}
+
+@media (max-width: 1050px) {
+  .login-panel {
+    padding: 30px;
+  }
+}
+
+@media (max-width: 760px) {
+  .login-panel {
+    order: 0;
+    padding: 29px 26px 32px;
+  }
+  .form-shell {
+    max-width: 440px;
+  }
+  .form-mark {
+    width: 40px;
+    height: 40px;
+    margin-bottom: 19px;
+  }
+  .form-shell h2 {
+    font-size: 32px;
+  }
+  .form-intro {
+    margin-bottom: 25px;
+  }
+  .account-benefits {
+    gap: 18px;
+  }
+  .form-options {
+    gap: 6px;
+  }
+  .password-hint {
+    font-size: 9px;
+  }
+  .preview-note {
+    margin-bottom: 0;
+  }
+}

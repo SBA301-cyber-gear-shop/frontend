@@ -1,3 +1,5 @@
+import "./Icon.scss";
+
 export function Icon({ name = "grid", ...props }) {
   const paths = {
     search: (
@@ -106,3 +108,6 @@ export function Icon({ name = "grid", ...props }) {
     </svg>
   );
 }
+
+export default Icon;
+

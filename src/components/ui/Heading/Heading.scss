@@ -1,0 +1,49 @@
+/* Heading styles */
+.eyebrow {
+  font-size: 11px;
+  letter-spacing: 1.9px;
+  font-weight: 700;
+  color: var(--red);
+  margin-bottom: 12px;
+  text-transform: uppercase;
+}
+
+.page-head {
+  margin-bottom: 26px;
+
+  p {
+    margin-top: 9px;
+  }
+
+  &.between {
+    align-items: center;
+  }
+}
+
+@media (max-width: 980px) {
+  .page-head {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 14px;
+
+    h1 {
+      font-size: 27px;
+      letter-spacing: -0.8px;
+    }
+
+    p {
+      font-size: 13px;
+    }
+  }
+}
+
+@media (max-width: 680px) {
+  .page-head.between {
+    align-items: flex-start;
+
+    & > .row {
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+  }
+}

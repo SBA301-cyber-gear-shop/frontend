@@ -1,4 +1,5 @@
 import { useEffect, useRef, useId } from "react";
+import "./Modal.scss";
 
 export function Modal({ title, children, onClose }) {
   const ref = useRef(null),
@@ -28,3 +29,5 @@ export function Modal({ title, children, onClose }) {
     </dialog>
   );
 }
+
+export default Modal;

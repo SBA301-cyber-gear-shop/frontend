@@ -1,0 +1,13 @@
+/* OrderOperations styles */
+.order-picker {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  max-height: 150px;
+  overflow: auto;
+
+  .chip {
+    cursor: pointer;
+    min-height: 35px;
+  }
+}

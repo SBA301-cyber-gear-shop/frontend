@@ -1,0 +1,44 @@
+/* Logo styles */
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-weight: 850;
+  font-size: 23px;
+  letter-spacing: -0.7px;
+  white-space: nowrap;
+  text-decoration: none;
+  color: inherit;
+
+  & > span {
+    background: var(--red);
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    color: white;
+    display: grid;
+    place-items: center;
+  }
+
+  sup {
+    font-size: 9px;
+    background: #fff0f2;
+    color: var(--red);
+    padding: 2px 4px;
+    margin-left: 5px;
+    vertical-align: top;
+    position: relative;
+    top: 4px;
+    letter-spacing: 0;
+  }
+
+  small {
+    display: block;
+    font-size: 9px;
+    letter-spacing: 2.1px;
+    line-height: 1.2;
+    color: var(--muted);
+    font-weight: 500;
+    margin-top: 2px;
+  }
+}

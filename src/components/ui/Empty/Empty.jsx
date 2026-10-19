@@ -1,4 +1,5 @@
 import { Icon } from "../Icon";
+import "./Empty.scss";
 
 export function Empty({ title = "Chưa có dữ liệu", description, action }) {
   return (
@@ -10,3 +11,5 @@ export function Empty({ title = "Chưa có dữ liệu", description, action }) 
     </div>
   );
 }
+
+export default Empty;

@@ -1,3 +1,5 @@
+import "./Panel.scss";
+
 export function Panel({ title, action, children, className = "" }) {
   return (
     <section className={"panel pad " + className}>
@@ -11,3 +13,5 @@ export function Panel({ title, action, children, className = "" }) {
     </section>
   );
 }
+
+export default Panel;

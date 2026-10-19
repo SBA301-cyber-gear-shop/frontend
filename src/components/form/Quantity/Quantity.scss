@@ -1,0 +1,61 @@
+/* Quantity styles */
+.qty {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  height: 38px;
+  background: white;
+  overflow: hidden;
+  flex-shrink: 0;
+
+  & > span {
+    display: grid;
+    place-items: center;
+    min-width: 33px;
+    font-size: 14px;
+    padding: 7px 9px;
+
+    &:first-child,
+    &:last-child {
+      background: #f7f8fb;
+      color: #60708a;
+    }
+
+    &:nth-child(2) {
+      min-width: 41px;
+      font-weight: 650;
+    }
+  }
+
+  button {
+    border: 0;
+    min-width: 30px;
+    height: 36px;
+    background: var(--bg);
+    color: var(--ink);
+    cursor: pointer;
+
+    &:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+  }
+
+  input {
+    border: 0;
+    background: white;
+    text-align: center;
+    width: 42px;
+    height: 36px;
+    font-weight: 600;
+    appearance: textfield;
+    -moz-appearance: textfield;
+
+    &::-webkit-inner-spin-button,
+    &::-webkit-outer-spin-button {
+      appearance: none;
+      margin: 0;
+    }
+  }
+}

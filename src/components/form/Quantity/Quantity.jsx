@@ -1,3 +1,5 @@
+import "./Quantity.scss";
+
 export function Quantity({ value, onChange, max = 99, label = "Số lượng" }) {
   return (
     <div className="qty">
@@ -31,3 +33,5 @@ export function Quantity({ value, onChange, max = 99, label = "Số lượng" })
     </div>
   );
 }
+
+export default Quantity;
