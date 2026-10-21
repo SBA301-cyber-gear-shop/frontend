@@ -38,6 +38,15 @@ export interface CreateProductPayload {
   variants?: CreateVariantPayload[];
 }
 
+export interface UpdateProductPayload {
+  name: string;
+  brandId: number;
+  categoryId: number;
+  warrantyPeriodMonths: number;
+  description?: string;
+  status?: "DRAFT" | "ACTIVE" | "ARCHIVED";
+}
+
 export interface SpecOptionResponse {
   id: number;
   specificationId: number;
@@ -102,6 +111,15 @@ export const productApi = {
   publishProduct: async (productId: number): Promise<ProductResponse> => {
     const res = await axiosClient.put<ProductResponse>(`${endpoints.admin.products}/${productId}/publish`);
     return res.data;
+  },
+
+  updateProduct: async (productId: number, payload: UpdateProductPayload): Promise<ProductResponse> => {
+    const res = await axiosClient.put<ProductResponse>(`${endpoints.admin.products}/${productId}`, payload);
+    return res.data;
+  },
+
+  deleteProduct: async (productId: number): Promise<void> => {
+    await axiosClient.delete(`${endpoints.admin.products}/${productId}`);
   },
 
   // Admin Variant APIs
