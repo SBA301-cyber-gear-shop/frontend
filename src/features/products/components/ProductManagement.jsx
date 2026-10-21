@@ -4,6 +4,7 @@ import { Badge, Button, Heading, Notice, Panel, Empty, Modal } from "@/component
 import { Field, Select } from "@/components/form";
 import { ProductEditor } from "./ProductEditor";
 import { useProductManagement } from "../hooks/useProductManagement";
+import { getCategoryMockImage } from "../constants/mockImages";
 
 export function ProductManagement() {
   const {
@@ -14,6 +15,7 @@ export function ProductManagement() {
     error,
     viewMode,
     selectedProduct,
+    setSelectedProductId,
     searchQuery,
     setSearchQuery,
     statusFilter,
@@ -41,9 +43,12 @@ export function ProductManagement() {
         brands={brands}
         categories={categories}
         onBack={handleBackToList}
-        onSaved={async () => {
-          await loadData();
-          handleBackToList();
+        onRefreshList={() => loadData(true)}
+        onSaved={async (savedProd) => {
+          await loadData(true);
+          if (savedProd?.id) {
+            setSelectedProductId(savedProd.id);
+          }
         }}
       />
     );
@@ -61,7 +66,7 @@ export function ProductManagement() {
           <div className="row" style={{ gap: "0.75rem" }}>
             <Button
               tone="secondary"
-              onClick={loadData}
+              onClick={() => loadData(true)}
               disabled={loading}
               title="Đồng bộ dữ liệu mới nhất từ PostgreSQL"
             >
@@ -284,7 +289,8 @@ export function ProductManagement() {
             <table className="table">
               <thead>
                 <tr>
-                  <th style={{ width: "60px" }}>ID</th>
+                  <th style={{ width: "50px" }}>ID</th>
+                  <th style={{ width: "60px" }}>Ảnh</th>
                   <th>Sản phẩm & Thương hiệu</th>
                   <th>Danh mục</th>
                   <th>Bảo hành</th>
@@ -304,6 +310,9 @@ export function ProductManagement() {
                   const totalStock = variants.reduce((sum, v) => sum + Number(v.stockQuantity || 0), 0);
 
                   const isStatusActive = (p.status || "").toUpperCase() === "ACTIVE";
+                  const catSlug = categories.find((c) => c.id === p.categoryId)?.slug || (p.categoryName || "").toLowerCase();
+                  const firstVariant = variants[0];
+                  const thumbnail = p.imageUrl || firstVariant?.imageUrl || getCategoryMockImage(catSlug);
 
                   return (
                     <tr key={p.id}>
@@ -311,6 +320,24 @@ export function ProductManagement() {
                         <code className="mono" style={{ color: "var(--muted)" }}>
                           #{p.id}
                         </code>
+                      </td>
+                      <td>
+                        <img
+                          src={thumbnail}
+                          alt={p.name}
+                          style={{
+                            width: "44px",
+                            height: "44px",
+                            objectFit: "cover",
+                            borderRadius: "6px",
+                            border: "1px solid var(--line, #e2e7ed)",
+                            backgroundColor: "#f8fafc",
+                            display: "block",
+                          }}
+                          onError={(e) => {
+                            e.currentTarget.src = getCategoryMockImage(catSlug);
+                          }}
+                        />
                       </td>
                       <td>
                         <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>

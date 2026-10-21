@@ -1,9 +1,10 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useStore } from "@/store";
 import { productApi } from "../api/productApi";
+import { getCategoryMockImage } from "../constants/mockImages";
 
 export function useProductManagement() {
-  const { data, commit, notify } = useStore();
+  const { notify } = useStore();
 
   const [products, setProducts] = useState([]);
   const [brands, setBrands] = useState([]);
@@ -21,84 +22,43 @@ export function useProductManagement() {
   const [statusFilter, setStatusFilter] = useState("ALL"); // ALL, ACTIVE, DRAFT
   const [categoryFilter, setCategoryFilter] = useState("ALL");
 
-  // Fetch real data from Backend
-  const loadData = useCallback(async () => {
+  // Fetch real data from Backend with caching
+  const loadData = useCallback(async (forceRefresh = false) => {
     setLoading(true);
     setError(null);
     try {
       const [prodsData, brandsData, catsData] = await Promise.all([
-        productApi.listAdminProducts(),
-        productApi.getBrands().catch(() => []),
-        productApi.getCategories().catch(() => []),
+        productApi.listAdminProducts(undefined, { forceRefresh }),
+        productApi.getBrands({ forceRefresh }).catch(() => []),
+        productApi.getCategories({ forceRefresh }).catch(() => []),
       ]);
 
-      setProducts(prodsData || []);
+      const enhancedProducts = (prodsData || []).map((p) => {
+        const catSlug = catsData?.find((c) => c.id === p.categoryId)?.slug || (p.categoryName || "").toLowerCase();
+        const fallbackImg = getCategoryMockImage(catSlug);
+        return {
+          ...p,
+          imageUrl: p.imageUrl || fallbackImg,
+          variants: (p.variants || []).map((v) => ({
+            ...v,
+            imageUrl: v.imageUrl || fallbackImg,
+          })),
+        };
+      });
+
+      setProducts(enhancedProducts);
       setBrands(brandsData || []);
       setCategories(catsData || []);
-
-      // Dual-sync to store so legacy demo features (orders, cart, pc-builder) stay updated
-      if (Array.isArray(prodsData) && prodsData.length > 0) {
-        commit((d) => {
-          const syncedItems = [];
-          for (const p of prodsData) {
-            if (p.variants && p.variants.length > 0) {
-              for (const v of p.variants) {
-                syncedItems.push({
-                  id: v.id,
-                  productId: p.id,
-                  name: p.name,
-                  brand: p.brandName || "TechZone",
-                  category: (p.categoryName || "ram").toLowerCase(),
-                  price: Number(v.price),
-                  originalPrice: Number(v.originalPrice || v.price),
-                  variant: v.variantName || v.serialCode,
-                  sku: v.serialCode,
-                  stock: v.stockQuantity,
-                  warranty: p.warrantyPeriodMonths || 12,
-                  status: (p.status || "ACTIVE").toLowerCase(),
-                  image: v.imageUrl || "",
-                  specs: (v.attributes || []).reduce((acc, a) => {
-                    acc[a.specificationName] = a.value;
-                    return acc;
-                  }, {}),
-                });
-              }
-            } else {
-              syncedItems.push({
-                id: p.id,
-                productId: p.id,
-                name: p.name,
-                brand: p.brandName || "TechZone",
-                category: (p.categoryName || "ram").toLowerCase(),
-                price: 0,
-                originalPrice: 0,
-                variant: "Mặc định",
-                sku: `SKU-${p.id}`,
-                stock: 0,
-                warranty: p.warrantyPeriodMonths || 12,
-                status: (p.status || "DRAFT").toLowerCase(),
-                image: "",
-                specs: {},
-              });
-            }
-          }
-
-          // Merge with any demo products that aren't numeric DB IDs
-          const nonDbProducts = d.products.filter((p) => typeof p.id === "string");
-          return {
-            ...d,
-            products: [...syncedItems, ...nonDbProducts],
-          };
-        });
-      }
+      return enhancedProducts;
     } catch (err) {
       console.error("Lỗi khi tải dữ liệu sản phẩm từ Backend:", err);
       setError(err?.message || "Không thể kết nối đến máy chủ Backend.");
-      notify("Không thể kết nối máy chủ backend, đang hiển thị dữ liệu bộ nhớ.", "danger");
+      notify("Không thể kết nối máy chủ backend.", "danger");
+      return [];
     } finally {
       setLoading(false);
     }
-  }, [commit, notify]);
+  }, [notify]);
 
   useEffect(() => {
     loadData();
@@ -208,6 +168,7 @@ export function useProductManagement() {
     viewMode,
     setViewMode,
     selectedProductId,
+    setSelectedProductId,
     selectedProduct,
     searchQuery,
     setSearchQuery,

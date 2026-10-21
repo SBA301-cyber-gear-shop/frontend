@@ -1,8 +1,16 @@
 import { useState, useEffect, useMemo } from "react";
 import { useStore } from "@/store";
 import { productApi } from "../api/productApi";
+import { getCategoryMockImage } from "../constants/mockImages";
 
-export function useProductEditor({ product, brands = [], categories = [], onBack, onSaved }) {
+export function useProductEditor({
+  product,
+  brands = [],
+  categories = [],
+  onBack,
+  onSaved,
+  onRefreshList,
+}) {
   const { notify } = useStore();
 
   const isEditing = Boolean(product && product.id);
@@ -31,6 +39,9 @@ export function useProductEditor({ product, brands = [], categories = [], onBack
   // Initialize or reset form when product changes
   useEffect(() => {
     if (product) {
+      const catSlug = categories.find((c) => c.id === product.categoryId)?.slug || "ram";
+      const fallbackImg = getCategoryMockImage(catSlug);
+
       setProductForm({
         name: product.name || "",
         brandId: product.brandId || brands[0]?.id || 1,
@@ -51,8 +62,8 @@ export function useProductEditor({ product, brands = [], categories = [], onBack
         originalPrice: Number(v.originalPrice || 0),
         stockQuantity: Number(v.stockQuantity),
         stock: Number(v.stockQuantity),
-        imageUrl: v.imageUrl || "",
-        image: v.imageUrl || "",
+        imageUrl: v.imageUrl || fallbackImg,
+        image: v.imageUrl || fallbackImg,
         attributes: v.attributes || [],
         specs: (v.attributes || []).reduce((acc, a) => {
           acc[a.specificationName] = a.value;
@@ -159,6 +170,7 @@ export function useProductEditor({ product, brands = [], categories = [], onBack
           }, {}),
         }));
         setVariants(mapped);
+        onRefreshList?.();
       } else {
         // In-memory drafting for new product
         const targetId = editingVariant ? editingVariant.id : `draft-var-${Date.now()}`;
@@ -226,6 +238,7 @@ export function useProductEditor({ product, brands = [], categories = [], onBack
           }, {}),
         }));
         setVariants(mapped);
+        onRefreshList?.();
       } else {
         setVariants((prev) => prev.filter((v) => v.id !== variantId));
         notify("Đã xóa biến thể khỏi danh sách.");
@@ -269,7 +282,7 @@ export function useProductEditor({ product, brands = [], categories = [], onBack
           status: targetStatus,
         };
 
-        await productApi.updateProduct(product.id, updatePayload);
+        const updated = await productApi.updateProduct(product.id, updatePayload);
 
         if (targetStatus === "ACTIVE" && product.status !== "ACTIVE") {
           await productApi.publishProduct(product.id);
@@ -283,7 +296,7 @@ export function useProductEditor({ product, brands = [], categories = [], onBack
         );
 
         if (onSaved) {
-          onSaved();
+          onSaved(updated || { ...product, ...updatePayload, status: targetStatus });
         }
       } else {
         // CREATE NEW PRODUCT

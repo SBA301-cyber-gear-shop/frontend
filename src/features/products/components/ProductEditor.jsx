@@ -4,8 +4,16 @@ import { Art, Badge, Button, Notice, Panel, Empty, Modal } from "@/components/ui
 import { Field, Select } from "@/components/form";
 import { useProductEditor } from "../hooks/useProductEditor";
 import { VariantModal } from "./VariantModal";
+import { getCategoryMockImage } from "../constants/mockImages";
 
-export function ProductEditor({ product, brands = [], categories = [], onBack, onSaved }) {
+export function ProductEditor({
+  product,
+  brands = [],
+  categories = [],
+  onBack,
+  onSaved,
+  onRefreshList,
+}) {
   const {
     isEditing,
     productForm,
@@ -24,7 +32,7 @@ export function ProductEditor({ product, brands = [], categories = [], onBack, o
     handleSaveProduct,
     handleDeleteProduct,
     submitting,
-  } = useProductEditor({ product, brands, categories, onBack, onSaved });
+  } = useProductEditor({ product, brands, categories, onBack, onSaved, onRefreshList });
 
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
 
@@ -265,15 +273,19 @@ export function ProductEditor({ product, brands = [], categories = [], onBack, o
         <aside className="stack" style={{ width: "340px", flexShrink: 0, gap: "1.5rem" }}>
           {/* CARD 1: STOREFRONT PREVIEW */}
           <Panel title="Xem trước trên cửa hàng">
-            <div style={{ textAlign: "center", marginBottom: "1rem" }}>
-              <Art
-                type={
-                  categories.find((c) => c.id === productForm.categoryId)?.slug || "ram"
-                }
-                image={activePreviewVariant?.imageUrl || activePreviewVariant?.image}
-                name={productForm.name}
-              />
-            </div>
+            {(() => {
+              const catSlug = categories.find((c) => c.id === productForm.categoryId)?.slug || "ram";
+              const previewImg = activePreviewVariant?.imageUrl || activePreviewVariant?.image || getCategoryMockImage(catSlug);
+              return (
+                <div style={{ textAlign: "center", marginBottom: "1rem" }}>
+                  <Art
+                    type={catSlug}
+                    image={previewImg}
+                    name={productForm.name}
+                  />
+                </div>
+              );
+            })()}
             <div className="eyebrow section" style={{ fontSize: "11px", letterSpacing: "1px" }}>
               {brands.find((b) => b.id === productForm.brandId)?.name || "THƯƠNG HIỆU"}
             </div>

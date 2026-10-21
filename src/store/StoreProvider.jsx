@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { readState, writeState } from "./demo/persistence";
 import { StoreContext } from "./context";
 export default function StoreProvider({ children }) {
@@ -14,12 +14,14 @@ export default function StoreProvider({ children }) {
   const current = useRef(data),
     timer = useRef(null);
   useEffect(() => () => clearTimeout(timer.current), []);
-  function notify(message, tone = "success") {
+
+  const notify = useCallback((message, tone = "success") => {
     setToast({ message, tone });
     clearTimeout(timer.current);
     timer.current = setTimeout(() => setToast(null), 4500);
-  }
-  function commit(update) {
+  }, []);
+
+  const commit = useCallback((update) => {
     const next =
       typeof update === "function" ? update(current.current) : update;
     try {
@@ -32,7 +34,7 @@ export default function StoreProvider({ children }) {
     current.current = next;
     setData(next);
     return next;
-  }
+  }, []);
   function signIn(profile) {
     const { password, demoPasswordHash, ...safe } = profile;
     void password;

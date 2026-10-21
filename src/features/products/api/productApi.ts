@@ -1,5 +1,6 @@
 import { axiosClient } from "@/services/axiosClient";
 import { endpoints } from "@/services/endpoints";
+import { apiCache, type CacheOptions } from "@/services/apiCache";
 
 export interface AttributeValueInput {
   specificationId: number;
@@ -93,79 +94,149 @@ export const productApi = {
   // Admin Product APIs
   createProductDraft: async (payload: CreateProductPayload): Promise<ProductResponse> => {
     const res = await axiosClient.post<ProductResponse>(endpoints.admin.products, payload);
+    apiCache.invalidate("admin_products");
+    apiCache.invalidate("catalog_products");
     return res.data;
   },
 
-  listAdminProducts: async (status?: string): Promise<ProductResponse[]> => {
-    const res = await axiosClient.get<ProductResponse[]>(endpoints.admin.products, {
-      params: status ? { status } : undefined,
-    });
-    return res.data;
+  listAdminProducts: async (status?: string, options?: CacheOptions): Promise<ProductResponse[]> => {
+    const cacheKey = `admin_products_${status || "ALL"}`;
+    return apiCache.fetchWithCache(
+      cacheKey,
+      async () => {
+        const res = await axiosClient.get<ProductResponse[]>(endpoints.admin.products, {
+          params: status ? { status } : undefined,
+        });
+        return res.data;
+      },
+      { ttl: 60_000, ...options }
+    );
   },
 
-  getAdminProductById: async (productId: number): Promise<ProductResponse> => {
-    const res = await axiosClient.get<ProductResponse>(`${endpoints.admin.products}/${productId}`);
-    return res.data;
+  getAdminProductById: async (productId: number, options?: CacheOptions): Promise<ProductResponse> => {
+    const cacheKey = `admin_product_${productId}`;
+    return apiCache.fetchWithCache(
+      cacheKey,
+      async () => {
+        const res = await axiosClient.get<ProductResponse>(`${endpoints.admin.products}/${productId}`);
+        return res.data;
+      },
+      { ttl: 60_000, ...options }
+    );
   },
 
   publishProduct: async (productId: number): Promise<ProductResponse> => {
     const res = await axiosClient.put<ProductResponse>(`${endpoints.admin.products}/${productId}/publish`);
+    apiCache.invalidate("admin_products");
+    apiCache.invalidate(`admin_product_${productId}`);
+    apiCache.invalidate("catalog_products");
     return res.data;
   },
 
   updateProduct: async (productId: number, payload: UpdateProductPayload): Promise<ProductResponse> => {
     const res = await axiosClient.put<ProductResponse>(`${endpoints.admin.products}/${productId}`, payload);
+    apiCache.invalidate("admin_products");
+    apiCache.invalidate(`admin_product_${productId}`);
+    apiCache.invalidate("catalog_products");
     return res.data;
   },
 
   deleteProduct: async (productId: number): Promise<void> => {
     await axiosClient.delete(`${endpoints.admin.products}/${productId}`);
+    apiCache.invalidate("admin_products");
+    apiCache.invalidate(`admin_product_${productId}`);
+    apiCache.invalidate("catalog_products");
   },
 
   // Admin Variant APIs
   addVariant: async (productId: number, payload: CreateVariantPayload): Promise<VariantResponse> => {
     const res = await axiosClient.post<VariantResponse>(`${endpoints.admin.products}/${productId}/variants`, payload);
+    apiCache.invalidate("admin_products");
+    apiCache.invalidate(`admin_product_${productId}`);
+    apiCache.invalidate(`admin_variants_${productId}`);
+    apiCache.invalidate("catalog_products");
     return res.data;
   },
 
   updateVariant: async (productId: number, variantId: number, payload: UpdateVariantPayload): Promise<VariantResponse> => {
     const res = await axiosClient.put<VariantResponse>(`${endpoints.admin.products}/${productId}/variants/${variantId}`, payload);
+    apiCache.invalidate("admin_products");
+    apiCache.invalidate(`admin_product_${productId}`);
+    apiCache.invalidate(`admin_variants_${productId}`);
+    apiCache.invalidate("catalog_products");
     return res.data;
   },
 
   deleteVariant: async (productId: number, variantId: number): Promise<void> => {
     await axiosClient.delete(`${endpoints.admin.products}/${productId}/variants/${variantId}`);
+    apiCache.invalidate("admin_products");
+    apiCache.invalidate(`admin_product_${productId}`);
+    apiCache.invalidate(`admin_variants_${productId}`);
+    apiCache.invalidate("catalog_products");
   },
 
-  getVariants: async (productId: number): Promise<VariantResponse[]> => {
-    const res = await axiosClient.get<VariantResponse[]>(`${endpoints.admin.products}/${productId}/variants`);
-    return res.data;
+  getVariants: async (productId: number, options?: CacheOptions): Promise<VariantResponse[]> => {
+    const cacheKey = `admin_variants_${productId}`;
+    return apiCache.fetchWithCache(
+      cacheKey,
+      async () => {
+        const res = await axiosClient.get<VariantResponse[]>(`${endpoints.admin.products}/${productId}/variants`);
+        return res.data;
+      },
+      { ttl: 60_000, ...options }
+    );
   },
 
   // Specifications & Options
-  getSpecifications: async (): Promise<{ id: number; name: string }[]> => {
-    const res = await axiosClient.get(endpoints.admin.specifications);
-    return res.data;
+  getSpecifications: async (options?: CacheOptions): Promise<{ id: number; name: string }[]> => {
+    return apiCache.fetchWithCache(
+      "admin_specifications",
+      async () => {
+        const res = await axiosClient.get(endpoints.admin.specifications);
+        return res.data;
+      },
+      { ttl: 300_000, ...options } // 5 minutes cache
+    );
   },
 
-  getSpecificationOptions: async (specId: number): Promise<SpecOptionResponse[]> => {
-    const res = await axiosClient.get<SpecOptionResponse[]>(`${endpoints.admin.specifications}/${specId}/options`);
-    return res.data;
+  getSpecificationOptions: async (specId: number, options?: CacheOptions): Promise<SpecOptionResponse[]> => {
+    return apiCache.fetchWithCache(
+      `admin_spec_options_${specId}`,
+      async () => {
+        const res = await axiosClient.get<SpecOptionResponse[]>(`${endpoints.admin.specifications}/${specId}/options`);
+        return res.data;
+      },
+      { ttl: 300_000, ...options }
+    );
   },
 
   addSpecificationOption: async (specId: number, data: { code: string; displayValue: string }): Promise<SpecOptionResponse> => {
     const res = await axiosClient.post<SpecOptionResponse>(`${endpoints.admin.specifications}/${specId}/options`, data);
+    apiCache.invalidate(`admin_spec_options_${specId}`);
     return res.data;
   },
 
-  // Brands & Categories
-  getBrands: async (): Promise<{ id: number; name: string; logoUrl?: string; description?: string }[]> => {
-    const res = await axiosClient.get(endpoints.admin.brands);
-    return res.data;
+  // Brands & Categories (Static master data, 5 mins cache)
+  getBrands: async (options?: CacheOptions): Promise<{ id: number; name: string; logoUrl?: string; description?: string }[]> => {
+    return apiCache.fetchWithCache(
+      "admin_brands",
+      async () => {
+        const res = await axiosClient.get(endpoints.admin.brands);
+        return res.data;
+      },
+      { ttl: 300_000, ...options }
+    );
   },
 
-  getCategories: async (): Promise<any[]> => {
-    const res = await axiosClient.get(endpoints.admin.categories);
-    return res.data;
+  getCategories: async (options?: CacheOptions): Promise<any[]> => {
+    return apiCache.fetchWithCache(
+      "admin_categories",
+      async () => {
+        const res = await axiosClient.get(endpoints.admin.categories);
+        return res.data;
+      },
+      { ttl: 300_000, ...options }
+    );
   },
 };
+

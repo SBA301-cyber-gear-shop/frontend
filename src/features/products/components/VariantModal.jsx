@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { Modal, Button, Notice } from "@/components/ui";
 import { Field } from "@/components/form";
+import { money } from "@/utils";
+import { getCategoryMockImage } from "../constants/mockImages";
 
 export function VariantModal({ variant, onSave, onClose }) {
   const [form, setForm] = useState({
@@ -15,6 +17,38 @@ export function VariantModal({ variant, onSave, onClose }) {
 
   const [specText, setSpecText] = useState("");
   const [error, setError] = useState("");
+
+  const update = (key, val) => setForm((prev) => ({ ...prev, [key]: val }));
+
+  const handlePriceInput = (key, e) => {
+    const input = e.target;
+    const rawBefore = input.value;
+    const cursorPos = input.selectionStart || 0;
+    const digitsOnly = rawBefore.replace(/\D/g, "");
+    const num = digitsOnly ? Number(digitsOnly) : 0;
+
+    // Count digits before cursor to maintain position
+    const digitsBeforeCursor = rawBefore.slice(0, cursorPos).replace(/\D/g, "").length;
+
+    update(key, num);
+
+    requestAnimationFrame(() => {
+      if (!input) return;
+      const formatted = num ? new Intl.NumberFormat("vi-VN").format(num) : "";
+      let count = 0;
+      let newCursorPos = formatted.length;
+      for (let i = 0; i < formatted.length; i++) {
+        if (/\d/.test(formatted[i])) {
+          count++;
+          if (count === digitsBeforeCursor) {
+            newCursorPos = i + 1;
+            break;
+          }
+        }
+      }
+      input.setSelectionRange(newCursorPos, newCursorPos);
+    });
+  };
 
   useEffect(() => {
     if (variant) {
@@ -56,8 +90,6 @@ export function VariantModal({ variant, onSave, onClose }) {
       setSpecText("");
     }
   }, [variant]);
-
-  const update = (key, val) => setForm((prev) => ({ ...prev, [key]: val }));
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -142,21 +174,103 @@ export function VariantModal({ variant, onSave, onClose }) {
           />
           <Field
             label="Giá bán (₫) *"
-            type="number"
-            min="1"
-            value={form.price}
-            onChange={(e) => update("price", e.target.value)}
-          />
+            hint={
+              form.price > 0 ? (
+                <span style={{ color: "var(--brand-teal, #008779)", fontWeight: 600 }}>
+                  ✓ {money(form.price)}
+                </span>
+              ) : (
+                "Nhập giá bán cho biến thể (VNĐ)"
+              )
+            }
+          >
+            {(id) => (
+              <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
+                <input
+                  id={id}
+                  className="input full"
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="VD: 1.500.000"
+                  value={form.price ? new Intl.NumberFormat("vi-VN").format(form.price) : ""}
+                  onChange={(e) => handlePriceInput("price", e)}
+                  style={{
+                    paddingRight: "2.5rem",
+                    fontWeight: 600,
+                    fontSize: "15px",
+                    fontVariantNumeric: "tabular-nums",
+                  }}
+                />
+                <span
+                  style={{
+                    position: "absolute",
+                    right: "0.85rem",
+                    fontWeight: 700,
+                    color: "var(--ink-muted, #64748b)",
+                    pointerEvents: "none",
+                    userSelect: "none",
+                  }}
+                >
+                  ₫
+                </span>
+              </div>
+            )}
+          </Field>
           <Field
-            label="Giá gốc (₫)"
-            hint="Để hiển thị giá gạch ngang (nếu có)"
-            type="number"
-            min="0"
-            value={form.originalPrice}
-            onChange={(e) => update("originalPrice", e.target.value)}
-          />
+            label="Giá gốc tham chiếu (₫)"
+            hint={
+              form.originalPrice > 0 ? (
+                <span style={{ color: "var(--ink-muted, #64748b)" }}>
+                  Gốc: <del>{money(form.originalPrice)}</del>
+                </span>
+              ) : (
+                "Để hiển thị giá gạch ngang (nếu có)"
+              )
+            }
+          >
+            {(id) => (
+              <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
+                <input
+                  id={id}
+                  className="input full"
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="VD: 2.000.000"
+                  value={
+                    form.originalPrice
+                      ? new Intl.NumberFormat("vi-VN").format(form.originalPrice)
+                      : ""
+                  }
+                  onChange={(e) => handlePriceInput("originalPrice", e)}
+                  style={{
+                    paddingRight: "2.5rem",
+                    fontWeight: 600,
+                    fontSize: "15px",
+                    fontVariantNumeric: "tabular-nums",
+                  }}
+                />
+                <span
+                  style={{
+                    position: "absolute",
+                    right: "0.85rem",
+                    fontWeight: 700,
+                    color: "var(--ink-muted, #64748b)",
+                    pointerEvents: "none",
+                    userSelect: "none",
+                  }}
+                >
+                  ₫
+                </span>
+              </div>
+            )}
+          </Field>
           <Field
             label="Số lượng tồn kho *"
+            hint={
+              form.stockQuantity > 0
+                ? `${new Intl.NumberFormat("vi-VN").format(form.stockQuantity)} sản phẩm khả dụng`
+                : "Hết hàng nếu = 0"
+            }
             type="number"
             min="0"
             value={form.stockQuantity}
@@ -169,12 +283,63 @@ export function VariantModal({ variant, onSave, onClose }) {
           />
         </div>
 
-        <Field
-          label="URL ảnh biến thể"
-          placeholder="https://... hoặc /assets/..."
-          value={form.imageUrl}
-          onChange={(e) => update("imageUrl", e.target.value)}
-        />
+        <div className="row" style={{ alignItems: "flex-end", gap: "0.75rem" }}>
+          <div style={{ flex: 1 }}>
+            <Field
+              label="URL ảnh biến thể"
+              placeholder="https://... hoặc /assets/..."
+              value={form.imageUrl}
+              onChange={(e) => update("imageUrl", e.target.value)}
+            />
+          </div>
+          {form.imageUrl && (
+            <img
+              src={form.imageUrl}
+              alt="Preview"
+              style={{
+                width: "42px",
+                height: "42px",
+                objectFit: "cover",
+                borderRadius: "6px",
+                border: "1px solid var(--line, #e2e7ed)",
+                marginBottom: "6px",
+              }}
+              onError={(e) => {
+                e.currentTarget.style.display = "none";
+              }}
+            />
+          )}
+        </div>
+
+        <div className="row" style={{ gap: "0.5rem", marginTop: "-0.5rem", marginBottom: "0.5rem", flexWrap: "wrap", alignItems: "center" }}>
+          <span className="small muted" style={{ fontSize: "12px" }}>Chọn ảnh mẫu:</span>
+          {[
+            { id: "ram", label: "RAM" },
+            { id: "ssd", label: "SSD" },
+            { id: "gpu", label: "GPU" },
+            { id: "cpu", label: "CPU" },
+            { id: "mainboard", label: "Mainboard" },
+            { id: "case", label: "Case" },
+            { id: "monitor", label: "Màn hình" },
+          ].map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              style={{
+                fontSize: "11px",
+                padding: "2px 8px",
+                borderRadius: "4px",
+                border: "1px solid var(--line, #e2e7ed)",
+                background: "#f8fafc",
+                cursor: "pointer",
+                color: "var(--ink)",
+              }}
+              onClick={() => update("imageUrl", getCategoryMockImage(item.id))}
+            >
+              + {item.label}
+            </button>
+          ))}
+        </div>
 
         <Field
           label="Thông số kỹ thuật của biến thể (EAV)"

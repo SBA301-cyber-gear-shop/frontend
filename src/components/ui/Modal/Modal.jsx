@@ -1,21 +1,31 @@
 import { useEffect, useRef, useId } from "react";
 
 export function Modal({ title, children, onClose }) {
-  const ref = useRef(null),
-    id = useId();
+  const ref = useRef(null);
+  const id = useId();
+  const mouseDownTargetRef = useRef(null);
+
   useEffect(() => {
     const el = ref.current;
     el.showModal();
     return () => el.close();
   }, []);
+
   return (
     <dialog
       ref={ref}
       className="modal"
       aria-labelledby={id}
       onCancel={onClose}
+      onMouseDown={(e) => {
+        mouseDownTargetRef.current = e.target;
+      }}
       onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
+        // Only close if BOTH mousedown and click originated on the dialog backdrop
+        if (e.target === e.currentTarget && mouseDownTargetRef.current === e.currentTarget) {
+          onClose();
+        }
+        mouseDownTargetRef.current = null;
       }}
     >
       <div className="between">
