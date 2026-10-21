@@ -1,46 +1,102 @@
-import { useState, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useStore } from "@/store";
+import { productApi } from "../api/productApi";
 
-export function useProductEditor({ product, onCreated }) {
-  const { data, commit, notify } = useStore();
+export function useProductEditor({ product, brands = [], categories = [], onBack, onSaved }) {
+  const { notify } = useStore();
 
-  const [currentProductId] = useState(() => {
-    return product?.productId || product?.id || "prod-" + Date.now();
-  });
+  const isEditing = Boolean(product && product.id);
 
-  // Master product info
+  // Master product form
   const [productForm, setProductForm] = useState({
-    name: product?.name || "",
-    brand: product?.brand || "",
-    category: product?.category || "ram",
-    warranty: product?.warranty || 36,
-    description: product?.description || "",
-    status: product?.status || "draft",
+    name: "",
+    brandId: brands[0]?.id || 1,
+    categoryId: categories[0]?.id || 1,
+    warranty: 12,
+    description: "",
+    status: "DRAFT",
   });
 
-  // Modal state for adding/editing variant
+  // Variants state
+  const [variants, setVariants] = useState([]);
+  const [previewVariantId, setPreviewVariantId] = useState(null);
+
+  // Variant Modal state
   const [modalOpen, setModalOpen] = useState(false);
   const [editingVariant, setEditingVariant] = useState(null);
 
-  // All variants of this product - works for both existing products and brand new drafting products
-  const variants = useMemo(() => {
-    return data.products.filter(
-      (p) => p.productId === currentProductId || (product && p.id === product.id)
-    );
-  }, [data.products, currentProductId, product]);
+  // Loading / Submitting flags
+  const [submitting, setSubmitting] = useState(false);
 
-  // Currently active variant for preview (default to the first variant or the product itself)
-  const [previewVariantId, setPreviewVariantId] = useState(product?.id || null);
+  // Initialize or reset form when product changes
+  useEffect(() => {
+    if (product) {
+      setProductForm({
+        name: product.name || "",
+        brandId: product.brandId || brands[0]?.id || 1,
+        categoryId: product.categoryId || categories[0]?.id || 1,
+        warranty: product.warrantyPeriodMonths || 12,
+        description: product.description || "",
+        status: (product.status || "DRAFT").toUpperCase(),
+      });
+
+      const initialVariants = (product.variants || []).map((v) => ({
+        id: v.id,
+        serialCode: v.serialCode,
+        sku: v.serialCode,
+        variantName: v.variantName || v.serialCode,
+        variant: v.variantName || v.serialCode,
+        slug: v.slug,
+        price: Number(v.price),
+        originalPrice: Number(v.originalPrice || 0),
+        stockQuantity: Number(v.stockQuantity),
+        stock: Number(v.stockQuantity),
+        imageUrl: v.imageUrl || "",
+        image: v.imageUrl || "",
+        attributes: v.attributes || [],
+        specs: (v.attributes || []).reduce((acc, a) => {
+          acc[a.specificationName] = a.value;
+          return acc;
+        }, {}),
+      }));
+
+      setVariants(initialVariants);
+      if (initialVariants.length > 0) {
+        setPreviewVariantId(initialVariants[0].id);
+      } else {
+        setPreviewVariantId(null);
+      }
+    } else {
+      // Create new mode
+      setProductForm({
+        name: "",
+        brandId: brands[0]?.id || 1,
+        categoryId: categories[0]?.id || 1,
+        warranty: 24,
+        description: "",
+        status: "DRAFT",
+      });
+      setVariants([]);
+      setPreviewVariantId(null);
+    }
+  }, [product, brands, categories]);
+
+  // Update a single field in the master product form
+  const updateProduct = (key, value) => {
+    setProductForm((prev) => ({ ...prev, [key]: value }));
+  };
+
+  // Currently active variant for the live preview card
   const activePreviewVariant = useMemo(() => {
+    if (variants.length === 0) return null;
     if (previewVariantId) {
       const found = variants.find((v) => v.id === previewVariantId);
       if (found) return found;
     }
-    return variants[0] || null;
+    return variants[0];
   }, [variants, previewVariantId]);
 
-  const updateProduct = (k, v) => setProductForm((f) => ({ ...f, [k]: v }));
-
+  // Variant Modal Handlers
   const openAddVariantModal = () => {
     setEditingVariant(null);
     setModalOpen(true);
@@ -56,179 +112,247 @@ export function useProductEditor({ product, onCreated }) {
     setModalOpen(false);
   };
 
-  // Save or Update Variant
-  const handleSaveVariant = (variantData) => {
+  // Save Variant (supports both Real API on existing product and In-Memory Draft for new product)
+  const handleSaveVariant = async (variantData) => {
     try {
-      const isEditing = Boolean(editingVariant);
-      const targetId = isEditing ? editingVariant.id : (variantData.id || "var-" + Date.now());
+      if (isEditing) {
+        // Real Backend Variant CRUD
+        const payload = {
+          serialCode: variantData.serialCode.trim(),
+          variantName: variantData.variantName?.trim() || variantData.serialCode.trim(),
+          slug: variantData.slug?.trim() || undefined,
+          price: Number(variantData.price),
+          originalPrice: variantData.originalPrice ? Number(variantData.originalPrice) : null,
+          stockQuantity: Number(variantData.stockQuantity || 0),
+          imageUrl: variantData.imageUrl?.trim() || undefined,
+        };
 
-      commit((d) => {
-        // Check SKU uniqueness
-        if (d.products.some((p) => p.id !== targetId && p.sku === variantData.sku)) {
-          throw new Error("Mã SKU '" + variantData.sku + "' đã được sử dụng trên một biến thể khác.");
+        if (editingVariant && typeof editingVariant.id === "number") {
+          // Update existing variant via API
+          await productApi.updateVariant(product.id, editingVariant.id, payload);
+          notify("Đã cập nhật biến thể thành công trên cơ sở dữ liệu.");
+        } else {
+          // Add new variant to existing product via API
+          await productApi.addVariant(product.id, payload);
+          notify("Đã thêm biến thể mới thành công vào cơ sở dữ liệu.");
         }
 
-        const newVariantRecord = {
-          ...variantData,
+        // Re-fetch updated product with variants
+        const refreshed = await productApi.getAdminProductById(product.id);
+        const mapped = (refreshed.variants || []).map((v) => ({
+          id: v.id,
+          serialCode: v.serialCode,
+          sku: v.serialCode,
+          variantName: v.variantName,
+          variant: v.variantName,
+          slug: v.slug,
+          price: Number(v.price),
+          originalPrice: Number(v.originalPrice || 0),
+          stockQuantity: Number(v.stockQuantity),
+          stock: Number(v.stockQuantity),
+          imageUrl: v.imageUrl || "",
+          image: v.imageUrl || "",
+          attributes: v.attributes || [],
+          specs: (v.attributes || []).reduce((acc, a) => {
+            acc[a.specificationName] = a.value;
+            return acc;
+          }, {}),
+        }));
+        setVariants(mapped);
+      } else {
+        // In-memory drafting for new product
+        const targetId = editingVariant ? editingVariant.id : `draft-var-${Date.now()}`;
+        const newRecord = {
           id: targetId,
-          productId: currentProductId,
-          name: productForm.name || variantData.variant,
-          brand: productForm.brand,
-          category: productForm.category,
-          warranty: Number(productForm.warranty),
-          description: productForm.description,
-          status: productForm.status,
-          variant: variantData.variantName || variantData.variant,
+          serialCode: variantData.serialCode.trim(),
+          sku: variantData.serialCode.trim(),
+          variantName: variantData.variantName?.trim() || variantData.serialCode.trim(),
+          variant: variantData.variantName?.trim() || variantData.serialCode.trim(),
+          slug: variantData.slug?.trim() || "",
           price: Number(variantData.price),
           originalPrice: Number(variantData.originalPrice || 0),
-          stock: Number(variantData.stockQuantity),
-          image: variantData.imageUrl || "",
+          stockQuantity: Number(variantData.stockQuantity || 0),
+          stock: Number(variantData.stockQuantity || 0),
+          imageUrl: variantData.imageUrl?.trim() || "",
+          image: variantData.imageUrl?.trim() || "",
           specs: variantData.specs || {},
         };
 
-        let updatedProducts;
-        if (isEditing) {
-          updatedProducts = d.products.map((p) => (p.id === targetId ? newVariantRecord : p));
+        if (editingVariant) {
+          setVariants((prev) => prev.map((v) => (v.id === targetId ? newRecord : v)));
+          notify("Đã cập nhật bản nháp biến thể.");
         } else {
-          updatedProducts = [...d.products, newVariantRecord];
+          setVariants((prev) => [...prev, newRecord]);
+          notify("Đã thêm biến thể mới vào danh sách.");
         }
 
-        return {
-          ...d,
-          products: updatedProducts,
-        };
-      });
-
-      notify(isEditing ? "Đã cập nhật biến thể." : "Đã thêm biến thể mới.");
-      if (!previewVariantId) {
-        setPreviewVariantId(targetId);
+        if (!previewVariantId) {
+          setPreviewVariantId(targetId);
+        }
       }
+
       closeVariantModal();
     } catch (e) {
-      notify(e.message, "danger");
+      notify(e.message || "Lỗi khi lưu biến thể.", "danger");
       throw e;
     }
   };
 
-  // Delete Variant with Order guard
-  const handleDeleteVariant = (variantId) => {
+  // Delete Variant
+  const handleDeleteVariant = async (variantId) => {
     try {
-      const variantToDelete = data.products.find((p) => p.id === variantId);
-      if (!variantToDelete) return;
-
-      // Check if variant has existing orders
-      const hasOrders = data.orders.some((o) =>
-        o.lines?.some((l) => l.id === variantId)
-      );
-
-      if (hasOrders) {
-        throw new Error(
-          `Không thể xóa biến thể '${variantToDelete.variant || variantToDelete.sku}' vì đã phát sinh trong đơn hàng. Vui lòng chỉnh tồn kho về 0 thay vì xóa.`
-        );
+      if (isEditing && typeof variantId === "number") {
+        await productApi.deleteVariant(product.id, variantId);
+        notify("Đã xóa biến thể khỏi cơ sở dữ liệu.");
+        // Re-fetch
+        const refreshed = await productApi.getAdminProductById(product.id);
+        const mapped = (refreshed.variants || []).map((v) => ({
+          id: v.id,
+          serialCode: v.serialCode,
+          sku: v.serialCode,
+          variantName: v.variantName,
+          variant: v.variantName,
+          slug: v.slug,
+          price: Number(v.price),
+          originalPrice: Number(v.originalPrice || 0),
+          stockQuantity: Number(v.stockQuantity),
+          stock: Number(v.stockQuantity),
+          imageUrl: v.imageUrl || "",
+          image: v.imageUrl || "",
+          attributes: v.attributes || [],
+          specs: (v.attributes || []).reduce((acc, a) => {
+            acc[a.specificationName] = a.value;
+            return acc;
+          }, {}),
+        }));
+        setVariants(mapped);
+      } else {
+        setVariants((prev) => prev.filter((v) => v.id !== variantId));
+        notify("Đã xóa biến thể khỏi danh sách.");
       }
-
-      commit((d) => {
-        const remaining = d.products.filter((p) => p.id !== variantId);
-        const productVariants = remaining.filter((p) => p.productId === currentProductId);
-        if (productVariants.length === 0) {
-          setProductForm((f) => ({ ...f, status: "draft" }));
-        }
-        return {
-          ...d,
-          products: remaining,
-        };
-      });
 
       if (previewVariantId === variantId) {
         setPreviewVariantId(null);
       }
-      notify("Đã xóa biến thể.");
     } catch (e) {
-      notify(e.message, "danger");
+      notify(e.message || "Không thể xóa biến thể.", "danger");
     }
   };
 
-  // Save Product Master and propagate changes to its variants
-  const handleSaveProduct = (targetStatus) => {
+  // Save Product Master (Draft or Publish)
+  const handleSaveProduct = async (targetStatus = "DRAFT") => {
     try {
-      if (!productForm.name.trim() || !productForm.brand.trim()) {
-        throw new Error("Vui lòng nhập đầy đủ Tên sản phẩm và Thương hiệu.");
+      if (!productForm.name.trim()) {
+        throw new Error("Vui lòng nhập Tên sản phẩm.");
+      }
+      if (!productForm.brandId) {
+        throw new Error("Vui lòng chọn Thương hiệu.");
+      }
+      if (!productForm.categoryId) {
+        throw new Error("Vui lòng chọn Danh mục.");
       }
 
-      if (targetStatus === "active") {
-        if (variants.length === 0) {
-          throw new Error("Sản phẩm phải có ít nhất 1 biến thể (variant) để đăng bán.");
+      if (targetStatus === "ACTIVE" && variants.length === 0) {
+        throw new Error("Sản phẩm phải có ít nhất 1 biến thể SKU hợp lệ để đăng bán.");
+      }
+
+      setSubmitting(true);
+
+      if (isEditing) {
+        // UPDATE EXISTING PRODUCT
+        const updatePayload = {
+          name: productForm.name.trim(),
+          brandId: Number(productForm.brandId),
+          categoryId: Number(productForm.categoryId),
+          warrantyPeriodMonths: Number(productForm.warranty) || 12,
+          description: productForm.description || "",
+          status: targetStatus,
+        };
+
+        await productApi.updateProduct(product.id, updatePayload);
+
+        if (targetStatus === "ACTIVE" && product.status !== "ACTIVE") {
+          await productApi.publishProduct(product.id);
         }
-      }
 
-      commit((d) => {
-        const updatedStatus = targetStatus || productForm.status;
-        
-        let hasExisting = d.products.some(
-          (p) => p.productId === currentProductId || p.id === product?.id
+        setProductForm((prev) => ({ ...prev, status: targetStatus }));
+        notify(
+          targetStatus === "ACTIVE"
+            ? "Đã cập nhật và Đăng bán sản phẩm thành công trên hệ thống!"
+            : "Đã cập nhật thông tin sản phẩm (Bản nháp)."
         );
 
-        let updatedProducts;
-        if (hasExisting) {
-          updatedProducts = d.products.map((p) => {
-            if (p.productId === currentProductId || p.id === product?.id) {
-              return {
-                ...p,
-                name: productForm.name.trim(),
-                brand: productForm.brand.trim(),
-                category: productForm.category,
-                warranty: Number(productForm.warranty),
-                description: productForm.description,
-                status: updatedStatus,
-              };
-            }
-            return p;
-          });
-        } else {
-          // If no variants added yet, create base draft placeholder
-          const placeholderVariant = {
-            id: currentProductId,
-            productId: currentProductId,
-            name: productForm.name.trim(),
-            brand: productForm.brand.trim(),
-            category: productForm.category,
-            warranty: Number(productForm.warranty),
-            description: productForm.description,
-            variant: "Tiêu chuẩn",
-            sku: (productForm.brand.slice(0, 3) + "-" + Date.now().toString().slice(-4)).toUpperCase(),
-            price: 0,
-            originalPrice: 0,
-            stock: 0,
-            image: "",
-            specs: {},
-            status: "draft",
-          };
-          updatedProducts = [...d.products, placeholderVariant];
+        if (onSaved) {
+          onSaved();
+        }
+      } else {
+        // CREATE NEW PRODUCT
+        const preparedVariants = variants.map((v) => ({
+          serialCode: v.serialCode.trim(),
+          variantName: v.variantName?.trim() || v.serialCode.trim(),
+          slug: v.slug?.trim() || undefined,
+          price: Number(v.price),
+          originalPrice: v.originalPrice ? Number(v.originalPrice) : null,
+          stockQuantity: Number(v.stockQuantity || 0),
+          imageUrl: v.imageUrl?.trim() || undefined,
+        }));
+
+        const createPayload = {
+          name: productForm.name.trim(),
+          brandId: Number(productForm.brandId),
+          categoryId: Number(productForm.categoryId),
+          warrantyPeriodMonths: Number(productForm.warranty) || 12,
+          description: productForm.description || "",
+          variants: preparedVariants.length > 0 ? preparedVariants : undefined,
+        };
+
+        const createdProd = await productApi.createProductDraft(createPayload);
+
+        if (targetStatus === "ACTIVE" && preparedVariants.length > 0) {
+          await productApi.publishProduct(createdProd.id);
         }
 
-        return {
-          ...d,
-          products: updatedProducts,
-        };
-      });
+        notify(
+          targetStatus === "ACTIVE"
+            ? "Đã tạo mới và Đăng bán sản phẩm thành công!"
+            : "Đã tạo sản phẩm mới dưới dạng Bản nháp."
+        );
 
-      setProductForm((f) => ({ ...f, status: targetStatus }));
-      notify(targetStatus === "active" ? "Đã lưu và đăng bán sản phẩm thành công." : "Đã lưu thông tin sản phẩm (Bản nháp).");
-
-      if (!product && onCreated) {
-        onCreated(currentProductId);
+        if (onSaved) {
+          onSaved(createdProd);
+        }
       }
     } catch (e) {
-      notify(e.message, "danger");
+      notify(e.message || "Lỗi khi lưu sản phẩm.", "danger");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // Delete Product
+  const handleDeleteProduct = async () => {
+    if (!isEditing) return;
+    try {
+      setSubmitting(true);
+      await productApi.deleteProduct(product.id);
+      notify(`Đã xóa sản phẩm '${product.name}' thành công.`);
+      if (onBack) {
+        onBack();
+      }
+    } catch (e) {
+      notify(e.message || "Không thể xóa sản phẩm.", "danger");
+    } finally {
+      setSubmitting(false);
     }
   };
 
   return {
-    currentProductId,
+    isEditing,
     productForm,
     updateProduct,
     variants,
     activePreviewVariant,
+    previewVariantId,
     setPreviewVariantId,
     modalOpen,
     editingVariant,
@@ -238,5 +362,7 @@ export function useProductEditor({ product, onCreated }) {
     handleSaveVariant,
     handleDeleteVariant,
     handleSaveProduct,
+    handleDeleteProduct,
+    submitting,
   };
 }
