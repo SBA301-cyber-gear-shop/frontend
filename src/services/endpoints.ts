@@ -1,6 +1,6 @@
 export const endpoints = {
   auth: { login: "/api/auth/login", register: "/api/auth/register" },
-   pcBuilder: {
+  pcBuilder: {
     suggest: "/api/v1/pc-build/ai-suggest",
     replacements: "/api/v1/pc-build/compatible-replacements",
     saveCustom: "/api/v1/pc-build/save",
@@ -18,5 +18,17 @@ export const endpoints = {
     specifications: "/api/admin/specifications",
     categories: "/api/admin/categories",
     brands: "/api/admin/brands",
+  },
+  aftersales: {
+    cards: "/api/warranty-cards",
+    requests: "/api/service-requests",
+    request: (id: number | string) => `/api/service-requests/${id}`,
+    transitions: (id: number | string) =>
+      `/api/service-requests/${id}/transitions`,
+    notes: (id: number | string) => `/api/service-requests/${id}/notes`,
+    card: (id: number | string) => `/api/service-requests/${id}/warranty-card`,
+    replacement: (id: number | string) =>
+      `/api/service-requests/${id}/replacement`,
+    myCards: "/api/my/warranty-cards",
   },
 } as const;

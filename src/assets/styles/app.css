@@ -1872,4 +1872,17 @@ textarea {
   body {
     background: white;
   }
+  /* Vừa tạo phiếu bảo hành thì chỉ in biên nhận, không in cả màn hình tiếp nhận. */
+  .admin-main:has(.receipt) > :not(.split),
+  .admin-main:has(.receipt) .split > :not(aside),
+  .admin-main:has(.receipt) aside > :not(.receipt) {
+    display: none !important;
+  }
+}
+/* fieldset chỉ dùng để khóa cả form khi đang gửi, không vẽ khung. */
+.plain-fieldset {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
 }
