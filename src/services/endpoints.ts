@@ -9,6 +9,16 @@ export const endpoints = {
     detail: (buildId: number | string) => `/api/v1/pc-build/${buildId}`,
     delete: (buildId: number | string) => `/api/v1/pc-build/${buildId}`,
   },
+  catalog: {
+    products: "/api/catalog/products",
+    categories: "/api/catalog/categories",
+  },
+  admin: {
+    products: "/api/admin/products",
+    specifications: "/api/admin/specifications",
+    categories: "/api/admin/categories",
+    brands: "/api/admin/brands",
+  },
   aftersales: {
     cards: "/api/warranty-cards",
     requests: "/api/service-requests",
