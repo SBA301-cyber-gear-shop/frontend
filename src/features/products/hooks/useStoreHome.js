@@ -51,8 +51,38 @@ export function useStoreHome() {
           new Date() <= new Date(p.end),
       )
       .sort((a, b) => a.bannerOrder - b.bannerOrder);
+
+  const featuredProducts = demoMode
+    ? ["ram16", "cpu1", "gpu1", "monitor0"]
+        .map((id) => data.products.find((p) => p.id === id))
+        .filter((p) => p?.status === "active")
+    : (() => {
+        const active = data.products.filter(
+          (p) => p?.status?.toLowerCase() === "active",
+        );
+        const chosen = [];
+        const seenCats = new Set();
+        for (const p of active) {
+          if (!seenCats.has(p.category)) {
+            seenCats.add(p.category);
+            chosen.push(p);
+            if (chosen.length === 4) break;
+          }
+        }
+        if (chosen.length < 4) {
+          for (const p of active) {
+            if (!chosen.some((c) => c.id === p.id)) {
+              chosen.push(p);
+              if (chosen.length === 4) break;
+            }
+          }
+        }
+        return chosen;
+      })();
+
   return {
     data,
+    demoMode,
     slide,
     setSlide,
     playing,
@@ -62,5 +92,6 @@ export function useStoreHome() {
     s,
     promos,
     promotionError: remote.error,
+    featuredProducts,
   };
 }

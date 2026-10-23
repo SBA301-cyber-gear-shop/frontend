@@ -7,7 +7,6 @@ import { useStoreHome } from "../hooks/useStoreHome";
 
 export function StoreHome() {
   const {
-    data,
     slide,
     setSlide,
     playing,
@@ -17,6 +16,7 @@ export function StoreHome() {
     s,
     promos,
     promotionError,
+    featuredProducts,
   } = useStoreHome();
   return (
     <>
@@ -136,12 +136,9 @@ export function StoreHome() {
           </Button>
         </div>
         <div className="four-col">
-          {["ram16", "cpu1", "gpu1", "monitor0"]
-            .map((id) => data.products.find((p) => p.id === id))
-            .filter((p) => p?.status === "active")
-            .map((p) => (
-              <ProductCard key={p.id} product={p} />
-            ))}
+          {featuredProducts.map((p) => (
+            <ProductCard key={p.id} product={p} />
+          ))}
         </div>
       </section>
       {promos.map((promo) => (

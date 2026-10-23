@@ -11,6 +11,9 @@ export const catalogApi = {
       category: product.category || "other",
       originalPrice: product.originalPrice ?? product.price,
       specs: product.specs || {},
+      ...(product.status
+        ? { status: String(product.status).toLowerCase() }
+        : {}),
     }));
   },
 };

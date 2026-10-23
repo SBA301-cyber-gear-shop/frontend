@@ -2,6 +2,8 @@ import { useParams, useSearchParams } from "react-router-dom";
 import { useStore } from "@/store";
 import { categories } from "../constants";
 
+const PAGE_SIZE = 9;
+
 export function useCatalog() {
   const { data, catalogLoading, catalogError } = useStore(),
     { category } = useParams(),
@@ -38,10 +40,20 @@ export function useCatalog() {
           ? b.price - a.price
           : a.name.localeCompare(b.name, "vi"),
     );
+
+  const totalPages = Math.max(1, Math.ceil(found.length / PAGE_SIZE));
   const page = Math.max(
     1,
-    Math.min(Number(params.get("page")) || 1, Math.ceil(found.length / 9) || 1),
+    Math.min(Number(params.get("page")) || 1, totalPages),
   );
+
+  function goToPage(targetPage) {
+    const next = new URLSearchParams(params);
+    next.set("page", String(targetPage));
+    setParams(next);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
   function update(key, value) {
     const next = new URLSearchParams(params);
     next.delete("page");
@@ -49,6 +61,7 @@ export function useCatalog() {
     else next.delete(key);
     setParams(next);
   }
+
   function toggleBrand(brand) {
     const next = new URLSearchParams(params);
     next.delete("brand");
@@ -59,6 +72,7 @@ export function useCatalog() {
     next.delete("page");
     setParams(next);
   }
+
   const title =
     categories.find((c) => c.id === selectedCategory)?.name ||
     "Linh kiện & thiết bị";
@@ -78,6 +92,9 @@ export function useCatalog() {
       ),
     ),
   ].slice(0, 14);
+
+  const pageProducts = found.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
   return {
     category,
     params,
@@ -91,6 +108,9 @@ export function useCatalog() {
     base,
     found,
     page,
+    totalPages,
+    pageProducts,
+    goToPage,
     update,
     toggleBrand,
     title,

@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { categories } from "../constants";
 import { money } from "@/utils";
@@ -8,24 +9,38 @@ import { useCatalog } from "../hooks/useCatalog";
 
 export function CatalogBrowser() {
   const {
-    params,
     setParams,
     selectedCategory,
     term,
     brands,
     sort,
     max,
-    spec,
     base,
     found,
     page,
+    totalPages,
+    pageProducts,
+    goToPage,
     update,
     toggleBrand,
     title,
-    specOptions,
     catalogLoading,
     catalogError,
   } = useCatalog();
+
+  const scrollRef = useRef(null);
+  const activeBtnRef = useRef(null);
+
+  useEffect(() => {
+    if (activeBtnRef.current) {
+      activeBtnRef.current.scrollIntoView({
+        behavior: "smooth",
+        block: "nearest",
+        inline: "center",
+      });
+    }
+  }, [page]);
+
   if (catalogLoading || catalogError) return null;
   return (
     <>
@@ -42,7 +57,7 @@ export function CatalogBrowser() {
               ? "Kết quả cho “" + term + "”"
               : title + " cho góc máy của bạn"}
           </h1>
-          <p>Lựa chọn theo thương hiệu, mức giá và thông số của phiên bản.</p>
+          <p>Lựa chọn theo thương hiệu, mức giá và danh mục của phiên bản.</p>
         </div>
         <Badge tone="info">Nhận tại cửa hàng</Badge>
       </div>
@@ -67,19 +82,24 @@ export function CatalogBrowser() {
           </div>
           <div className="filter-group">
             <h4>Thương hiệu</h4>
-            {[...new Set(base.map((p) => p.brand))].map((b) => (
-              <label className="filter-option" key={b}>
-                <input
-                  aria-label={b}
-                  type="checkbox"
-                  key={b + "-" + (brands.includes(b) ? "on" : "off")}
-                  defaultChecked={brands.includes(b)}
-                  onChange={() => toggleBrand(b)}
-                />
-                {b}
-                <small>{base.filter((p) => p.brand === b).length}</small>
-              </label>
-            ))}
+            <div className="filter-options-scroll">
+              {[...new Set(base.map((p) => p.brand))]
+                .filter(Boolean)
+                .sort((a, b) => a.localeCompare(b, "vi"))
+                .map((b) => (
+                  <label className="filter-option" key={b}>
+                    <input
+                      aria-label={b}
+                      type="checkbox"
+                      key={b + "-" + (brands.includes(b) ? "on" : "off")}
+                      defaultChecked={brands.includes(b)}
+                      onChange={() => toggleBrand(b)}
+                    />
+                    {b}
+                    <small>{base.filter((p) => p.brand === b).length}</small>
+                  </label>
+                ))}
+            </div>
           </div>
           <div className="filter-group">
             <Field label="Giá tối đa">
@@ -101,33 +121,18 @@ export function CatalogBrowser() {
             </Field>
           </div>
           <div className="filter-group">
-            <Field label="Thông số">
-              {(id) => (
-                <select
-                  id={id}
-                  className="input"
-                  value={spec}
-                  onChange={(e) => update("spec", e.target.value)}
-                >
-                  <option value="">Tất cả thông số</option>
-                  {specOptions.map((v) => (
-                    <option key={v}>{v}</option>
-                  ))}
-                </select>
-              )}
-            </Field>
-          </div>
-          <div className="filter-group">
             <h4>Danh mục</h4>
-            {categories.map((c) => (
-              <Link
-                className="category-filter"
-                key={c.id}
-                to={"/danh-muc/" + c.id}
-              >
-                {c.name}
-              </Link>
-            ))}
+            <div className="filter-options-scroll">
+              {categories.map((c) => (
+                <Link
+                  className={`category-filter ${selectedCategory === c.id ? "active" : ""}`}
+                  key={c.id}
+                  to={"/danh-muc/" + c.id}
+                >
+                  {c.name}
+                </Link>
+              ))}
+            </div>
           </div>
         </aside>
         <div>
@@ -146,7 +151,7 @@ export function CatalogBrowser() {
           </div>
           {found.length ? (
             <div className="catalog-products">
-              {found.slice((page - 1) * 9, page * 9).map((p) => (
+              {pageProducts.map((p) => (
                 <ProductCard key={p.id} product={p} />
               ))}
             </div>
@@ -156,22 +161,49 @@ export function CatalogBrowser() {
               description="Thử đổi từ khóa hoặc xóa bộ lọc."
             />
           )}
-          {found.length > 9 && (
-            <div className="pagination">
-              {Array.from({ length: Math.ceil(found.length / 9) }, (_, i) => (
-                <button
-                  className={page === i + 1 ? "active" : ""}
-                  key={i}
-                  onClick={() => {
-                    const p = new URLSearchParams(params);
-                    p.set("page", i + 1);
-                    setParams(p);
-                    window.scrollTo(0, 0);
-                  }}
-                >
-                  {i + 1}
-                </button>
-              ))}
+          {totalPages > 1 && (
+            <div className="pagination-wrapper">
+              <button
+                type="button"
+                className="pagination-nav-btn"
+                disabled={page <= 1}
+                aria-label="Trang trước"
+                onClick={() => goToPage(page - 1)}
+              >
+                ←
+              </button>
+              <div
+                className="pagination-scroll"
+                ref={scrollRef}
+                onWheel={(e) => {
+                  if (e.deltaY !== 0) {
+                    e.currentTarget.scrollLeft += e.deltaY;
+                  }
+                }}
+              >
+                <div className="pagination">
+                  {Array.from({ length: totalPages }, (_, i) => (
+                    <button
+                      type="button"
+                      className={page === i + 1 ? "active" : ""}
+                      key={i}
+                      ref={page === i + 1 ? activeBtnRef : null}
+                      onClick={() => goToPage(i + 1)}
+                    >
+                      {i + 1}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <button
+                type="button"
+                className="pagination-nav-btn"
+                disabled={page >= totalPages}
+                aria-label="Trang tiếp"
+                onClick={() => goToPage(page + 1)}
+              >
+                →
+              </button>
             </div>
           )}
         </div>
