@@ -23,3 +23,20 @@ export const REQUEST_RESOLUTION = {
   no_fault_found: "Không tìm thấy lỗi",
   withdrawn: "Khách rút yêu cầu",
 };
+// Cùng các mã trên nhưng viết cho khách đọc (trang Bảo hành của tôi).
+export const CUSTOMER_STATUS = {
+  received: "Đã gửi bảo hành",
+  inspecting: "Đang kiểm tra",
+  repairing: "Đang sửa chữa",
+  waiting_for_parts: "Đang chờ linh kiện",
+  ready_for_return: "Sẵn sàng nhận máy",
+  returned: "Đã nhận lại máy",
+  canceled: "Đã hủy yêu cầu",
+};
+export const CUSTOMER_RESOLUTION = {
+  repaired: "Đã sửa xong",
+  replaced: "Được đổi thiết bị mới",
+  rejected: "Không thuộc phạm vi bảo hành",
+  no_fault_found: "Thiết bị không có lỗi",
+  withdrawn: "Bạn đã rút yêu cầu",
+};

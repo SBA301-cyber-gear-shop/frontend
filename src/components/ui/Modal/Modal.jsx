@@ -1,6 +1,6 @@
 import { useEffect, useRef, useId } from "react";
 
-export function Modal({ title, children, onClose }) {
+export function Modal({ title, children, onClose, className = "" }) {
   const ref = useRef(null);
   const id = useId();
   const mouseDownTargetRef = useRef(null);
@@ -14,7 +14,7 @@ export function Modal({ title, children, onClose }) {
   return (
     <dialog
       ref={ref}
-      className="modal"
+      className={"modal " + className}
       aria-labelledby={id}
       onCancel={onClose}
       onMouseDown={(e) => {
@@ -22,7 +22,10 @@ export function Modal({ title, children, onClose }) {
       }}
       onClick={(e) => {
         // Only close if BOTH mousedown and click originated on the dialog backdrop
-        if (e.target === e.currentTarget && mouseDownTargetRef.current === e.currentTarget) {
+        if (
+          e.target === e.currentTarget &&
+          mouseDownTargetRef.current === e.currentTarget
+        ) {
           onClose();
         }
         mouseDownTargetRef.current = null;

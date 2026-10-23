@@ -8,6 +8,7 @@ import {
   Empty,
   Heading,
   KV,
+  Modal,
   Notice,
   Panel,
 } from "@/components/ui";
@@ -15,7 +16,7 @@ import { Field } from "@/components/form";
 import { REQUEST_RESOLUTION, REQUEST_STATUS } from "../constants";
 import { cardBadge, counterSteps, day, today } from "../domain/requests";
 import { useAftersales } from "../hooks/useAftersales";
-import { RequestHistory } from "./RequestHistory";
+import { RequestDetail, RequestHistory } from "./RequestHistory";
 
 const EMPTY_INTAKE = {
   issueDescription: "",
@@ -38,7 +39,8 @@ export function ApiWarrantyIntake() {
     [verified, setVerified] = useState(false),
     [note, setNote] = useState(""),
     [publicNote, setPublicNote] = useState(""),
-    [busy, setBusy] = useState(false);
+    [busy, setBusy] = useState(false),
+    [detail, setDetail] = useState(null);
   // Số thứ tự của lần tra cứu hoặc chọn thẻ mới nhất, để bỏ kết quả về trễ của lần trước.
   const latest = useRef(0);
   const card = cards?.find((c) => c.id === selectedId) || null;
@@ -98,6 +100,12 @@ export function ApiWarrantyIntake() {
       setReceipt(created);
     });
   }
+  // Tải lại phiếu khi mở chi tiết để thấy đủ lịch sử mới nhất.
+  const view = (id) =>
+    svc
+      .getRequest(id)
+      .then(setDetail)
+      .catch((err) => notify(err.message, "danger"));
   const act = (step) =>
     write(async () => {
       await svc.transition(open.id, {
@@ -199,6 +207,13 @@ export function ApiWarrantyIntake() {
                 {open.publicNote && (
                   <p className="small muted">Đã báo khách: {open.publicNote}</p>
                 )}
+                <button
+                  type="button"
+                  className="text-button"
+                  onClick={() => view(open.id)}
+                >
+                  Xem chi tiết phiếu
+                </button>
                 {counterSteps(open).length > 0 && (
                   <div className="section">
                     <Field label="Ghi chú bàn giao hoặc lý do">
@@ -327,9 +342,12 @@ export function ApiWarrantyIntake() {
                 <p className="section">{receipt.issueDescription}</p>
                 <KV label="Ngoại quan">{receipt.conditionNote}</KV>
                 <KV label="Phụ kiện">{receipt.accessoriesNote}</KV>
-                <Button className="section" onClick={() => window.print()}>
-                  In biên nhận
-                </Button>
+                <div className="row wrap-row section">
+                  <Button onClick={() => window.print()}>In biên nhận</Button>
+                  <Button tone="secondary" onClick={() => view(receipt.id)}>
+                    Xem chi tiết
+                  </Button>
+                </div>
               </Panel>
             )}
             <Panel title="Tóm tắt tiếp nhận">
@@ -348,7 +366,7 @@ export function ApiWarrantyIntake() {
                   bị nếu lỗi tái diễn.
                 </Notice>
               )}
-              <RequestHistory requests={card.requests} />
+              <RequestHistory requests={card.requests} onView={view} />
             </Panel>
           </aside>
         </div>
@@ -357,6 +375,14 @@ export function ApiWarrantyIntake() {
           title={cards ? "Không tìm thấy thiết bị" : "Tra cứu thiết bị"}
           description="Nhập đúng serial, mã đơn, số điện thoại hoặc mã phiếu. Không liên kết nhầm thẻ bảo hành."
         />
+      )}
+      {detail && (
+        <Modal
+          title={"Phiếu " + detail.requestCode}
+          onClose={() => setDetail(null)}
+        >
+          <RequestDetail ticket={detail} />
+        </Modal>
       )}
     </>
   );
