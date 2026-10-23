@@ -4,6 +4,7 @@ import { readState, writeState } from "./demo/persistence";
 import { createSeed } from "./demo/seed";
 import { StoreContext } from "./context";
 import { demoMode } from "@/utils";
+import { apiCache } from "@/services/apiCache";
 
 function liveState() {
   return {
@@ -79,11 +80,11 @@ export default function StoreProvider({ children, catalogApi, cartApi }) {
   }, []);
 
   const fetchCatalog = useCallback(
-    (signal) => {
+    (signal, options) => {
       if (demoMode) return;
       const request = ++catalogRequest.current;
       return catalogApi
-        .list(signal)
+        .list(signal, options)
         .then((products) => {
           if (request === catalogRequest.current && !signal?.aborted) {
             commit((state) => ({ ...state, products }));
@@ -172,9 +173,10 @@ export default function StoreProvider({ children, catalogApi, cartApi }) {
   }, [user, fetchCart]);
 
   function reloadCatalog() {
+    apiCache.invalidate("catalog_products");
     setCatalogLoading(true);
     setCatalogError("");
-    return fetchCatalog();
+    return fetchCatalog(undefined, { forceRefresh: true });
   }
 
   function reloadCart() {

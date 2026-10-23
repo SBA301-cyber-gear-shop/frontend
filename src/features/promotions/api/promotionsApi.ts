@@ -1,4 +1,5 @@
 import { axiosClient } from "@/services";
+import { apiCache, type CacheOptions } from "@/services/apiCache";
 
 const view = (promotion) => ({
   ...promotion,
@@ -8,15 +9,30 @@ const view = (promotion) => ({
   bannerImage: promotion.bannerImage || "",
   bannerLink: promotion.bannerLink || "/san-pham",
 });
+
 export const promotionsApi = {
-  async list(signal?: AbortSignal) {
-    const { data } = await axiosClient.get("/api/admin/promotions", { signal });
-    return data.map(view);
+  async list(signal?: AbortSignal, options?: CacheOptions) {
+    return apiCache.fetchWithCache(
+      "admin_promotions",
+      async () => {
+        const { data } = await axiosClient.get("/api/admin/promotions", { signal });
+        return data.map(view);
+      },
+      { ttl: 120_000, storage: "session", ...options }
+    );
   },
-  async visible(signal?: AbortSignal) {
-    const { data } = await axiosClient.get("/api/promotions", { signal });
-    return data.map(view);
+
+  async visible(signal?: AbortSignal, options?: CacheOptions) {
+    return apiCache.fetchWithCache(
+      "public_promotions",
+      async () => {
+        const { data } = await axiosClient.get("/api/promotions", { signal });
+        return data.map(view);
+      },
+      { ttl: 180_000, storage: "session", ...options }
+    );
   },
+
   async save(promotion) {
     const payload = {
       code: promotion.code,
@@ -36,6 +52,9 @@ export const promotionsApi = {
     const { data } = promotion.id
       ? await axiosClient.put(`/api/admin/promotions/${promotion.id}`, payload)
       : await axiosClient.post("/api/admin/promotions", payload);
+
+    apiCache.invalidate("admin_promotions");
+    apiCache.invalidate("public_promotions");
     return view(data);
   },
 };

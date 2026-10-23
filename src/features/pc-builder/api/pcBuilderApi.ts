@@ -1,4 +1,5 @@
 import { axiosClient, endpoints } from "@/services";
+import { apiCache, type CacheOptions } from "@/services/apiCache";
 import type {
   AiBuildRequestPayload,
   AiBuildResponse,
@@ -42,27 +43,36 @@ export const pcBuilderApi = {
     role: string,
     currentCpuId?: number | string,
     currentMbId?: number | string,
+    options?: CacheOptions
   ): Promise<CompatibleReplacementResponse[]> {
-    const params = new URLSearchParams({ role });
-    if (currentCpuId) {
-      params.append("currentCpuId", String(currentCpuId));
-    }
-    if (currentMbId) {
-      params.append("currentMbId", String(currentMbId));
-    }
+    const cacheKey = `pc_replacements_${role}_${currentCpuId || "none"}_${currentMbId || "none"}`;
 
-    const { data } = await axiosClient.get<
-      | ApiResponseWrapper<CompatibleReplacementResponse[]>
-      | CompatibleReplacementResponse[]
-    >(`${endpoints.pcBuilder.replacements}?${params.toString()}`);
+    return apiCache.fetchWithCache(
+      cacheKey,
+      async () => {
+        const params = new URLSearchParams({ role });
+        if (currentCpuId) {
+          params.append("currentCpuId", String(currentCpuId));
+        }
+        if (currentMbId) {
+          params.append("currentMbId", String(currentMbId));
+        }
 
-    if (data == null) return [];
+        const { data } = await axiosClient.get<
+          | ApiResponseWrapper<CompatibleReplacementResponse[]>
+          | CompatibleReplacementResponse[]
+        >(`${endpoints.pcBuilder.replacements}?${params.toString()}`);
 
-    return "data" in data && Array.isArray(data.data)
-      ? data.data
-      : Array.isArray(data)
-        ? data
-        : [];
+        if (data == null) return [];
+
+        return "data" in data && Array.isArray(data.data)
+          ? data.data
+          : Array.isArray(data)
+            ? data
+            : [];
+      },
+      { ttl: 180_000, storage: "session", ...options }
+    );
   },
 
   /**
@@ -83,6 +93,7 @@ export const pcBuilderApi = {
       endpoints.pcBuilder.saveCustom,
       payload,
     );
+    apiCache.invalidate("my_saved_pc_builds");
     return data.data;
   },
 
@@ -95,6 +106,8 @@ export const pcBuilderApi = {
       ApiResponseWrapper<string> | string
     >(endpoints.pcBuilder.save(buildId));
 
+    apiCache.invalidate("my_saved_pc_builds");
+
     if (typeof data === "object" && data !== null && "data" in data) {
       return data.data || data.message || "OK";
     }
@@ -106,17 +119,23 @@ export const pcBuilderApi = {
    * Lấy danh sách cấu hình PC đã lưu của người dùng hiện tại
    * Endpoint: GET /api/v1/pc-build/my-builds
    */
-  async getMySavedBuilds(): Promise<SavedPcBuildSummary[]> {
-    const { data } = await axiosClient.get<
-      ApiResponseWrapper<SavedPcBuildSummary[]> | SavedPcBuildSummary[]
-    >(endpoints.pcBuilder.myBuilds);
+  async getMySavedBuilds(options?: CacheOptions): Promise<SavedPcBuildSummary[]> {
+    return apiCache.fetchWithCache(
+      "my_saved_pc_builds",
+      async () => {
+        const { data } = await axiosClient.get<
+          ApiResponseWrapper<SavedPcBuildSummary[]> | SavedPcBuildSummary[]
+        >(endpoints.pcBuilder.myBuilds);
 
-    if (data == null) return [];
-    return "data" in data && Array.isArray(data.data)
-      ? data.data
-      : Array.isArray(data)
-        ? data
-        : [];
+        if (data == null) return [];
+        return "data" in data && Array.isArray(data.data)
+          ? data.data
+          : Array.isArray(data)
+            ? data
+            : [];
+      },
+      { ttl: 60_000, storage: "session", ...options }
+    );
   },
 
   /**
@@ -142,5 +161,6 @@ export const pcBuilderApi = {
    */
   async deleteSavedBuild(buildId: number | string): Promise<void> {
     await axiosClient.delete(endpoints.pcBuilder.delete(buildId));
+    apiCache.invalidate("my_saved_pc_builds");
   },
 };

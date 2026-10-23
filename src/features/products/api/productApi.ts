@@ -137,7 +137,7 @@ export const productApi = {
         });
         return res.data;
       },
-      { ttl: 60_000, ...options }
+      { ttl: 120_000, storage: "session", ...options }
     );
   },
 
@@ -149,7 +149,7 @@ export const productApi = {
         const res = await axiosClient.get<ProductResponse>(`${endpoints.admin.products}/${productId}`);
         return res.data;
       },
-      { ttl: 60_000, ...options }
+      { ttl: 120_000, storage: "session", ...options }
     );
   },
 
@@ -211,7 +211,7 @@ export const productApi = {
         const res = await axiosClient.get<VariantResponse[]>(`${endpoints.admin.products}/${productId}/variants`);
         return res.data;
       },
-      { ttl: 60_000, ...options }
+      { ttl: 120_000, storage: "session", ...options }
     );
   },
 
@@ -223,7 +223,7 @@ export const productApi = {
         const res = await axiosClient.get(endpoints.admin.specifications);
         return res.data;
       },
-      { ttl: 300_000, ...options } // 5 minutes cache
+      { ttl: 600_000, storage: "session", ...options } // 10 minutes cache
     );
   },
 
@@ -234,7 +234,7 @@ export const productApi = {
         const res = await axiosClient.get<SpecOptionResponse[]>(`${endpoints.admin.specifications}/${specId}/options`);
         return res.data;
       },
-      { ttl: 300_000, ...options }
+      { ttl: 600_000, storage: "session", ...options }
     );
   },
 
@@ -250,7 +250,7 @@ export const productApi = {
     return res.data;
   },
 
-  // Brands & Categories (Static master data, 5 mins cache)
+  // Brands & Categories (Static master data, 10 mins cache)
   getBrands: async (options?: CacheOptions): Promise<{ id: number; name: string; logoUrl?: string; description?: string }[]> => {
     return apiCache.fetchWithCache(
       "admin_brands",
@@ -258,7 +258,7 @@ export const productApi = {
         const res = await axiosClient.get(endpoints.admin.brands);
         return res.data;
       },
-      { ttl: 300_000, ...options }
+      { ttl: 600_000, storage: "session", ...options }
     );
   },
 
@@ -269,7 +269,7 @@ export const productApi = {
         const res = await axiosClient.get<CategoryItemResponse[]>(endpoints.admin.categories);
         return res.data;
       },
-      { ttl: 300_000, ...options }
+      { ttl: 600_000, storage: "session", ...options }
     );
   },
 
