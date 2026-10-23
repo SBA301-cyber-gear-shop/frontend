@@ -1879,6 +1879,179 @@ textarea {
     display: none !important;
   }
 }
+/* Sidebar vận hành đứng yên khi cuộn; khối tài khoản ở đáy luôn thấy được (đè position: absolute trong reference.css). */
+@media (min-width: 851px) {
+  .admin-sidebar {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    height: 100vh;
+    min-height: 0;
+  }
+  .admin-sidebar nav {
+    overflow-y: auto;
+    min-height: 0;
+  }
+}
+/* Modal tiến trình bảo hành của khách: rộng hơn để roadmap ngang không phải cuộn dọc. */
+.modal.wide {
+  width: min(900px, calc(100% - 32px));
+}
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 0 24px;
+}
+.info-grid.two {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-bottom: 10px;
+}
+.info-grid .kv {
+  gap: 12px;
+}
+.info-grid .kv span {
+  white-space: nowrap;
+}
+.info-grid h3 {
+  font-size: 14px;
+  margin-bottom: 4px;
+}
+/* Roadmap ngang: mốc dạng viên thuốc trên một đường, nội dung xen kẽ trên/dưới nối bằng vạch đứng. */
+.roadmap-wrap {
+  margin: 14px 0 18px;
+  padding: 4px 0;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.roadmap {
+  list-style: none;
+  margin: 0;
+  padding: 0 8px;
+  display: grid;
+  grid-template-columns: repeat(var(--steps), minmax(0, 1fr));
+  position: relative;
+}
+.roadmap::before {
+  content: "";
+  position: absolute;
+  left: 18px;
+  right: 18px;
+  top: 50%;
+  height: 2px;
+  background: #cfd7e2;
+}
+.roadmap-step {
+  --tone: var(--navy);
+  --tone-light: #2c4066;
+  display: grid;
+  grid-template-rows: 112px auto 112px;
+  justify-items: center;
+  text-align: center;
+}
+.roadmap-step.current {
+  --tone: var(--red);
+  --tone-light: #ec5161;
+}
+.roadmap-step.final {
+  --tone: var(--green);
+  --tone-light: #23a37f;
+}
+.roadmap-step.canceled {
+  --tone: #9e1424;
+  --tone-light: var(--red);
+}
+.roadmap-step.todo,
+.roadmap-step.skipped {
+  --tone: #c3ccd8;
+  --tone-light: #dde3eb;
+}
+.roadmap-node {
+  grid-row: 2;
+  z-index: 1;
+  min-width: 56px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 800;
+  color: white;
+  background: linear-gradient(var(--tone-light) 50%, var(--tone) 50%);
+  box-shadow: 0 4px 12px #111d3022;
+}
+.roadmap-step.todo .roadmap-node,
+.roadmap-step.skipped .roadmap-node {
+  color: var(--muted);
+  box-shadow: none;
+}
+.roadmap-text {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 0 6px;
+  max-width: 100%;
+}
+.roadmap-step.up .roadmap-text {
+  grid-row: 1;
+  align-self: end;
+  padding-bottom: 26px;
+}
+.roadmap-step.down .roadmap-text {
+  grid-row: 3;
+  align-self: start;
+  padding-top: 26px;
+}
+.roadmap-text::after {
+  content: "";
+  position: absolute;
+  left: calc(50% - 1px);
+  width: 2px;
+  height: 20px;
+  background: var(--tone);
+}
+.roadmap-step.up .roadmap-text::after {
+  bottom: 0;
+}
+.roadmap-step.down .roadmap-text::after {
+  top: 0;
+}
+.roadmap-text b {
+  font-size: 13px;
+  color: var(--ink);
+}
+.roadmap-step.current .roadmap-text b,
+.roadmap-step.canceled .roadmap-text b {
+  color: var(--tone);
+}
+.roadmap-step.todo .roadmap-text b {
+  color: var(--muted);
+  font-weight: 600;
+}
+.roadmap-text span {
+  font-size: 11px;
+  color: var(--muted);
+}
+.roadmap-text p {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--muted);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+@media (max-width: 600px) {
+  .roadmap-wrap {
+    overflow-x: auto;
+  }
+  .roadmap {
+    min-width: 560px;
+  }
+  .info-grid.two {
+    grid-template-columns: 1fr;
+  }
+}
 /* fieldset chỉ dùng để khóa cả form khi đang gửi, không vẽ khung. */
 .plain-fieldset {
   border: 0;

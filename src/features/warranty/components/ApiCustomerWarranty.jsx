@@ -10,8 +10,9 @@ import {
   Notice,
   Panel,
 } from "@/components/ui";
-import { REQUEST_RESOLUTION, REQUEST_STATUS } from "../constants";
+import { CUSTOMER_RESOLUTION, CUSTOMER_STATUS } from "../constants";
 import { useAftersales } from "../hooks/useAftersales";
+import { RequestRoadmap } from "./RequestRoadmap";
 
 export function ApiCustomerWarranty() {
   const svc = useAftersales(),
@@ -66,7 +67,7 @@ export function ApiCustomerWarranty() {
                   {c.status === "replaced"
                     ? "Đã đổi thiết bị"
                     : c.status !== "active"
-                      ? "Thẻ bị vô hiệu"
+                      ? "Thẻ không còn hiệu lực"
                       : c.valid
                         ? "Còn bảo hành"
                         : "Hết hạn"}
@@ -94,7 +95,7 @@ export function ApiCustomerWarranty() {
                   onClick={() => setSelected(t)}
                 >
                   <b>{t.requestCode}</b>
-                  <Badge tone="info">{REQUEST_STATUS[t.status]}</Badge>
+                  <Badge tone="info">{CUSTOMER_STATUS[t.status]}</Badge>
                   <span>Xem tiến trình →</span>
                 </button>
               ))}
@@ -109,44 +110,46 @@ export function ApiCustomerWarranty() {
                   ? "Không tải được thẻ bảo hành"
                   : "Đang tải thẻ bảo hành"
             }
-            description="Thẻ bảo hành xuất hiện sau khi đơn được bàn giao."
+            description="Thẻ bảo hành xuất hiện sau khi bạn nhận hàng tại cửa hàng."
           />
         )}
       </div>
       {selected && (
         <Modal
+          className="wide"
           title={"Yêu cầu " + selected.requestCode}
           onClose={() => setSelected(null)}
         >
-          <Badge tone="info">{REQUEST_STATUS[selected.status]}</Badge>{" "}
-          {selected.resolution && (
-            <Badge>{REQUEST_RESOLUTION[selected.resolution]}</Badge>
-          )}
-          <KV label="Tiếp nhận">{dateTime(selected.createdAt)}</KV>
-          {selected.expectedReturnDate && (
-            <KV label="Ngày hẹn trả">
-              {new Date(selected.expectedReturnDate).toLocaleDateString(
-                "vi-VN",
-              )}
+          <div className="info-grid">
+            <KV label="Trạng thái">{CUSTOMER_STATUS[selected.status]}</KV>
+            <KV label="Ngày gửi bảo hành">{dateTime(selected.createdAt)}</KV>
+            <KV label="Hẹn nhận máy">
+              {selected.expectedReturnDate
+                ? new Date(selected.expectedReturnDate).toLocaleDateString(
+                    "vi-VN",
+                  )
+                : "Chưa có"}
             </KV>
-          )}
-          <h3 className="section">Lỗi đã báo</h3>
-          <p>{selected.issueDescription}</p>
-          <h3 className="section">Thông tin từ cửa hàng</h3>
-          <p>{selected.publicNote || "Cửa hàng đang xử lý yêu cầu."}</p>
-          <h3 className="section">Tiến trình</h3>
-          {selected.timeline.map((e, i) => (
-            <div className="ticket-preview" key={i}>
-              <div className="row wrap-row between">
-                <b>{REQUEST_STATUS[e.status]}</b>
-                <span className="small muted">{dateTime(e.createdAt)}</span>
-              </div>
-              {e.publicNote && <p className="small">{e.publicNote}</p>}
+            {selected.resolution && (
+              <KV label="Kết quả">
+                {CUSTOMER_RESOLUTION[selected.resolution]}
+              </KV>
+            )}
+          </div>
+          <RequestRoadmap request={selected} />
+          <div className="info-grid two">
+            <div>
+              <h3>Lỗi bạn đã báo</h3>
+              <p className="small">{selected.issueDescription}</p>
             </div>
-          ))}
-          <p className="tiny muted section">
-            Ghi chú nội bộ chỉ dành cho nhân viên phụ trách.
-          </p>
+            <div>
+              <h3>Thông tin từ cửa hàng</h3>
+              <p className="small">
+                {selected.publicNote || "Cửa hàng đang xử lý yêu cầu."}
+              </p>
+            </div>
+          </div>
+          <p className="tiny muted">Cửa hàng sẽ cập nhật tiến trình tại đây.</p>
         </Modal>
       )}
     </>
