@@ -77,6 +77,34 @@ export interface VariantResponse {
   attributes: SpecValueResponse[];
 }
 
+export interface CategorySpecResponse {
+  id: number;
+  specificationId: number;
+  specificationName: string;
+  isFilterable: boolean;
+  isPrimary: boolean;
+  showInMenu: boolean;
+  isCompatibility: boolean;
+}
+
+export interface CategoryItemResponse {
+  id: number;
+  name: string;
+  slug: string;
+  parentId?: number | null;
+  description?: string | null;
+  children?: CategoryItemResponse[];
+  specifications: CategorySpecResponse[];
+}
+
+export interface ConfigureCategorySpecPayload {
+  specificationId: number;
+  isFilterable?: boolean;
+  isPrimary?: boolean;
+  showInMenu?: boolean;
+  isCompatibility?: boolean;
+}
+
 export interface ProductResponse {
   id: number;
   name: string;
@@ -216,6 +244,12 @@ export const productApi = {
     return res.data;
   },
 
+  createSpecification: async (data: { name: string }): Promise<{ id: number; name: string }> => {
+    const res = await axiosClient.post<{ id: number; name: string }>(endpoints.admin.specifications, data);
+    apiCache.invalidate("admin_specifications");
+    return res.data;
+  },
+
   // Brands & Categories (Static master data, 5 mins cache)
   getBrands: async (options?: CacheOptions): Promise<{ id: number; name: string; logoUrl?: string; description?: string }[]> => {
     return apiCache.fetchWithCache(
@@ -228,14 +262,26 @@ export const productApi = {
     );
   },
 
-  getCategories: async (options?: CacheOptions): Promise<any[]> => {
+  getCategories: async (options?: CacheOptions): Promise<CategoryItemResponse[]> => {
     return apiCache.fetchWithCache(
       "admin_categories",
       async () => {
-        const res = await axiosClient.get(endpoints.admin.categories);
+        const res = await axiosClient.get<CategoryItemResponse[]>(endpoints.admin.categories);
         return res.data;
       },
       { ttl: 300_000, ...options }
     );
+  },
+
+  configureCategorySpecifications: async (
+    categoryId: number,
+    requests: ConfigureCategorySpecPayload[]
+  ): Promise<CategorySpecResponse[]> => {
+    const res = await axiosClient.post<CategorySpecResponse[]>(
+      `${endpoints.admin.categories}/${categoryId}/specifications`,
+      requests
+    );
+    apiCache.invalidate("admin_categories");
+    return res.data;
   },
 };
