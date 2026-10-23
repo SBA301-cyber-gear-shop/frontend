@@ -117,7 +117,11 @@ export function useOrderOperations() {
           })),
         });
         remote.replaceOrder(result);
-        notify("Đã bàn giao và kích hoạt bảo hành cho từng thiết bị.");
+        notify(
+          count
+            ? "Đã bàn giao và kích hoạt bảo hành cho từng thiết bị."
+            : "Đã bàn giao đơn hàng.",
+        );
         void reloadCatalog();
         navigate("/van-hanh/don-hang?id=" + selected.id);
       } catch (error) {

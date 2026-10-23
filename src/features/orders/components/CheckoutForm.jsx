@@ -41,7 +41,34 @@ export function CheckoutForm() {
     previewed,
     retryValidation,
     confirmOrder,
+    pendingAttempt,
   } = useCheckout();
+  if (!demoMode && pendingAttempt)
+    return (
+      <div className="stack">
+        <Heading title="Kiểm tra kết quả đặt hàng" />
+        <Notice tone="warning">
+          {error ||
+            "Yêu cầu đặt hàng trước chưa có kết quả xác nhận. Kiểm tra lại cùng yêu cầu để tránh tạo đơn trùng."}
+        </Notice>
+        <Panel title="Yêu cầu đã gửi">
+          <KV label="Người nhận">{pendingAttempt.payload.pickupName}</KV>
+          <KV label="Điện thoại">{pendingAttempt.payload.pickupPhone}</KV>
+          <KV label="Thành tiền">
+            {money(
+              pendingAttempt.payload.expectedTotal -
+                pendingAttempt.payload.expectedDiscount,
+            )}
+          </KV>
+        </Panel>
+        <Button disabled={placing} onClick={confirmOrder}>
+          {placing ? "Đang kiểm tra…" : "Kiểm tra lại yêu cầu đặt hàng"}
+        </Button>
+        <Button to="/don-hang" tone="secondary">
+          Xem đơn hàng của tôi
+        </Button>
+      </div>
+    );
   if (!demoMode && fromBuild)
     return (
       <Notice>

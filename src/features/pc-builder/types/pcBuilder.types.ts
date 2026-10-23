@@ -82,21 +82,60 @@ export interface ComponentCandidateDTO {
 /** Payload gửi lên khi gọi AI PC Builder tư vấn */
 export interface AiBuildRequestPayload {
   budget: number;
-  purpose: "gaming" | "creative" | "office" | "ai_data";
-  specialRequirements?: string; // Prompt tự do: "vỏ màu trắng, tản nước, chiến Black Myth Wukong"
-  ramGb?: number; // Mặc định 16 hoặc 32
-  scope?: "tower" | "fullset"; // Chỉ case hay cả màn hình
+  purpose?: string; // "gaming", "creative", "work"
+  ramGb?: number; // 16, 32, 64
+  scope?: string; // "tower", "full"
+  userPrompt?: string; // Prompt tự do
 }
 
-/** Kết quả AI PC Builder trả về cho Frontend */
-export interface AiBuildSuggestionResponse {
-  pcCustomId?: number;
-  name: string; // Tên dàn máy do AI đặt (VD: "Ghost White Dragon")
-  reasoning: string; // Phân tích chuyên môn của AI
-  expectedFps?: Record<string, number>; // FPS ước tính: { "Black Myth: Wukong": 85, "Cyberpunk 2077": 75 }
-  parts: Record<ComponentRole, ComponentCandidateDTO | null>;
-  totalAmount: number;
-  validation: ValidationReport;
+/** Dòng linh kiện được AI đề xuất trả về từ Backend */
+export interface SelectedPartResponse {
+  role: ComponentRole;
+  variantId: number;
+  productName: string;
+  variantName: string;
+  imageUrl?: string;
+  unitPrice: number;
+  quantity: number;
+  subtotal: number;
+  specs: Record<string, string>;
+  aiReason?: string;
+}
+
+/** Chi tiết một tiêu chí kiểm tra tương thích từ Backend */
+export interface CompatibilityCheckResponse {
+  key?: string;
+  label: string;
+  status: string; // "pass", "fail", "warning"
+  detail: string;
+  valid?: boolean;
+}
+
+/** Kết quả AI PC Builder trả về từ Backend API */
+export interface AiBuildResponse {
+  buildId?: number;
+  buildName: string;
+  purpose: string;
+  totalPrice: number;
+  budget: number;
+  aiReasoning: string;
+  performanceHighlight: string;
+  isCompatible: boolean;
+  checks: CompatibilityCheckResponse[];
+  items: SelectedPartResponse[];
+}
+
+/** Linh kiện thay thế tương thích thông minh từ Backend */
+export interface CompatibleReplacementResponse {
+  variantId: number | string;
+  productName: string;
+  variantName: string;
+  price: number;
+  imageUrl?: string;
+  stockQuantity?: number;
+  specs: Record<string, string>;
+  isCompatible: boolean;
+  compatibilityNote: string;
 }
 
 /** Query parameters khi tìm linh kiện thay thế tương thích (Smart Replace) */
@@ -105,4 +144,73 @@ export interface CompatibleReplacementsQuery {
   currentCpuId?: number;
   currentMainboardId?: number;
   budgetLimit?: number;
+}
+
+
+/** Linh kiện trong cấu hình đang hiển thị trên giao diện Builder */
+export interface BuildPart {
+  role: ComponentRole;
+  roleName: string;
+  variantId: number | string;
+  productName: string;
+  variantName: string;
+  imageUrl: string;
+  unitPrice: number;
+  quantity: number;
+  specs: Record<string, string>;
+  aiReason: string;
+}
+
+/** Ứng viên thay thế trong Modal Smart Replace */
+export interface ReplacementCandidate {
+  variantId: number | string;
+  productName: string;
+  variantName: string;
+  price: number;
+  specs: Record<string, string>;
+  isCompatible: boolean;
+  compatibilityNote: string;
+  isCurrent: boolean;
+}
+
+/** Tiêu chí kiểm định tương thích 8 quy tắc */
+export interface RuleCheck {
+  id: string;
+  title: string;
+  detail: string;
+  status: CompatibilityStatus;
+}
+
+/** Thẻ nhận xét chuyên môn của AI */
+export interface AiBuildInsight {
+  title: string;
+  reasoning: string;
+  highlight: string;
+}
+
+/** Trạng thái hiển thị giao diện Builder */
+export type BuilderStatus = "success" | "loading" | "empty" | "error";
+
+/** DTO tóm tắt một cấu hình PC đã lưu */
+export interface SavedPcBuildSummary {
+  buildId: number;
+  buildName: string;
+  totalPrice: number;
+  orderId: number | null;
+  isOrdered: boolean;
+  itemCount: number;
+  cpuName?: string;
+  gpuName?: string;
+  mainboardName?: string;
+  ramSummary?: string;
+}
+
+/** DTO chi tiết đầy đủ linh kiện của một cấu hình PC đã lưu */
+export interface SavedPcBuildDetail {
+  buildId: number;
+  buildName: string;
+  totalPrice: number;
+  orderId: number | null;
+  isOrdered: boolean;
+  items: SelectedPartResponse[];
 }

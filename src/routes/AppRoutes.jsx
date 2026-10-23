@@ -4,9 +4,6 @@ import { MainLayout, AdminLayout } from "@/layouts";
 import { Empty, Button } from "@/components/ui";
 import { PrivateRoute } from "./PrivateRoute";
 import { legacyAliases } from "./legacyAliases";
-import { UnavailableFeature } from "@/features/system-states";
-import { demoMode } from "@/utils";
-const pending = (element) => (demoMode ? element : <UnavailableFeature />);
 const Landing = lazy(() => import("@/pages/Landing"));
 const Home = lazy(() => import("@/pages/Home"));
 const Catalog = lazy(() => import("@/pages/Catalog"));
@@ -47,7 +44,7 @@ export function AppRoutes() {
           <Route path="/san-pham" element={<Catalog />} />
           <Route path="/danh-muc/:category" element={<Catalog />} />
           <Route path="/san-pham/:id" element={<Product />} />
-          <Route path="/build-pc" element={pending(<Builder />)} />
+          <Route path="/build-pc" element={<Builder />} />
           <Route path="/gio-hang" element={<Cart />} />
           <Route path="/trang-thai" element={<Exceptions />} />
           <Route element={<PrivateRoute />}>
@@ -85,25 +82,19 @@ export function AppRoutes() {
           <Route element={<PrivateRoute roles={["Staff", "Admin"]} />}>
             <Route path="/van-hanh/don-hang" element={<StaffOrders />} />
             <Route path="/van-hanh/ban-giao" element={<Handover />} />
-            <Route path="/van-hanh/bao-hanh" element={pending(<Intake />)} />
+            <Route path="/van-hanh/bao-hanh" element={<Intake />} />
           </Route>
           <Route
             path="/ky-thuat"
             element={
               <PrivateRoute roles={["Technician", "Admin"]}>
-                {pending(<Technician />)}
+                <Technician />
               </PrivateRoute>
             }
           />
           <Route element={<PrivateRoute roles={["Admin"]} />}>
-            <Route
-              path="/quan-tri/san-pham"
-              element={pending(<AdminProduct />)}
-            />
-            <Route
-              path="/quan-tri/thong-so"
-              element={pending(<AdminSpecs />)}
-            />
+            <Route path="/quan-tri/san-pham" element={<AdminProduct />} />
+            <Route path="/quan-tri/thong-so" element={<AdminSpecs />} />
             <Route path="/quan-tri/khuyen-mai" element={<AdminPromotion />} />
           </Route>
         </Route>

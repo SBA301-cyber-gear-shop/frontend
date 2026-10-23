@@ -43,7 +43,7 @@ export function OrderLines({
                 style={{ border: 0, padding: 0, margin: 0 }}
               >
                 <Quantity
-                  label={"Số lượng " + p?.name}
+                  label={"Số lượng " + (l.name || p?.name || "sản phẩm")}
                   value={l.quantity}
                   max={Math.max(1, l.stock ?? p?.stock ?? 0)}
                   onChange={(q) => onChange(l.id, q)}

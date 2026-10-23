@@ -189,7 +189,7 @@ export function StoreHome() {
         </Link>
       ))}
       <p className="tiny muted section">
-        Dữ liệu và hình ảnh minh họa · Chế độ demo trên thiết bị.
+        Giá và tồn kho được kiểm tra lại khi xác nhận đặt hàng.
       </p>
     </>
   );

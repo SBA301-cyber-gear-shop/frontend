@@ -3,7 +3,6 @@ import { dateTime } from "@/utils";
 import { TICKET_STATUS } from "../constants";
 import {
   Art,
-  Button,
   Badge,
   Empty,
   Heading,
@@ -15,26 +14,8 @@ import {
 import { useCustomerWarranty } from "../hooks/useCustomerWarranty";
 
 export function CustomerWarranty() {
-  const {
-    data,
-    user,
-    search,
-    setSearch,
-    selected,
-    setSelected,
-    cards,
-    loading,
-    error,
-    refresh,
-  } = useCustomerWarranty();
-  if (loading) return <Notice>Đang tải thẻ bảo hành…</Notice>;
-  if (error)
-    return (
-      <div className="stack">
-        <Notice tone="danger">{error}</Notice>
-        <Button onClick={refresh}>Tải lại bảo hành</Button>
-      </div>
-    );
+  const { data, user, search, setSearch, selected, setSelected, cards } =
+    useCustomerWarranty();
   return (
     <>
       <Heading
@@ -65,7 +46,7 @@ export function CustomerWarranty() {
                   <div className="row">
                     <Art type={p?.category} className="mini" />
                     <div>
-                      <h3>{w.productName || p?.name}</h3>
+                      <h3>{p?.name}</h3>
                       <p className="small mono">{w.serial}</p>
                     </div>
                   </div>

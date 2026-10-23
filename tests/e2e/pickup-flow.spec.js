@@ -187,6 +187,14 @@ test("admin promotion → customer order → staff collection and handover → w
       return respond(orders[0]);
     }
     if (path.endsWith("/handover")) {
+      expect(payload).toEqual({
+        recipientPhone: "0900000128",
+        recipientVerified: true,
+        devices: [
+          { orderItemId: 501, serialNumber: "DEVICE-A" },
+          { orderItemId: 501, serialNumber: "DEVICE-B" },
+        ],
+      });
       if (payload.recipientPhone !== "0900000128")
         return respond(
           { message: "Thông tin người nhận chưa chính xác." },
@@ -207,7 +215,20 @@ test("admin promotion → customer order → staff collection and handover → w
         });
       return respond(orders[0]);
     }
-    if (path === "/api/me/warranties") return respond(cards);
+    if (path === "/api/my/warranty-cards")
+      return respond({
+        data: cards.map((card) => ({
+          id: card.id,
+          serialNumber: card.serial,
+          productName: card.productName,
+          orderCode: card.orderId,
+          startDate: card.start,
+          endDate: card.end,
+          status: card.status,
+          valid: true,
+          requests: [],
+        })),
+      });
     if (path === "/api/order-items/501/review") {
       orders[0].items[0].rating = payload.rating;
       orders[0].items[0].reviewComment = payload.comment;

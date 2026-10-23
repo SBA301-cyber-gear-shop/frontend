@@ -167,10 +167,11 @@ export function OrderDetails() {
               Về đơn hàng của tôi
             </Button>
             {["pending", "confirmed"].includes(order.status) &&
-              order.payment !== "SUCCESS" && (
+              (order.payment !== "SUCCESS" || order.final === 0) && (
                 <Button
                   className="full"
                   tone="ghost"
+                  disabled={busy}
                   onClick={() => setConfirm(true)}
                 >
                   Hủy đơn hàng

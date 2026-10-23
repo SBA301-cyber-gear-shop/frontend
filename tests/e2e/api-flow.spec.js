@@ -379,6 +379,310 @@ test("stock changes block checkout and show the backend error", async ({
   ).toBeFalsy();
 });
 
+test("an uncertain order can be retried after reload with its original key and payload", async ({
+  page,
+}) => {
+  await backend(page, { quantity: 2 });
+  const submissions = [];
+  const order = {
+    id: 88,
+    orderCode: "TZ-RECOVERY",
+    userId: 42,
+    status: "pending",
+    pickupName: "Khách kiểm thử",
+    pickupPhone: "0900000128",
+    note: "",
+    totalAmount: 2400000,
+    discountAmount: 0,
+    finalAmount: 2400000,
+    paymentStatus: "PENDING",
+    methodType: "cash",
+    createdAt: "2026-10-23T10:00:00",
+    items: [
+      {
+        id: 501,
+        productVariantId: 101,
+        productName: "RAM snapshot",
+        quantity: 2,
+        unitPrice: 1200000,
+        warrantyPeriodMonths: 36,
+      },
+    ],
+  };
+  await page.route("**/api/orders", async (route) => {
+    if (route.request().method() !== "POST") return route.fallback();
+    submissions.push({
+      key: route.request().headers()["idempotency-key"],
+      payload: route.request().postDataJSON(),
+    });
+    if (submissions.length === 1) return route.abort("connectionreset");
+    return route.fulfill({ status: 201, json: order });
+  });
+  await page.route("**/api/orders/TZ-RECOVERY", (route) =>
+    route.fulfill({ json: order }),
+  );
+  await login(page);
+  await page.goto("/thanh-toan");
+  await page
+    .getByRole("button", { name: "Kiểm tra thông tin & voucher" })
+    .click();
+  await page
+    .getByRole("button", { name: "Xác nhận đặt hàng →", exact: true })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "Kiểm tra kết quả đặt hàng" }),
+  ).toBeVisible();
+  // The server may already have committed and emptied the cart before the response was lost.
+  await page.route("**/api/orders/cart", (route) =>
+    route.fulfill({ json: { data: { items: [] } } }),
+  );
+  await page.reload();
+  await page
+    .getByRole("button", { name: "Kiểm tra lại yêu cầu đặt hàng" })
+    .click();
+  await expect(page).toHaveURL(/don-hang\/TZ-RECOVERY/);
+  expect(submissions).toHaveLength(2);
+  expect(submissions[0].key).toMatch(/^[0-9a-f-]{36}$/);
+  expect(submissions[1]).toEqual(submissions[0]);
+  await expect
+    .poll(() =>
+      page.evaluate(() =>
+        sessionStorage.getItem("techzone-checkout-attempt-42"),
+      ),
+    )
+    .toBeNull();
+  expect(
+    await page.evaluate(() => localStorage.getItem("techzone-demo-v1")),
+  ).toBeNull();
+});
+
+test("a rejected order requires a fresh preview before another submission", async ({
+  page,
+}) => {
+  await backend(page, { quantity: 2 });
+  let submissions = 0;
+  await page.route("**/api/orders", async (route) => {
+    if (route.request().method() !== "POST") return route.fallback();
+    submissions++;
+    return route.fulfill({
+      status: 400,
+      json: { message: "Giá hoặc ưu đãi đã thay đổi." },
+    });
+  });
+  await login(page);
+  await page.goto("/thanh-toan");
+  await page
+    .getByRole("button", { name: "Kiểm tra thông tin & voucher" })
+    .click();
+  await page
+    .getByRole("button", { name: "Xác nhận đặt hàng →", exact: true })
+    .click();
+  await expect(
+    page.getByText("Giá hoặc ưu đãi đã thay đổi.", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Xác nhận đặt hàng →", exact: true }),
+  ).toBeDisabled();
+  expect(submissions).toBe(1);
+  expect(
+    await page.evaluate(() =>
+      sessionStorage.getItem("techzone-checkout-attempt-42"),
+    ),
+  ).toBeNull();
+});
+
+for (const failAdd of [false, true]) {
+  test(`PC builder uses the server cart and handles add failure=${failAdd}`, async ({
+    page,
+  }) => {
+    const calls = await backend(page, { failAdd });
+    await page.route("**/api/v1/pc-build/ai-suggest", (route) =>
+      route.fulfill({
+        json: {
+          buildId: 11,
+          buildName: "Cấu hình từ kho",
+          budget: 25000000,
+          totalPrice: 2400000,
+          aiReasoning: "Linh kiện kiểm thử",
+          checks: [],
+          isCompatible: true,
+          items: [
+            {
+              role: "ram",
+              variantId: 101,
+              productName: product.name,
+              variantName: product.variant,
+              unitPrice: 1200000,
+              quantity: 2,
+              specs: {},
+            },
+          ],
+        },
+      }),
+    );
+    await login(page);
+    await page.goto("/build-pc");
+    await page
+      .getByRole("button", { name: "Đề xuất cấu hình với AI", exact: true })
+      .click();
+    await page
+      .getByRole("button", { name: "Thêm vào giỏ & Đặt hàng", exact: true })
+      .click();
+    if (failAdd) {
+      await expect(page.getByRole("alert")).toContainText("Không đủ tồn kho");
+      await expect(page).toHaveURL(/build-pc/);
+    } else {
+      await expect(page).toHaveURL(/gio-hang/);
+      await expect(
+        page.getByRole("spinbutton", { name: /Số lượng RAM/ }),
+      ).toHaveValue("2");
+    }
+    expect(
+      calls.filter((call) => call.path === "/api/orders/cart/items"),
+    ).toMatchObject([
+      { method: "POST", payload: { productVariantId: 101, quantity: 2 } },
+    ]);
+    expect(
+      await page.evaluate(() => localStorage.getItem("techzone-demo-v1")),
+    ).toBeNull();
+  });
+}
+
+test("customer cancels a zero-total order using its snapshot even after the product disappears", async ({
+  page,
+}) => {
+  await backend(page);
+  const order = {
+    id: 70,
+    orderCode: "TZ-ZERO",
+    userId: 42,
+    status: "pending",
+    pickupName: "Khách kiểm thử",
+    pickupPhone: "0900000128",
+    note: "",
+    totalAmount: 1200000,
+    discountAmount: 1200000,
+    finalAmount: 0,
+    paymentStatus: "SUCCESS",
+    methodType: "cash",
+    createdAt: "2026-10-23T10:00:00",
+    items: [
+      {
+        id: 701,
+        productVariantId: 999,
+        productName: "Tên sản phẩm lúc mua",
+        quantity: 1,
+        unitPrice: 1200000,
+        warrantyPeriodMonths: 0,
+      },
+    ],
+  };
+  let cancelCalls = 0;
+  await page.route("**/api/orders/TZ-ZERO", (route) =>
+    route.fulfill({ json: order }),
+  );
+  await page.route("**/api/orders/TZ-ZERO/cancel", (route) => {
+    expect(route.request().method()).toBe("POST");
+    cancelCalls++;
+    order.status = "canceled";
+    order.paymentStatus = "CANCELED";
+    return route.fulfill({ json: order });
+  });
+  await login(page);
+  await page.goto("/don-hang/TZ-ZERO");
+  await expect(
+    page.getByRole("heading", { name: "Tên sản phẩm lúc mua" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Hủy đơn hàng", exact: true }).click();
+  await page.getByRole("button", { name: "Xác nhận hủy", exact: true }).click();
+  await expect(
+    page.getByText("Đơn đã được hủy.", { exact: false }),
+  ).toBeVisible();
+  expect(cancelCalls).toBe(1);
+});
+
+test("staff hands over a paid order without warranty using an empty devices list", async ({
+  page,
+}) => {
+  await backend(page);
+  await page.route("**/api/auth/login", (route) =>
+    route.fulfill({
+      json: {
+        data: {
+          accessToken: "staff-token",
+          user: {
+            id: 2,
+            fullName: "Staff",
+            email: "staff@example.com",
+            role: "Staff",
+          },
+        },
+      },
+    }),
+  );
+  const order = {
+    id: 71,
+    orderCode: "TZ-NO-WARRANTY",
+    userId: 42,
+    status: "ready_for_pickup",
+    pickupName: "Khách nhận",
+    pickupPhone: "0900000128",
+    totalAmount: 100000,
+    discountAmount: 0,
+    finalAmount: 100000,
+    paymentStatus: "SUCCESS",
+    methodType: "cash",
+    createdAt: "2026-10-23T10:00:00",
+    items: [
+      {
+        id: 711,
+        productVariantId: 999,
+        productName: "Phụ kiện không bảo hành",
+        quantity: 1,
+        unitPrice: 100000,
+        warrantyPeriodMonths: 0,
+      },
+    ],
+  };
+  let handovers = 0;
+  await page.route("**/api/operations/orders?*", (route) =>
+    route.fulfill({ json: [order] }),
+  );
+  await page.route(
+    "**/api/operations/orders/TZ-NO-WARRANTY/handover",
+    (route) => {
+      expect(route.request().postDataJSON()).toEqual({
+        recipientPhone: "0900000128",
+        recipientVerified: true,
+        devices: [],
+      });
+      handovers++;
+      order.status = "completed";
+      return route.fulfill({ json: order });
+    },
+  );
+  await login(page, /van-hanh\/don-hang/);
+  await page.goto("/van-hanh/ban-giao?id=TZ-NO-WARRANTY");
+  await expect(
+    page.getByRole("heading", { name: /Serial từng thiết bị/ }),
+  ).toContainText("0 thiết bị");
+  await page
+    .getByRole("textbox", { name: "Số điện thoại người đến nhận để đối chiếu" })
+    .fill("0900000128");
+  await page
+    .getByRole("checkbox", {
+      name: "Đã đối chiếu người nhận, serial và bàn giao đủ hàng.",
+    })
+    .check();
+  await page
+    .getByRole("button", { name: "Hoàn tất bàn giao", exact: true })
+    .click();
+  await expect(
+    page.getByText("Đã bàn giao đơn hàng.", { exact: true }),
+  ).toBeVisible();
+  expect(handovers).toBe(1);
+});
+
 test("logout clears the live cart and a catalogue failure offers retry", async ({
   page,
 }) => {

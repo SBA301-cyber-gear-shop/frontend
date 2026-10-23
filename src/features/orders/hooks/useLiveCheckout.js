@@ -17,6 +17,15 @@ export function useLiveCheckout() {
     }
     return key;
   });
+  const attemptStorageKey = "techzone-checkout-attempt-" + user.id;
+  const [pendingAttempt, setPendingAttempt] = useState(() => {
+    try {
+      const saved = JSON.parse(sessionStorage.getItem(attemptStorageKey));
+      return saved?.key === checkoutKey && saved.payload ? saved : null;
+    } catch {
+      return null;
+    }
+  });
   const [params] = useSearchParams();
   const fromBuild = params.get("source") === "build";
   const [name, updateName] = useState(user?.name || "");
@@ -34,7 +43,7 @@ export function useLiveCheckout() {
     controller = useRef(null);
 
   useEffect(() => {
-    if (fromBuild) return;
+    if (fromBuild || pendingAttempt) return;
     const abort = new AbortController();
     checkoutApi
       .validate(abort.signal)
@@ -47,7 +56,7 @@ export function useLiveCheckout() {
           setValidation({ source: data.cart, attempt, error: failure.message });
       });
     return () => abort.abort();
-  }, [data.cart, attempt, fromBuild]);
+  }, [data.cart, attempt, fromBuild, pendingAttempt]);
 
   useEffect(() => () => controller.current?.abort(), []);
 
@@ -120,30 +129,47 @@ export function useLiveCheckout() {
   }
 
   async function confirmOrder() {
-    if (busy.current || !quote || validating || validationError) return;
+    if (
+      busy.current ||
+      (!pendingAttempt && (!quote || validating || validationError))
+    )
+      return;
+    const submission = pendingAttempt || {
+      key: checkoutKey,
+      payload: {
+        pickupName: name,
+        pickupPhone: phone,
+        note,
+        promotionCode: quote.promotionCode || "",
+        method: "store",
+        expectedTotal: quote.totalAmount,
+        expectedDiscount: quote.discountAmount,
+      },
+    };
     busy.current = true;
     setPlacing(true);
     setError("");
     try {
-      const order = await ordersApi.place(
-        {
-          pickupName: name,
-          pickupPhone: phone,
-          note,
-          promotionCode: quote.promotionCode || "",
-          method: "store",
-          expectedTotal: quote.totalAmount,
-          expectedDiscount: quote.discountAmount,
-        },
-        checkoutKey,
-      );
+      // Keep the exact request across reloads until its result is known.
+      sessionStorage.setItem(attemptStorageKey, JSON.stringify(submission));
+      const order = await ordersApi.place(submission.payload, submission.key);
+      sessionStorage.removeItem(attemptStorageKey);
       sessionStorage.removeItem("techzone-checkout-key-" + user.id);
       notify("Đã tạo đơn hàng. Vui lòng chờ cửa hàng xác nhận sẵn sàng nhận.");
       navigate("/don-hang/" + order.id + "?created=1");
       void reloadCart();
     } catch (failure) {
+      const rejected =
+        failure.response?.status >= 400 && failure.response?.status < 500;
+      if (rejected) {
+        sessionStorage.removeItem(attemptStorageKey);
+        setPendingAttempt(null);
+        setPreview(null);
+      } else {
+        setPendingAttempt(submission);
+      }
       setError(
-        failure.response
+        rejected
           ? failure.message
           : "Chưa xác định được kết quả đặt hàng. Bạn có thể xem mục Đơn hàng hoặc thử xác nhận lại để kiểm tra cùng yêu cầu.",
       );
@@ -157,6 +183,7 @@ export function useLiveCheckout() {
     data,
     user,
     demoMode: false,
+    pendingAttempt,
     fromBuild,
     lines,
     total:
@@ -182,7 +209,7 @@ export function useLiveCheckout() {
     setMethod: () => {},
     error: error || validationError || cartError,
     placing,
-    validating: validating || cartLoading || cartBusy,
+    validating: !pendingAttempt && (validating || cartLoading || cartBusy),
     retryValidation,
     discount: quote?.discountAmount || 0,
     previewed: Boolean(quote),

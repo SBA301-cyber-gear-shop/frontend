@@ -1,16 +1,26 @@
-import { categories } from "../constants";
+import { useState } from "react";
 import { money } from "@/utils";
-import { Art, Badge, Button, Notice, Panel, Empty } from "@/components/ui";
+import { Art, Badge, Button, Notice, Panel, Empty, Modal } from "@/components/ui";
 import { Field, Select } from "@/components/form";
 import { useProductEditor } from "../hooks/useProductEditor";
 import { VariantModal } from "./VariantModal";
+import { getCategoryMockImage } from "../constants/mockImages";
 
-export function ProductEditor({ product, onCreated }) {
+export function ProductEditor({
+  product,
+  brands = [],
+  categories = [],
+  onBack,
+  onSaved,
+  onRefreshList,
+}) {
   const {
+    isEditing,
     productForm,
     updateProduct,
     variants,
     activePreviewVariant,
+    previewVariantId,
     setPreviewVariantId,
     modalOpen,
     editingVariant,
@@ -20,49 +30,124 @@ export function ProductEditor({ product, onCreated }) {
     handleSaveVariant,
     handleDeleteVariant,
     handleSaveProduct,
-  } = useProductEditor({ product, onCreated });
+    handleDeleteProduct,
+    submitting,
+  } = useProductEditor({ product, brands, categories, onBack, onSaved, onRefreshList });
+
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+
+  // Verification Checklist
+  const hasNameAndBrand = Boolean(productForm.name.trim() && productForm.brandId);
+  const hasCategory = Boolean(productForm.categoryId);
+  const hasVariants = variants.length > 0;
+  const canPublish = hasNameAndBrand && hasCategory && hasVariants;
 
   return (
-    <>
-      <div className="split">
-        <div className="stack">
-          {/* MASTER PRODUCT DETAILS */}
+    <div className="stack" style={{ gap: "1.5rem" }}>
+      {/* TOP HEADER & BREADCRUMB */}
+      <div
+        className="row"
+        style={{
+          justifyContent: "space-between",
+          alignItems: "center",
+          flexWrap: "wrap",
+          gap: "1rem",
+          paddingBottom: "1rem",
+          borderBottom: "1px solid var(--line, #e2e7ed)",
+        }}
+      >
+        <div className="row" style={{ alignItems: "center", gap: "1rem" }}>
+          <Button tone="secondary" size="small" onClick={onBack}>
+            ← Quay lại danh sách
+          </Button>
+          <div>
+            <div className="eyebrow" style={{ fontSize: "11px", letterSpacing: "0.5px" }}>
+              QUẢN TRỊ / SẢN PHẨM / {isEditing ? `ID: #${product.id}` : "TẠO MỚI"}
+            </div>
+            <h2 style={{ margin: 0, fontSize: "20px", fontWeight: 700 }}>
+              {productForm.name || (isEditing ? "Chỉnh sửa sản phẩm" : "Tạo sản phẩm mới")}
+            </h2>
+          </div>
+          <Badge tone={productForm.status === "ACTIVE" ? "success" : "warning"}>
+            {productForm.status === "ACTIVE" ? "ĐANG BÁN (ACTIVE)" : "BẢN NHÁP (DRAFT)"}
+          </Badge>
+        </div>
+
+        <div className="row" style={{ gap: "0.75rem" }}>
+          {isEditing && (
+            <Button
+              tone="danger"
+              size="small"
+              disabled={submitting}
+              onClick={() => setConfirmDeleteOpen(true)}
+            >
+              Xóa sản phẩm
+            </Button>
+          )}
+          <Button
+            tone="secondary"
+            disabled={submitting}
+            onClick={() => handleSaveProduct("DRAFT")}
+          >
+            {submitting ? "Đang lưu..." : "Lưu nháp"}
+          </Button>
+          <Button
+            tone="primary"
+            disabled={submitting || (!canPublish && !isEditing)}
+            onClick={() => handleSaveProduct("ACTIVE")}
+          >
+            {submitting ? "Đang xử lý..." : "Đăng bán sản phẩm (Publish)"}
+          </Button>
+        </div>
+      </div>
+
+      {/* MAIN TWO-COLUMN SPLIT */}
+      <div className="split" style={{ alignItems: "flex-start" }}>
+        {/* LEFT COLUMN: MASTER INFO & VARIANTS TABLE */}
+        <div className="stack" style={{ flex: 1, gap: "1.5rem" }}>
+          {/* PANEL 1: MASTER PRODUCT DETAILS */}
           <Panel title="Thông tin chung sản phẩm">
-            <div className="two-col">
+            <div className="two-col" style={{ gap: "1rem" }}>
               <Field
                 label="Tên sản phẩm *"
+                placeholder="VD: Kingston FURY Beast DDR5 16GB"
                 value={productForm.name}
                 onChange={(e) => updateProduct("name", e.target.value)}
               />
-              <Field
+              <Select
                 label="Thương hiệu *"
-                value={productForm.brand}
-                onChange={(e) => updateProduct("brand", e.target.value)}
+                value={productForm.brandId}
+                onChange={(e) => updateProduct("brandId", Number(e.target.value))}
+                options={brands.map((b) => ({
+                  value: b.id,
+                  label: b.name,
+                }))}
               />
               <Select
-                label="Danh mục"
-                value={productForm.category}
-                onChange={(e) => updateProduct("category", e.target.value)}
+                label="Danh mục sản phẩm *"
+                value={productForm.categoryId}
+                onChange={(e) => updateProduct("categoryId", Number(e.target.value))}
                 options={categories.map((c) => ({
                   value: c.id,
                   label: c.name,
                 }))}
               />
               <Field
-                label="Bảo hành (tháng)"
+                label="Thời hạn bảo hành (tháng) *"
                 type="number"
                 min="0"
                 value={productForm.warranty}
                 onChange={(e) => updateProduct("warranty", e.target.value)}
               />
             </div>
-            <div className="section">
+            <div className="section" style={{ marginTop: "1rem" }}>
               <Field label="Mô tả sản phẩm">
                 {(id) => (
                   <textarea
                     id={id}
                     className="input full"
                     rows="3"
+                    placeholder="Mô tả chi tiết về sản phẩm, tính năng nổi bật..."
                     value={productForm.description || ""}
                     onChange={(e) => updateProduct("description", e.target.value)}
                   />
@@ -71,19 +156,21 @@ export function ProductEditor({ product, onCreated }) {
             </div>
           </Panel>
 
-          {/* VARIANTS (DETAIL) MANAGEMENT */}
+          {/* PANEL 2: VARIANTS (SKU) MANAGEMENT */}
           <Panel
             title={`Danh sách biến thể (SKU) · ${variants.length} phiên bản`}
             action={
-              <Button onClick={openAddVariantModal}>+ Thêm biến thể</Button>
+              <Button size="small" onClick={openAddVariantModal}>
+                + Thêm biến thể
+              </Button>
             }
           >
             {variants.length === 0 ? (
               <Empty
                 title="Chưa có phiên bản nào"
-                sub="Sản phẩm cần có ít nhất một phiên bản (SKU) với giá bán và tồn kho để đăng bán."
+                sub="Sản phẩm cần có ít nhất một phiên bản (SKU) với giá bán và tồn kho để đăng bán lên cửa hàng."
                 action={
-                  <Button onClick={openAddVariantModal}>
+                  <Button size="small" onClick={openAddVariantModal}>
                     + Tạo phiên bản đầu tiên
                   </Button>
                 }
@@ -93,8 +180,8 @@ export function ProductEditor({ product, onCreated }) {
                 <table className="table">
                   <thead>
                     <tr>
-                      <th>SKU</th>
-                      <th>Phiên bản</th>
+                      <th>Mã SKU</th>
+                      <th>Tên phiên bản</th>
                       <th>Giá bán</th>
                       <th>Tồn kho</th>
                       <th>Thông số</th>
@@ -116,34 +203,39 @@ export function ProductEditor({ product, onCreated }) {
                           key={v.id}
                           style={{
                             backgroundColor: isSelected
-                              ? "var(--surface-active, rgba(255,255,255,0.05))"
+                              ? "rgba(217, 31, 49, 0.05)"
                               : undefined,
                           }}
                         >
                           <td>
-                            <code className="mono">{v.sku || v.serialCode}</code>
+                            <code className="mono" style={{ fontWeight: 600 }}>
+                              {v.serialCode || v.sku}
+                            </code>
                           </td>
                           <td>
-                            <strong>{v.variant || v.variantName || "Mặc định"}</strong>
+                            <strong>{v.variantName || v.variant || "Mặc định"}</strong>
                           </td>
                           <td>
                             <strong>{money(Number(v.price))}</strong>
                             {v.originalPrice > v.price && (
-                              <div className="small muted strike" style={{ textDecoration: "line-through" }}>
+                              <div
+                                className="small muted"
+                                style={{ textDecoration: "line-through", fontSize: "11px" }}
+                              >
                                 {money(Number(v.originalPrice))}
                               </div>
                             )}
                           </td>
                           <td>
-                            <Badge tone={Number(v.stock) > 0 ? "success" : "danger"}>
-                              {v.stock || 0} cái
+                            <Badge tone={Number(v.stockQuantity ?? v.stock) > 0 ? "success" : "danger"}>
+                              {v.stockQuantity ?? v.stock ?? 0} cái
                             </Badge>
                           </td>
                           <td className="small muted">
                             {specSummary || "—"}
                           </td>
                           <td style={{ textAlign: "right" }}>
-                            <div className="row" style={{ justifyContent: "flex-end", gap: "0.5rem" }}>
+                            <div className="row" style={{ justifyContent: "flex-end", gap: "0.4rem" }}>
                               <Button
                                 size="small"
                                 tone={isSelected ? "primary" : "secondary"}
@@ -177,56 +269,77 @@ export function ProductEditor({ product, onCreated }) {
           </Panel>
         </div>
 
-        {/* ASIDE PREVIEW */}
-        <aside className="stack">
+        {/* RIGHT COLUMN: PREVIEW & PUBLISHING STATUS */}
+        <aside className="stack" style={{ width: "340px", flexShrink: 0, gap: "1.5rem" }}>
+          {/* CARD 1: STOREFRONT PREVIEW */}
           <Panel title="Xem trước trên cửa hàng">
-            <Art
-              type={productForm.category}
-              image={activePreviewVariant?.image || activePreviewVariant?.imageUrl}
-              name={productForm.name}
-            />
-            <div className="eyebrow section">{productForm.brand || "THƯƠNG HIỆU"}</div>
-            <h3>{productForm.name || "Tên sản phẩm"}</h3>
-            <p className="muted small">
+            {(() => {
+              const catSlug = categories.find((c) => c.id === productForm.categoryId)?.slug || "ram";
+              const previewImg = activePreviewVariant?.imageUrl || activePreviewVariant?.image || getCategoryMockImage(catSlug);
+              return (
+                <div style={{ textAlign: "center", marginBottom: "1rem" }}>
+                  <Art
+                    type={catSlug}
+                    image={previewImg}
+                    name={productForm.name}
+                  />
+                </div>
+              );
+            })()}
+            <div className="eyebrow section" style={{ fontSize: "11px", letterSpacing: "1px" }}>
+              {brands.find((b) => b.id === productForm.brandId)?.name || "THƯƠNG HIỆU"}
+            </div>
+            <h3 style={{ fontSize: "16px", marginTop: "4px" }}>
+              {productForm.name || "Tên sản phẩm"}
+            </h3>
+            <p className="muted small" style={{ marginTop: "4px" }}>
               {activePreviewVariant
-                ? activePreviewVariant.variant || activePreviewVariant.variantName
+                ? activePreviewVariant.variantName || activePreviewVariant.variant
                 : "Chưa chọn phiên bản"}
             </p>
-            <div className="price section">
+            <div className="price section" style={{ fontSize: "20px", fontWeight: 700, margin: "0.75rem 0" }}>
               {money(Number(activePreviewVariant?.price || 0))}
             </div>
             <div className="row" style={{ gap: "0.5rem" }}>
-              <Badge tone={productForm.status === "active" ? "success" : "warning"}>
-                {productForm.status === "active" ? "Đang bán" : "Bản nháp"}
+              <Badge tone={productForm.status === "ACTIVE" ? "success" : "warning"}>
+                {productForm.status === "ACTIVE" ? "Đang bán" : "Bản nháp"}
               </Badge>
               {activePreviewVariant && (
-                <Badge tone={Number(activePreviewVariant.stock) > 0 ? "success" : "danger"}>
-                  Tồn kho: {activePreviewVariant.stock || 0}
+                <Badge
+                  tone={
+                    Number(activePreviewVariant.stockQuantity ?? activePreviewVariant.stock) > 0
+                      ? "success"
+                      : "danger"
+                  }
+                >
+                  Tồn kho: {activePreviewVariant.stockQuantity ?? activePreviewVariant.stock ?? 0}
                 </Badge>
               )}
             </div>
           </Panel>
 
-          <Notice tone="neutral">
-            Sản phẩm cần có ít nhất 1 biến thể SKU có thông số chính xác trước khi Đăng bán ra toàn hệ thống.
-          </Notice>
+          {/* CARD 2: PUBLISHING CHECKLIST */}
+          <Panel title="Điều kiện xuất bản">
+            <ul style={{ listStyle: "none", padding: 0, margin: 0, fontSize: "13px", lineHeight: "1.8" }}>
+              <li style={{ color: hasNameAndBrand ? "var(--green, #148465)" : "var(--muted)" }}>
+                {hasNameAndBrand ? "✓" : "○"} Tên sản phẩm & thương hiệu
+              </li>
+              <li style={{ color: hasCategory ? "var(--green, #148465)" : "var(--muted)" }}>
+                {hasCategory ? "✓" : "○"} Đã chọn danh mục hợp lệ
+              </li>
+              <li style={{ color: hasVariants ? "var(--green, #148465)" : "var(--muted)" }}>
+                {hasVariants ? "✓" : "○"} Ít nhất 1 biến thể SKU có giá
+              </li>
+            </ul>
+            <div style={{ marginTop: "1rem" }}>
+              <Notice tone={canPublish ? "success" : "neutral"}>
+                {canPublish
+                  ? "Sản phẩm đủ điều kiện mở bán trên toàn hệ thống."
+                  : "Vui lòng hoàn thành các tiêu chí trên trước khi Đăng bán."}
+              </Notice>
+            </div>
+          </Panel>
         </aside>
-      </div>
-
-      {/* FOOTER ACTIONS */}
-      <div className="editor-actions">
-        <p className="small muted">
-          {variants.length} biến thể khả dụng · Trạng thái hiện tại:{" "}
-          <strong>{productForm.status === "active" ? "ACTIVE" : "DRAFT"}</strong>
-        </p>
-        <div className="row">
-          <Button tone="secondary" onClick={() => handleSaveProduct("draft")}>
-            Lưu nháp
-          </Button>
-          <Button onClick={() => handleSaveProduct("active")}>
-            Đăng bán sản phẩm (Publish)
-          </Button>
-        </div>
       </div>
 
       {/* VARIANT ADD / EDIT MODAL */}
@@ -237,6 +350,39 @@ export function ProductEditor({ product, onCreated }) {
           onClose={closeVariantModal}
         />
       )}
-    </>
+
+      {/* CONFIRM DELETE PRODUCT MODAL */}
+      {confirmDeleteOpen && (
+        <Modal
+          title="Xác nhận xóa sản phẩm"
+          onClose={() => setConfirmDeleteOpen(false)}
+        >
+          <div className="stack" style={{ gap: "1rem" }}>
+            <p>
+              Bạn có chắc chắn muốn xóa sản phẩm{" "}
+              <strong>'{productForm.name}'</strong> (kèm tất cả các biến thể SKU)?
+            </p>
+            <Notice tone="danger">
+              Hành động này không thể hoàn tác. Nếu sản phẩm đã phát sinh trong đơn hàng của khách hàng, hệ thống sẽ chặn xóa để bảo toàn lịch sử giao dịch.
+            </Notice>
+            <div className="row" style={{ justifyContent: "flex-end", gap: "0.75rem" }}>
+              <Button tone="secondary" onClick={() => setConfirmDeleteOpen(false)}>
+                Hủy bỏ
+              </Button>
+              <Button
+                tone="danger"
+                disabled={submitting}
+                onClick={async () => {
+                  setConfirmDeleteOpen(false);
+                  await handleDeleteProduct();
+                }}
+              >
+                {submitting ? "Đang xóa..." : "Xác nhận xóa vĩnh viễn"}
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
+    </div>
   );
 }

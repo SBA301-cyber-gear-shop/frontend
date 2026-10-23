@@ -44,7 +44,7 @@ export function AdminLayout() {
           <p className="small muted">
             {demoMode
               ? "Môi trường demo · Dữ liệu trên thiết bị"
-              : "Chức năng vận hành đang được hoàn thiện"}
+              : "Quản lý đơn và nhận hàng tại cửa hàng"}
           </p>
           <Link to="/cua-hang">← Xem cửa hàng</Link>
           <button className="text-button" onClick={signOut}>

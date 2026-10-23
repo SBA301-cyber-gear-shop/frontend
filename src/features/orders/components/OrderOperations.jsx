@@ -266,7 +266,9 @@ export function OrderOperations({ handover = false }) {
               )}
               {selected.status === "completed" && (
                 <Notice tone="success">
-                  Đã bàn giao và kích hoạt bảo hành.
+                  {warrantyLines.length
+                    ? "Đã bàn giao và kích hoạt bảo hành."
+                    : "Đã bàn giao đơn hàng."}
                 </Notice>
               )}
               {!demoMode &&

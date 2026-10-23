@@ -30,7 +30,7 @@ flowchart LR
 ## Quy tắc nghiệp vụ
 
 - Preview chỉ tính thử, không giữ tồn hay voucher. Khi đặt hàng, frontend gửi tổng/giảm giá đã preview để server phát hiện thay đổi; server tự tính lại và lấy dòng hàng từ giỏ của tài khoản.
-- `Idempotency-Key` là UUID lưu theo tài khoản trong session trình duyệt. Nếu mất phản hồi, gửi lại cùng key trả về cùng đơn; không trừ tồn hai lần. Không xóa key khi lỗi mạng chưa rõ kết quả.
+- `Idempotency-Key` là UUID lưu theo tài khoản trong session trình duyệt. Trước khi gửi, FE lưu cả key và payload đã xác nhận. Nếu mất phản hồi hoặc nhận lỗi 5xx, màn hình cho kiểm tra lại cùng yêu cầu, kể cả sau tải lại trang và giỏ đã rỗng. Không xóa yêu cầu chưa rõ kết quả; server trả cùng đơn khi retry. Lỗi 4xx yêu cầu preview lại trước khi xác nhận.
 - Giá, tên phiên bản, số tiền giảm và số tháng bảo hành được lưu theo thời điểm đặt. Thay đổi catalogue/promotion sau đó không đổi giá trị đơn cũ.
 - Voucher đang giữ cũng chiếm hạn mức. Hủy đơn hợp lệ hoàn tồn và trả lượt chung, nhưng tài khoản đã dùng mã đó không được dùng lại, kể cả đơn đã hủy, theo `UNIQUE(user_id, promotion_id)` trong SQL hiện tại.
 - Customer được hủy ở `pending`/`confirmed`; Staff/Admin được hủy trước khi hoàn tất. Đơn đã thu tiền với số tiền dương cần quy trình hoàn tiền trước, nên hiện bị chặn hủy. Hủy lặp không hoàn tồn lần hai.
@@ -53,7 +53,7 @@ flowchart LR
 | Vận hành              | `GET /api/operations/orders?search=&status=`                                                            |
 | Trạng thái            | `PATCH /api/operations/orders/{orderCode}/status`                                                       |
 | Thu tiền/bàn giao/hủy | `POST /api/operations/orders/{orderCode}/collect`, `/handover`, `/cancel`                               |
-| Bảo hành              | `GET /api/me/warranties`                                                                                |
+| Bảo hành sau nhận hàng | `GET /api/my/warranty-cards` (màn hình bảo hành từ main, gồm tiến trình sửa chữa)                       |
 | Promotion             | `GET /api/promotions`; Admin: `GET/POST /api/admin/promotions`, `PUT /api/admin/promotions/{id}`        |
 | Review                | `PUT /api/order-items/{id}/review`, `GET /api/products/{productVariantId}/reviews`                      |
 
@@ -77,7 +77,9 @@ Backend dùng đúng bảng chữ thường trong `SBA301-scriptDB.sql`. Không 
 
 ## Phạm vi hiện tại
 
-Đã nối đầy đủ flow **thanh toán tại cửa hàng**. Thanh toán online và hoàn tiền chưa có tích hợp cổng thật; server từ chối phương thức chưa hỗ trợ. PC builder, quản trị sản phẩm/thông số, tiếp nhận sửa chữa bảo hành và màn hình kỹ thuật viên vẫn là phần riêng chưa nối trong chế độ API này. Hồ sơ hiển thị dữ liệu đăng nhập, chưa lưu thay đổi.
+Đã nối flow **thanh toán tại cửa hàng** với API backend. Thanh toán online và hoàn tiền chưa có tích hợp cổng thật; server từ chối phương thức chưa hỗ trợ. Giữ các màn hình quản trị sản phẩm/thông số, PC builder và tiếp nhận/kỹ thuật bảo hành mới nhất từ `main`.
+
+Thêm linh kiện từ cấu hình PC hiện tại hoặc cấu hình đã lưu cũng dùng API giỏ hàng. Backend chưa có API thêm cả cấu hình trong một transaction: FE gửi tuần tự từng phiên bản; nếu một phiên bản lỗi sau khi đã thêm các phiên bản trước, FE tải lại giỏ và thông báo phần đã thêm để khách kiểm tra trước khi thử lại. Hồ sơ hiển thị dữ liệu đăng nhập, chưa lưu thay đổi.
 
 Bật `VITE_USE_DEMO_DATA=true` để chạy giao diện demo cũ. Chế độ API không ghi dữ liệu thương mại vào `techzone-demo-v1`.
 
@@ -93,4 +95,18 @@ npm run test:e2e
 
 Playwright chạy demo (4175) và API (4176), gồm luồng Admin tạo promotion → Customer đặt hàng → Staff thu tiền/bàn giao → Customer xem hai thẻ bảo hành và review. HTTP được giả lập để kiểm tra UI và contract.
 
+Bộ API còn kiểm tra tải lại trang sau mất phản hồi đặt hàng, giữ nguyên idempotency key/payload, bắt preview lại khi giá thay đổi, lỗi tồn kho, thêm cấu hình PC vào giỏ thật, và tách dữ liệu API khỏi localStorage demo.
+
 Backend `.\mvnw.cmd test` dùng H2 riêng, kiểm tra quyền, idempotency, giá thay đổi, số tiền thu, serial, review, hoàn tồn, hạn mức voucher và rollback transaction; có kiểm thử hai khách đồng thời mua tồn cuối/tranh lượt voucher cuối. Các kiểm thử này không kết nối hoặc sửa Neon. Cần kiểm tra thêm trên môi trường PostgreSQL thử nghiệm trước khi triển khai thực tế.
+
+### Xác minh ngày 23/10/2026 — nhánh Vu_BuyAnhPurchase
+
+- `npm run build`: pass, gồm TypeScript và production bundle.
+- `npm test`: 31/31 pass. Các test HTTP chạy ngoài sandbox vì sandbox chặn localhost.
+- Playwright Edge `--project=api`: 14/14 pass, API được giả lập; gồm giỏ hàng, preview/đặt hàng, retry cùng yêu cầu sau mất phản hồi và reload, đổi giá, PC builder, hủy đơn 0 đồng, bàn giao có/không có bảo hành, xem thẻ và review.
+- Playwright Edge demo: 3/3 test mua hàng–bàn giao, tiếp nhận–kỹ thuật bảo hành, và phân quyền Customer pass.
+- `npm run check:architecture`: pass (225 file). ESLint phần tích hợp (`orders`, `cart`, `reviews`, `promotions`, `store`, `routes`, `warranty` và test API) pass.
+- `npm run lint` toàn repo còn 6 lỗi có sẵn từ `main`: unused ở `ProductEditor`/`ProductManagement`; `set-state-in-effect` ở `VariantModal`, `useProductEditor`, `useProductManagement`.
+- Backend: `mvn -o -B -Dtest=PurchaseApiTests,PickupOrderApiTests,PromotionManagementApiTests test`: 22/22 pass trên H2 riêng. Log: `D:\SBA_backend\target\pickup-fe-integration-tests.log`.
+
+Đã đồng bộ `main` tại `f29c585`. Kiểm thử trình duyệt dùng HTTP giả lập, backend dùng MockMvc/H2; chưa chạy FE → backend → PostgreSQL/Neon xuyên suốt trong lượt này.
