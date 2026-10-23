@@ -1,5 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { useLocation } from "react-router-dom";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { readState, writeState } from "./demo/persistence";
 import { createSeed } from "./demo/seed";
 import { StoreContext } from "./context";
@@ -58,11 +57,13 @@ export default function StoreProvider({ children, catalogApi, cartApi }) {
     catalogRequest = useRef(0),
     mutationBusy = useRef(false);
   useEffect(() => () => clearTimeout(timer.current), []);
+
   const notify = useCallback((message, tone = "success") => {
     setToast({ message, tone });
     clearTimeout(timer.current);
     timer.current = setTimeout(() => setToast(null), 4500);
   }, []);
+
   const commit = useCallback((update) => {
     const next =
       typeof update === "function" ? update(current.current) : update;
@@ -77,146 +78,6 @@ export default function StoreProvider({ children, catalogApi, cartApi }) {
     setData(next);
     return next;
   }, []);
-
-  const fetchCatalog = useCallback(
-    (signal) => {
-      if (demoMode) return;
-      const request = ++catalogRequest.current;
-      return catalogApi
-        .list(signal)
-        .then((products) => {
-          if (request === catalogRequest.current && !signal?.aborted) {
-            commit((state) => ({ ...state, products }));
-            setCatalogError("");
-          }
-        })
-        .catch((error) => {
-          if (request === catalogRequest.current && !signal?.aborted)
-            setCatalogError(error.message);
-        })
-        .finally(() => {
-          if (request === catalogRequest.current && !signal?.aborted)
-            setCatalogLoading(false);
-        });
-    },
-    [catalogApi, commit],
-  );
-
-  const fetchCart = useCallback(
-    (signal) => {
-      if (demoMode || !activeUser.current) return;
-      const owner = activeUser.current.id;
-      const request = ++cartRequest.current;
-      return cartApi
-        .get(signal)
-        .then((cart) => {
-          if (
-            request !== cartRequest.current ||
-            owner !== activeUser.current?.id ||
-            signal?.aborted
-          )
-            return false;
-          commit((state) => ({ ...state, cart }));
-          setCartError("");
-          return true;
-        })
-        .catch((error) => {
-          if (
-            request === cartRequest.current &&
-            owner === activeUser.current?.id &&
-            !signal?.aborted
-          )
-            setCartError(error.message);
-          return false;
-        })
-        .finally(() => {
-          if (
-            request === cartRequest.current &&
-            owner === activeUser.current?.id &&
-            !signal?.aborted
-          )
-            setCartLoading(false);
-        });
-    },
-    [cartApi, commit],
-  );
-
-  useEffect(() => {
-    const controller = new AbortController();
-    void fetchCatalog(controller.signal);
-    return () => controller.abort();
-  }, [fetchCatalog, pathname]);
-
-  useEffect(() => {
-    if (demoMode) return;
-    let controller;
-    const refreshVisibleCatalog = () => {
-      if (document.visibilityState !== "visible") return;
-      controller?.abort();
-      controller = new AbortController();
-      void fetchCatalog(controller.signal);
-    };
-    window.addEventListener("focus", refreshVisibleCatalog);
-    document.addEventListener("visibilitychange", refreshVisibleCatalog);
-    return () => {
-      controller?.abort();
-      window.removeEventListener("focus", refreshVisibleCatalog);
-      document.removeEventListener("visibilitychange", refreshVisibleCatalog);
-    };
-  }, [fetchCatalog]);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    void fetchCart(controller.signal);
-    return () => controller.abort();
-  }, [user, fetchCart]);
-
-  function reloadCatalog() {
-    setCatalogLoading(true);
-    setCatalogError("");
-    return fetchCatalog();
-  }
-
-  function reloadCart() {
-    setCartLoading(true);
-    setCartError("");
-    return fetchCart();
-  }
-
-  async function mutateCart(operation) {
-    if (mutationBusy.current)
-      throw new Error("Giỏ hàng đang cập nhật, vui lòng chờ.");
-    const owner = activeUser.current?.id;
-    if (!owner) throw new Error("Vui lòng đăng nhập để sử dụng giỏ hàng.");
-    mutationBusy.current = true;
-    setCartBusy(true);
-    try {
-      await operation();
-      if (owner !== activeUser.current?.id) return false;
-      if (!(await reloadCart()))
-        throw new Error(
-          "Đã gửi thay đổi nhưng chưa tải lại được giỏ hàng. Vui lòng tải lại giỏ để kiểm tra.",
-        );
-      return true;
-    } finally {
-      mutationBusy.current = false;
-      setCartBusy(false);
-    }
-  }
-
-  function clearLiveCart() {
-    if (demoMode) return;
-    ++cartRequest.current;
-    setCartLoading(false);
-    setCartError("");
-    commit((state) => ({
-      ...state,
-      cart: [],
-      orders: [],
-      warranties: [],
-      reviews: [],
-    }));
-  }
   function signIn(profile) {
     const safe = safeProfile(profile);
     if (!demoMode || activeUser.current?.id !== safe.id) {

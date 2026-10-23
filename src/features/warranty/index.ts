@@ -1,6 +1,8 @@
-export { CustomerWarranty } from "./components/CustomerWarranty";
-export { WarrantyIntake } from "./components/WarrantyIntake";
-export { TechnicianWorkbench } from "./components/TechnicianWorkbench";
+export {
+  CustomerWarranty,
+  WarrantyIntake,
+  TechnicianWorkbench,
+} from "./components/LiveSwitch";
 export { createTicket } from "./domain";
 export { transitionTicket } from "./domain";
 export { TICKET_STATUS } from "./constants";
