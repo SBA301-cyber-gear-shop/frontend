@@ -2,7 +2,8 @@ import { useState } from "react";
 import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useSession } from "@/features/auth";
 import { useCart } from "@/features/cart";
-import { money } from "@/utils";
+import { CatalogConnection } from "@/features/products";
+import { demoMode, money } from "@/utils";
 
 import { Logo, Icon } from "@/components/ui";
 
@@ -91,6 +92,7 @@ export function MainLayout() {
         </nav>
       </header>
       <main id="main-content" className="wrap main">
+        <CatalogConnection />
         <Outlet />
       </main>
       <footer className="wrap between">
@@ -105,7 +107,9 @@ export function MainLayout() {
           <Link to="/tai-khoan">Tài khoản</Link>
           <Link to="/dang-nhap">Vận hành</Link>
         </div>
-        <span className="small muted">© 2026 TechZone Pro · Demo</span>
+        <span className="small muted">
+          © 2026 TechZone Pro{demoMode ? " · Demo" : ""}
+        </span>
       </footer>
     </>
   );

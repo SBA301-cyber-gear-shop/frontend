@@ -2,6 +2,8 @@
 
 > A full-featured React storefront for PC components, custom PC builds, orders, and warranty management. Built with **React 19**, **Vite**, **React Router 7**, and **Anime.js**.
 
+> **API update:** Spring Boot now handles catalog/cart, store-pickup orders, cash collection, handover with per-device warranties, Admin promotions and post-purchase reviews. See [Pickup API integration](docs/PICKUP_API_INTEGRATION.md) for the complete flow, setup and current scope. Online payments/refunds still require a payment gateway. Set `VITE_USE_DEMO_DATA=true` for the original standalone demo.
+
 ![Store Home](docs/screenshots/store-home.png)
 
 ---
@@ -114,7 +116,7 @@ npm run dev
 
 Open [http://localhost:5173](http://localhost:5173) in your browser.
 
-> **Note:** Login and registration require the backend to be running. All other features (catalog, cart, checkout, builder, warranty, admin) use browser-side demo data and work without a backend.
+> **Note:** API mode requires the backend for authentication and commerce flows. The standalone demo is opt-in through `VITE_USE_DEMO_DATA=true`.
 
 ### Backend Setup
 
@@ -125,7 +127,7 @@ The frontend connects to a **Spring Boot** backend for authentication (`/api/aut
 3. Run the Spring Boot application on port `8080`
 4. The frontend will automatically connect via `VITE_API_BASE_URL`
 
-> Catalog, checkout, payments, warranty, and admin operations currently use demo state stored in `localStorage` (`techzone-demo-v1`) and `sessionStorage`. These will be migrated to real APIs in future iterations.
+> API mode does not write commerce data to `techzone-demo-v1`. Features without backend APIs display an unavailable state. The complete demo remains accessible in demo mode.
 
 ---
 
@@ -292,6 +294,7 @@ npm run check:architecture
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `VITE_API_BASE_URL` | `http://localhost:8080` | Backend API base URL |
+| `VITE_USE_DEMO_DATA` | `false` | Use `true` only for the standalone demo |
 
 Create a `.env.local` file from `.env.example`:
 
@@ -309,8 +312,8 @@ cp .env.example .env.local
 |---------|-------------|-------|
 | **Auth (Login/Register)** | ✅ Real API | `/api/auth/login`, `/api/auth/register` |
 | **PC Builder AI Suggest** | 🔌 Endpoint ready | `/api/v1/pc-build/ai-suggest` (not connected in UI) |
-| **Catalog, Cart, Checkout** | 🖥️ Demo data | Browser-side `localStorage` |
-| **Orders, Warranty, Admin** | 🖥️ Demo data | Browser-side `localStorage` |
+| **Catalog, Cart, Checkout preview** | ✅ Real API | Products, authenticated cart, stock validation and voucher preview |
+| **Order creation, payment, Warranty, Admin** | ⏳ Pending | Unavailable in API mode; original UI in demo mode |
 
 ### HTTP Client (Axios)
 

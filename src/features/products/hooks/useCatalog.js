@@ -3,7 +3,7 @@ import { useStore } from "@/store";
 import { categories } from "../constants";
 
 export function useCatalog() {
-  const { data } = useStore(),
+  const { data, catalogLoading, catalogError } = useStore(),
     { category } = useParams(),
     [params, setParams] = useSearchParams();
   const selectedCategory = category || params.get("category") || "",
@@ -69,7 +69,11 @@ export function useCatalog() {
     ...new Set(
       base.flatMap((p) =>
         Object.entries(p.specs)
-          .filter(([k]) => !configured || configured.includes(k))
+          .filter(([k]) =>
+            p.filterSpecs
+              ? p.filterSpecs.includes(k)
+              : !configured || configured.includes(k),
+          )
           .map(([, v]) => v),
       ),
     ),
@@ -91,5 +95,7 @@ export function useCatalog() {
     toggleBrand,
     title,
     specOptions,
+    catalogLoading,
+    catalogError,
   };
 }

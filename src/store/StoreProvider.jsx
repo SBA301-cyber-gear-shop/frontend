@@ -1,18 +1,61 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { readState, writeState } from "./demo/persistence";
+import { createSeed } from "./demo/seed";
 import { StoreContext } from "./context";
-export default function StoreProvider({ children }) {
-  const [data, setData] = useState(readState),
+import { demoMode } from "@/utils";
+
+function liveState() {
+  return {
+    ...createSeed(),
+    products: [],
+    cart: [],
+    build: [],
+    orders: [],
+    promotions: [],
+    usages: [],
+    warranties: [],
+    tickets: [],
+    reviews: [],
+    users: [],
+    specSettings: {},
+  };
+}
+
+function safeProfile(profile) {
+  if (!profile) return null;
+  const { password, demoPasswordHash, ...safe } = profile;
+  void password;
+  void demoPasswordHash;
+  const role = String(safe.role || "").toLowerCase();
+  safe.role = role.charAt(0).toUpperCase() + role.slice(1);
+  return safe;
+}
+
+export default function StoreProvider({ children, catalogApi, cartApi }) {
+  const { pathname } = useLocation();
+  const [data, setData] = useState(demoMode ? readState : liveState),
     [user, setUser] = useState(() => {
       try {
-        return JSON.parse(sessionStorage.getItem("techzone-session"));
+        if (!demoMode && !sessionStorage.getItem("techzone-token")) return null;
+        return safeProfile(
+          JSON.parse(sessionStorage.getItem("techzone-session")),
+        );
       } catch {
         return null;
       }
     }),
-    [toast, setToast] = useState(null);
+    [toast, setToast] = useState(null),
+    [catalogLoading, setCatalogLoading] = useState(!demoMode),
+    [catalogError, setCatalogError] = useState(""),
+    [cartLoading, setCartLoading] = useState(!demoMode && Boolean(user)),
+    [cartError, setCartError] = useState(""),
+    [cartBusy, setCartBusy] = useState(false);
   const current = useRef(data),
-    timer = useRef(null);
+    timer = useRef(null),
+    activeUser = useRef(user),
+    cartRequest = useRef(0),
+    catalogRequest = useRef(0),
+    mutationBusy = useRef(false);
   useEffect(() => () => clearTimeout(timer.current), []);
 
   const notify = useCallback((message, tone = "success") => {
@@ -25,7 +68,7 @@ export default function StoreProvider({ children }) {
     const next =
       typeof update === "function" ? update(current.current) : update;
     try {
-      writeState(next);
+      if (demoMode) writeState(next);
     } catch {
       throw new Error(
         "Không thể lưu dữ liệu trên trình duyệt. Kiểm tra dung lượng hoặc quyền lưu trữ.",
@@ -36,20 +79,41 @@ export default function StoreProvider({ children }) {
     return next;
   }, []);
   function signIn(profile) {
-    const { password, demoPasswordHash, ...safe } = profile;
-    void password;
-    void demoPasswordHash;
+    const safe = safeProfile(profile);
+    if (!demoMode || activeUser.current?.id !== safe.id) {
+      clearLiveCart();
+      if (!demoMode) setCartLoading(true);
+    }
+    activeUser.current = safe;
     sessionStorage.setItem("techzone-session", JSON.stringify(safe));
     setUser(safe);
   }
   function signOut() {
+    activeUser.current = null;
+    clearLiveCart();
     sessionStorage.removeItem("techzone-session");
     sessionStorage.removeItem("techzone-token");
     setUser(null);
   }
   return (
     <StoreContext.Provider
-      value={{ data, user, commit, notify, signIn, signOut }}
+      value={{
+        data,
+        user,
+        commit,
+        notify,
+        signIn,
+        signOut,
+        demoMode,
+        catalogLoading,
+        catalogError,
+        reloadCatalog,
+        cartLoading,
+        cartError,
+        cartBusy,
+        reloadCart,
+        mutateCart,
+      }}
     >
       {children}
       {toast && (

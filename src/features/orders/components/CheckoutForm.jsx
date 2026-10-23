@@ -36,7 +36,29 @@ export function CheckoutForm() {
     promoError,
     apply,
     submit,
+    demoMode,
+    validating,
+    previewed,
+    retryValidation,
+    confirmOrder,
   } = useCheckout();
+  if (!demoMode && fromBuild)
+    return (
+      <Notice>
+        Cấu hình PC chưa hỗ trợ đặt hàng trực tiếp. Vui lòng chọn từng sản phẩm
+        và thêm vào giỏ hàng.
+      </Notice>
+    );
+  if (validating)
+    return <Notice>Đang kiểm tra giá và tồn kho với cửa hàng…</Notice>;
+  if (!demoMode && error && !lines.length)
+    return (
+      <div className="stack">
+        <Notice tone="danger">{error}</Notice>
+        <Button onClick={retryValidation}>Kiểm tra lại</Button>
+        <Button to="/gio-hang">Về giỏ hàng</Button>
+      </div>
+    );
   if (!lines.length)
     return (
       <Empty
@@ -67,6 +89,7 @@ export function CheckoutForm() {
                   value={name}
                   required
                   autoComplete="name"
+                  maxLength={100}
                   onChange={(e) => setName(e.target.value)}
                 />
                 <Field
@@ -75,6 +98,7 @@ export function CheckoutForm() {
                   required
                   type="tel"
                   autoComplete="tel"
+                  maxLength={20}
                   onChange={(e) => setPhone(e.target.value)}
                 />
               </div>
@@ -82,6 +106,7 @@ export function CheckoutForm() {
                 <Field
                   label="Ghi chú cho cửa hàng"
                   value={note}
+                  maxLength={2000}
                   onChange={(e) => setNote(e.target.value)}
                 />
               </div>
@@ -94,18 +119,27 @@ export function CheckoutForm() {
               </div>
             </Panel>
             <Panel title="02 · Phương thức thanh toán">
-              {[
-                [
-                  "store",
-                  "Thanh toán tại cửa hàng",
-                  "Thu đủ tiền khi bạn đến nhận hàng.",
-                ],
-                [
-                  "online",
-                  "Thanh toán online · Demo",
-                  "Chưa tích hợp cổng thanh toán thật. Bạn sẽ được chọn kết quả mô phỏng.",
-                ],
-              ].map(([value, label, desc]) => (
+              {(demoMode
+                ? [
+                    [
+                      "store",
+                      "Thanh toán tại cửa hàng",
+                      "Thu đủ tiền khi bạn đến nhận hàng.",
+                    ],
+                    [
+                      "online",
+                      "Thanh toán online · Demo",
+                      "Chưa tích hợp cổng thanh toán thật. Bạn sẽ được chọn kết quả mô phỏng.",
+                    ],
+                  ]
+                : [
+                    [
+                      "store",
+                      "Thanh toán tại cửa hàng",
+                      "Thu đủ tiền khi bạn đến nhận hàng.",
+                    ],
+                  ]
+              ).map(([value, label, desc]) => (
                 <label
                   className={
                     "selection " + (method === value ? "selected" : "")
@@ -140,7 +174,11 @@ export function CheckoutForm() {
                   onChange={(e) => setInputCode(e.target.value)}
                   placeholder="Nhập mã"
                 />
-                <Button tone="secondary" onClick={apply}>
+                <Button
+                  tone="secondary"
+                  onClick={apply}
+                  disabled={placing || (!!error && !demoMode)}
+                >
                   Áp dụng
                 </Button>
               </div>
@@ -175,6 +213,11 @@ export function CheckoutForm() {
               {(error || promoError) && (
                 <div className="section">
                   <Notice tone="danger">{error || promoError}</Notice>
+                  {!demoMode && (
+                    <Button tone="secondary" onClick={retryValidation}>
+                      Kiểm tra lại giỏ hàng
+                    </Button>
+                  )}
                 </div>
               )}
               <Button
@@ -182,8 +225,35 @@ export function CheckoutForm() {
                 className="full"
                 disabled={placing || !!promoError}
               >
-                {placing ? "Đang tạo đơn…" : "Xác nhận đặt hàng →"}
+                {placing
+                  ? demoMode
+                    ? "Đang tạo đơn…"
+                    : "Đang kiểm tra…"
+                  : demoMode
+                    ? "Xác nhận đặt hàng →"
+                    : "Kiểm tra thông tin & voucher"}
               </Button>
+              {!demoMode && (
+                <div className="section stack">
+                  {previewed && (
+                    <Notice tone="success">
+                      Thông tin nhận hàng hợp lệ. Giá dự kiến đã được cập nhật
+                      từ cửa hàng.
+                    </Notice>
+                  )}
+                  <Notice>
+                    Kiểm tra thông tin và giá dự kiến, sau đó xác nhận đặt hàng.
+                    Thanh toán tại cửa hàng khi đến nhận sản phẩm.
+                  </Notice>
+                  <Button
+                    className="full"
+                    disabled={!previewed || placing}
+                    onClick={confirmOrder}
+                  >
+                    {placing ? "Đang xử lý…" : "Xác nhận đặt hàng →"}
+                  </Button>
+                </div>
+              )}
               <p className="tiny muted section">
                 Đặt hàng thành công chưa có nghĩa đã thanh toán hoặc hàng đã sẵn
                 sàng.

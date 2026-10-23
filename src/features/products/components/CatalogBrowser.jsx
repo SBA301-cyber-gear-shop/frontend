@@ -23,7 +23,10 @@ export function CatalogBrowser() {
     toggleBrand,
     title,
     specOptions,
+    catalogLoading,
+    catalogError,
   } = useCatalog();
+  if (catalogLoading || catalogError) return null;
   return (
     <>
       <div className="breadcrumb">

@@ -14,6 +14,9 @@ import {
 import { axiosClient } from "@/services";
 import { authApi } from "../src/features/auth/api/authApi";
 import { pcBuilderApi } from "../src/features/pc-builder/api/pcBuilderApi";
+import { cartApi } from "../src/features/cart/api/cartApi";
+import { catalogApi } from "../src/features/products/api/catalogApi";
+import { checkoutApi } from "../src/features/orders/api/checkoutApi";
 
 // Exercise Axios serialization/parsing and HTTP failures against a local server.
 // No developer backend or external API is contacted.
@@ -60,6 +63,92 @@ beforeEach(() => {
   });
   requests.length = 0;
   reply = { status: 200, body: { data: auth } };
+});
+
+test("cart adapter preserves cartItemId separately from variantId", async () => {
+  reply.body = {
+    data: {
+      items: [
+        {
+          cartItemId: 9001,
+          productVariantId: 101,
+          quantity: 2,
+          unitPrice: 1200000,
+          stockQuantity: 3,
+        },
+      ],
+    },
+  };
+  const lines = await cartApi.get();
+  expect(lines[0]).toMatchObject({
+    id: "101",
+    cartItemId: 9001,
+    quantity: 2,
+    stock: 3,
+  });
+  await cartApi.update(lines[0].cartItemId, 3);
+  expect(requests.at(-1)).toMatchObject({
+    url: "/backend/api/orders/cart/items/9001",
+    method: "PUT",
+    body: '{"quantity":3}',
+  });
+  await cartApi.remove(lines[0].cartItemId);
+  expect(requests.at(-1)).toMatchObject({
+    method: "DELETE",
+    url: "/backend/api/orders/cart/items/9001",
+  });
+});
+
+test("adding to cart sends numeric variant ID and the logged-in token", async () => {
+  sessionStorage.setItem("techzone-token", "buyer-token");
+  await cartApi.add("101", 2);
+  expect(requests[0]).toMatchObject({
+    method: "POST",
+    url: "/backend/api/orders/cart/items",
+    body: '{"productVariantId":101,"quantity":2}',
+  });
+  expect(requests[0].headers.authorization).toBe("Bearer buyer-token");
+});
+
+test("checkout sends receiver details and voucher without client supplied totals", async () => {
+  reply.body = { cartId: 8, valid: true, totalAmount: 2400000, items: [] };
+  expect((await checkoutApi.validate()).valid).toBe(true);
+  const details = {
+    pickupName: "Khách",
+    pickupPhone: "0900000128",
+    note: "Nhận chiều",
+    promotionCode: "SAVE",
+  };
+  await checkoutApi.preview(details);
+  expect(requests[0]).toMatchObject({
+    method: "POST",
+    url: "/backend/api/checkout/validate",
+  });
+  expect(requests[1].url).toBe("/backend/api/checkout/details/preview");
+  expect(JSON.parse(requests[1].body)).toEqual(details);
+});
+
+test("catalog normalizes variant IDs and missing optional fields", async () => {
+  reply.body = [{ id: 101, productId: 10, price: 1200000 }];
+  expect(await catalogApi.list()).toEqual([
+    {
+      id: "101",
+      productId: "10",
+      price: 1200000,
+      originalPrice: 1200000,
+      category: "other",
+      specs: {},
+    },
+  ]);
+  expect(requests[0].url).toBe("/backend/api/products");
+});
+
+test("cart and catalog reject malformed response shapes", async () => {
+  reply.body = {};
+  await expect(cartApi.get()).rejects.toThrow("Dữ liệu giỏ hàng không hợp lệ");
+  await expect(catalogApi.list()).rejects.toThrow(
+    "Dữ liệu sản phẩm không hợp lệ",
+  );
 });
 
 afterEach(() => vi.unstubAllGlobals());

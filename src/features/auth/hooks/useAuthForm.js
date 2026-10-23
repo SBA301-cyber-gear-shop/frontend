@@ -55,7 +55,8 @@ export function useAuthForm({ register = false }) {
       } else if (confirm !== password) {
         errs.confirm = "Mật khẩu xác nhận không trùng khớp.";
       }
-    } else { // Login
+    } else {
+      // Login
       if (!identity.trim()) {
         errs.identity = "Vui lòng nhập email hoặc số điện thoại.";
       }
@@ -138,9 +139,9 @@ export function useAuthForm({ register = false }) {
 
         signIn(u);
         const fallback =
-          u.role === "Customer"
+          u.role.toLowerCase() === "customer"
             ? "/cua-hang"
-            : u.role === "Technician"
+            : u.role.toLowerCase() === "technician"
               ? "/ky-thuat"
               : "/van-hanh/don-hang";
         navigate(location.state?.from || fallback, { replace: true });

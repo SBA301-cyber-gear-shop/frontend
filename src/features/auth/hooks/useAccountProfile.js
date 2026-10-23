@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useStore } from "@/store";
+import { demoMode } from "@/utils";
 
 export function useAccountProfile() {
   const { user, commit, signIn, notify } = useStore(),
@@ -8,6 +9,7 @@ export function useAccountProfile() {
     [address, setAddress] = useState(user.address || "");
   function save(e) {
     e.preventDefault();
+    if (!demoMode) return;
     if (!name.trim() || !/^0\d{9}$/.test(phone))
       return notify("Kiểm tra họ tên và số điện thoại.", "danger");
     const updated = { ...user, name: name.trim(), phone, address };

@@ -12,6 +12,7 @@ import {
 } from "@/components/ui";
 import { Quantity } from "@/components/form";
 import { useProductDetails } from "../hooks/useProductDetails";
+import { ProductFeedback } from "./ProductFeedback";
 
 export function ProductDetails({ addCart }) {
   const {
@@ -25,7 +26,11 @@ export function ProductDetails({ addCart }) {
     variants,
     reviews,
     primary,
+    catalogLoading,
+    catalogError,
+    reviewError,
   } = useProductDetails();
+  if (catalogLoading || catalogError) return null;
   if (!p || p.status !== "active")
     return (
       <Empty
@@ -59,6 +64,7 @@ export function ProductDetails({ addCart }) {
             {p.brand} / {p.category}
           </div>
           <h1>{p.name}</h1>
+          <ProductFeedback product={p} />
           <p className="small muted section">
             SKU: <span className="mono">{p.sku}</span>
           </p>
@@ -122,9 +128,8 @@ export function ProductDetails({ addCart }) {
             <Button
               disabled={!p.stock}
               tone="secondary"
-              onClick={() => {
-                addCart(p.id, quantity);
-                navigate("/gio-hang");
+              onClick={async () => {
+                if (await addCart(p.id, quantity)) navigate("/gio-hang");
               }}
             >
               Mua ngay →
@@ -169,6 +174,11 @@ export function ProductDetails({ addCart }) {
               Đánh giá ({reviews.length})
             </button>
           </div>
+          {tab === "reviews" && reviewError && (
+            <Notice tone="danger">
+              Không tải được đánh giá: {reviewError}
+            </Notice>
+          )}
           {tab === "description" ? (
             <>
               <h3>{p.name}</h3>
