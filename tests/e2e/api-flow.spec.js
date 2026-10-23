@@ -683,6 +683,167 @@ test("staff hands over a paid order without warranty using an empty devices list
   expect(handovers).toBe(1);
 });
 
+test("admin editor preserves drafts on refresh and resets fields when switching products and variants", async ({
+  page,
+}) => {
+  test.setTimeout(60000);
+  await backend(page);
+  await page.route("**/api/auth/login", (route) =>
+    route.fulfill({
+      json: {
+        data: {
+          accessToken: "admin-token",
+          user: {
+            id: 1,
+            fullName: "Admin",
+            email: "admin@example.com",
+            role: "Admin",
+          },
+        },
+      },
+    }),
+  );
+  await page.route("**/api/operations/orders?*", (route) =>
+    route.fulfill({ json: [] }),
+  );
+  const products = [10, 11].map((id, index) => ({
+    id,
+    name: index ? "RAM Beta" : "RAM Alpha",
+    status: "DRAFT",
+    brandId: 1,
+    brandName: "Kingston",
+    categoryId: 1,
+    categoryName: "RAM",
+    warrantyPeriodMonths: index ? 12 : 0,
+    description: "Thông tin gốc",
+    variants: [
+      {
+        id: id * 10 + 1,
+        productId: id,
+        serialCode: `SKU-${id}`,
+        variantName: index ? "32GB" : "16GB",
+        price: 1200000,
+        originalPrice: 0,
+        stockQuantity: index ? 7 : 0,
+        attributes: [],
+      },
+    ],
+  }));
+  const updates = [];
+  let listRequests = 0;
+  await page.route("**/api/admin/**", (route) => {
+    const request = route.request(),
+      path = new URL(request.url()).pathname;
+    if (path === "/api/admin/brands")
+      return route.fulfill({ json: [{ id: 1, name: "Kingston" }] });
+    if (path === "/api/admin/categories")
+      return route.fulfill({ json: [{ id: 1, name: "RAM", slug: "ram" }] });
+    if (path === "/api/admin/products") {
+      listRequests++;
+      return route.fulfill({ json: products });
+    }
+    const match = path.match(
+      /^\/api\/admin\/products\/(\d+)(?:\/variants\/(\d+))?$/,
+    );
+    if (match) {
+      const selected = products.find((item) => item.id === Number(match[1]));
+      if (request.method() === "PUT") {
+        const payload = request.postDataJSON();
+        if (match[2]) {
+          const variant = selected.variants.find(
+            (item) => item.id === Number(match[2]),
+          );
+          Object.assign(variant, payload);
+          return route.fulfill({ json: variant });
+        }
+        updates.push(payload);
+        Object.assign(selected, payload);
+      }
+      return route.fulfill({ json: selected });
+    }
+    return route.fulfill({ status: 404, json: { message: path } });
+  });
+  await login(page, /van-hanh\/don-hang/);
+  await page.goto("/quan-tri/san-pham");
+  await page
+    .getByRole("row")
+    .filter({ hasText: "RAM Alpha" })
+    .getByRole("button", { name: "Chỉnh sửa", exact: true })
+    .click();
+  const name = page.getByRole("textbox", {
+    name: "Tên sản phẩm *",
+    exact: true,
+  });
+  await expect(name).toHaveValue("RAM Alpha");
+  await expect(
+    page.getByRole("spinbutton", {
+      name: "Thời hạn bảo hành (tháng) *",
+      exact: true,
+    }),
+  ).toHaveValue("0");
+  await name.fill("Tên đang sửa chưa lưu");
+  await page.getByRole("button", { name: "Sửa", exact: true }).click();
+  let dialog = page.getByRole("dialog");
+  await expect(
+    dialog.getByRole("textbox", {
+      name: "Mã SKU (serial_code) *",
+      exact: true,
+    }),
+  ).toHaveValue("SKU-10");
+  await expect(
+    dialog.getByRole("spinbutton", { name: "Số lượng tồn kho *", exact: true }),
+  ).toHaveValue("0");
+  await dialog
+    .getByRole("textbox", { name: "Tên phiên bản *", exact: true })
+    .fill("16GB đã sửa");
+  await dialog
+    .getByRole("button", { name: "Lưu thay đổi", exact: true })
+    .click();
+  await expect(dialog).not.toBeVisible();
+  await expect.poll(() => listRequests).toBeGreaterThan(1);
+  await expect(name).toHaveValue("Tên đang sửa chưa lưu");
+  await page
+    .getByRole("button", { name: "+ Thêm biến thể", exact: true })
+    .click();
+  dialog = page.getByRole("dialog");
+  await expect(
+    dialog.getByRole("textbox", {
+      name: "Mã SKU (serial_code) *",
+      exact: true,
+    }),
+  ).toHaveValue("");
+  await expect(
+    dialog.getByRole("spinbutton", { name: "Số lượng tồn kho *", exact: true }),
+  ).toHaveValue("10");
+  await dialog.getByRole("button", { name: "Hủy", exact: true }).click();
+  await page.getByRole("button", { name: "Lưu nháp", exact: true }).click();
+  await expect.poll(() => updates.length).toBe(1);
+  expect(updates[0]).toMatchObject({
+    name: "Tên đang sửa chưa lưu",
+    warrantyPeriodMonths: 0,
+  });
+  await page
+    .getByRole("button", { name: "← Quay lại danh sách", exact: true })
+    .click();
+  await page
+    .getByRole("row")
+    .filter({ hasText: "RAM Beta" })
+    .getByRole("button", { name: "Chỉnh sửa", exact: true })
+    .click();
+  await expect(name).toHaveValue("RAM Beta");
+  await page.getByRole("button", { name: "Sửa", exact: true }).click();
+  dialog = page.getByRole("dialog");
+  await expect(
+    dialog.getByRole("textbox", {
+      name: "Mã SKU (serial_code) *",
+      exact: true,
+    }),
+  ).toHaveValue("SKU-11");
+  await expect(
+    dialog.getByRole("spinbutton", { name: "Số lượng tồn kho *", exact: true }),
+  ).toHaveValue("7");
+});
+
 test("logout clears the live cart and a catalogue failure offers retry", async ({
   page,
 }) => {

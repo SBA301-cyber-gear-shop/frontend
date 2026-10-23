@@ -3,6 +3,32 @@ import { useStore } from "@/store";
 import { productApi } from "../api/productApi";
 import { getCategoryMockImage } from "../constants/mockImages";
 
+async function fetchManagementData(forceRefresh = false) {
+  const [products, brands, categories] = await Promise.all([
+    productApi.listAdminProducts(undefined, { forceRefresh }),
+    productApi.getBrands({ forceRefresh }),
+    productApi.getCategories({ forceRefresh }),
+  ]);
+  return {
+    products: (products || []).map((product) => {
+      const slug =
+        categories?.find((category) => category.id === product.categoryId)
+          ?.slug || (product.categoryName || "").toLowerCase();
+      const fallback = getCategoryMockImage(slug);
+      return {
+        ...product,
+        imageUrl: product.imageUrl || fallback,
+        variants: (product.variants || []).map((variant) => ({
+          ...variant,
+          imageUrl: variant.imageUrl || fallback,
+        })),
+      };
+    }),
+    brands: brands || [],
+    categories: categories || [],
+  };
+}
+
 export function useProductManagement() {
   const { notify } = useStore();
 
@@ -22,47 +48,54 @@ export function useProductManagement() {
   const [statusFilter, setStatusFilter] = useState("ALL"); // ALL, ACTIVE, DRAFT
   const [categoryFilter, setCategoryFilter] = useState("ALL");
 
-  // Fetch real data from Backend with caching
-  const loadData = useCallback(async (forceRefresh = false) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const [prodsData, brandsData, catsData] = await Promise.all([
-        productApi.listAdminProducts(undefined, { forceRefresh }),
-        productApi.getBrands({ forceRefresh }).catch(() => []),
-        productApi.getCategories({ forceRefresh }).catch(() => []),
-      ]);
+  const applyData = useCallback((snapshot) => {
+    setProducts(snapshot.products);
+    setBrands(snapshot.brands);
+    setCategories(snapshot.categories);
+  }, []);
+  const reportError = useCallback(
+    (failure) => {
+      setError(failure?.message || "Không thể kết nối đến máy chủ Backend.");
+      notify("Không thể tải dữ liệu quản trị sản phẩm.", "danger");
+    },
+    [notify],
+  );
 
-      const enhancedProducts = (prodsData || []).map((p) => {
-        const catSlug = catsData?.find((c) => c.id === p.categoryId)?.slug || (p.categoryName || "").toLowerCase();
-        const fallbackImg = getCategoryMockImage(catSlug);
-        return {
-          ...p,
-          imageUrl: p.imageUrl || fallbackImg,
-          variants: (p.variants || []).map((v) => ({
-            ...v,
-            imageUrl: v.imageUrl || fallbackImg,
-          })),
-        };
-      });
-
-      setProducts(enhancedProducts);
-      setBrands(brandsData || []);
-      setCategories(catsData || []);
-      return enhancedProducts;
-    } catch (err) {
-      console.error("Lỗi khi tải dữ liệu sản phẩm từ Backend:", err);
-      setError(err?.message || "Không thể kết nối đến máy chủ Backend.");
-      notify("Không thể kết nối máy chủ backend.", "danger");
-      return [];
-    } finally {
-      setLoading(false);
-    }
-  }, [notify]);
+  // Event-driven refresh keeps the editor open and preserves unsaved fields.
+  const loadData = useCallback(
+    async (forceRefresh = false) => {
+      setLoading(true);
+      setError(null);
+      try {
+        const snapshot = await fetchManagementData(forceRefresh);
+        applyData(snapshot);
+        return snapshot.products;
+      } catch (err) {
+        reportError(err);
+        return [];
+      } finally {
+        setLoading(false);
+      }
+    },
+    [applyData, reportError],
+  );
 
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    let active = true;
+    fetchManagementData()
+      .then((snapshot) => {
+        if (active) applyData(snapshot);
+      })
+      .catch((failure) => {
+        if (active) reportError(failure);
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [applyData, reportError]);
 
   // Selected product object
   const selectedProduct = useMemo(() => {
@@ -73,9 +106,16 @@ export function useProductManagement() {
   // KPI Metrics
   const metrics = useMemo(() => {
     const totalProducts = products.length;
-    const activeCount = products.filter((p) => (p.status || "").toUpperCase() === "ACTIVE").length;
-    const draftCount = products.filter((p) => (p.status || "").toUpperCase() === "DRAFT").length;
-    const totalVariants = products.reduce((acc, p) => acc + (p.variants?.length || 0), 0);
+    const activeCount = products.filter(
+      (p) => (p.status || "").toUpperCase() === "ACTIVE",
+    ).length;
+    const draftCount = products.filter(
+      (p) => (p.status || "").toUpperCase() === "DRAFT",
+    ).length;
+    const totalVariants = products.reduce(
+      (acc, p) => acc + (p.variants?.length || 0),
+      0,
+    );
     const outOfStockVariants = products.reduce((acc, p) => {
       return (
         acc +
@@ -101,9 +141,10 @@ export function useProductManagement() {
         const matchName = (p.name || "").toLowerCase().includes(q);
         const matchBrand = (p.brandName || "").toLowerCase().includes(q);
         const matchCategory = (p.categoryName || "").toLowerCase().includes(q);
-        const matchSku = p.variants?.some((v) =>
-          (v.serialCode || "").toLowerCase().includes(q) ||
-          (v.variantName || "").toLowerCase().includes(q)
+        const matchSku = p.variants?.some(
+          (v) =>
+            (v.serialCode || "").toLowerCase().includes(q) ||
+            (v.variantName || "").toLowerCase().includes(q),
         );
         if (!matchName && !matchBrand && !matchCategory && !matchSku) {
           return false;

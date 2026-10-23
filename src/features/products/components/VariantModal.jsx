@@ -1,21 +1,32 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Modal, Button, Notice } from "@/components/ui";
 import { Field } from "@/components/form";
 import { money } from "@/utils";
 import { getCategoryMockImage } from "../constants/mockImages";
 
 export function VariantModal({ variant, onSave, onClose }) {
-  const [form, setForm] = useState({
-    serialCode: "",
-    variantName: "",
-    slug: "",
-    price: 0,
-    originalPrice: 0,
-    stockQuantity: 0,
-    imageUrl: "",
-  });
+  const [form, setForm] = useState(() => ({
+    serialCode: variant?.serialCode || variant?.sku || "",
+    variantName: variant?.variantName || variant?.variant || "",
+    slug: variant?.slug || "",
+    price: variant?.price ?? 0,
+    originalPrice: variant?.originalPrice ?? 0,
+    stockQuantity: variant?.stockQuantity ?? variant?.stock ?? 10,
+    imageUrl: variant?.imageUrl || variant?.image || "",
+  }));
 
-  const [specText, setSpecText] = useState("");
+  const [specText, setSpecText] = useState(() => {
+    if (Array.isArray(variant?.attributes))
+      return variant.attributes
+        .map(
+          (attribute) =>
+            `${attribute.specificationName || attribute.name}: ${attribute.value}`,
+        )
+        .join("\n");
+    return Object.entries(variant?.specs || {})
+      .map(([name, value]) => `${name}: ${value}`)
+      .join("\n");
+  });
   const [error, setError] = useState("");
 
   const update = (key, val) => setForm((prev) => ({ ...prev, [key]: val }));
@@ -28,7 +39,9 @@ export function VariantModal({ variant, onSave, onClose }) {
     const num = digitsOnly ? Number(digitsOnly) : 0;
 
     // Count digits before cursor to maintain position
-    const digitsBeforeCursor = rawBefore.slice(0, cursorPos).replace(/\D/g, "").length;
+    const digitsBeforeCursor = rawBefore
+      .slice(0, cursorPos)
+      .replace(/\D/g, "").length;
 
     update(key, num);
 
@@ -49,47 +62,6 @@ export function VariantModal({ variant, onSave, onClose }) {
       input.setSelectionRange(newCursorPos, newCursorPos);
     });
   };
-
-  useEffect(() => {
-    if (variant) {
-      setForm({
-        serialCode: variant.serialCode || variant.sku || "",
-        variantName: variant.variantName || variant.variant || "",
-        slug: variant.slug || "",
-        price: variant.price || 0,
-        originalPrice: variant.originalPrice || 0,
-        stockQuantity: variant.stockQuantity ?? variant.stock ?? 0,
-        imageUrl: variant.imageUrl || variant.image || "",
-      });
-
-      if (variant.attributes && Array.isArray(variant.attributes)) {
-        setSpecText(
-          variant.attributes
-            .map((a) => `${a.specificationName || a.name}: ${a.value}`)
-            .join("\n")
-        );
-      } else if (variant.specs && typeof variant.specs === "object") {
-        setSpecText(
-          Object.entries(variant.specs)
-            .map(([k, v]) => `${k}: ${v}`)
-            .join("\n")
-        );
-      } else {
-        setSpecText("");
-      }
-    } else {
-      setForm({
-        serialCode: "",
-        variantName: "",
-        slug: "",
-        price: 0,
-        originalPrice: 0,
-        stockQuantity: 10,
-        imageUrl: "",
-      });
-      setSpecText("");
-    }
-  }, [variant]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -176,7 +148,12 @@ export function VariantModal({ variant, onSave, onClose }) {
             label="Giá bán (₫) *"
             hint={
               form.price > 0 ? (
-                <span style={{ color: "var(--brand-teal, #008779)", fontWeight: 600 }}>
+                <span
+                  style={{
+                    color: "var(--brand-teal, #008779)",
+                    fontWeight: 600,
+                  }}
+                >
                   ✓ {money(form.price)}
                 </span>
               ) : (
@@ -185,14 +162,24 @@ export function VariantModal({ variant, onSave, onClose }) {
             }
           >
             {(id) => (
-              <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
+              <div
+                style={{
+                  position: "relative",
+                  display: "flex",
+                  alignItems: "center",
+                }}
+              >
                 <input
                   id={id}
                   className="input full"
                   type="text"
                   inputMode="numeric"
                   placeholder="VD: 1.500.000"
-                  value={form.price ? new Intl.NumberFormat("vi-VN").format(form.price) : ""}
+                  value={
+                    form.price
+                      ? new Intl.NumberFormat("vi-VN").format(form.price)
+                      : ""
+                  }
                   onChange={(e) => handlePriceInput("price", e)}
                   style={{
                     paddingRight: "2.5rem",
@@ -229,7 +216,13 @@ export function VariantModal({ variant, onSave, onClose }) {
             }
           >
             {(id) => (
-              <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
+              <div
+                style={{
+                  position: "relative",
+                  display: "flex",
+                  alignItems: "center",
+                }}
+              >
                 <input
                   id={id}
                   className="input full"
@@ -238,7 +231,9 @@ export function VariantModal({ variant, onSave, onClose }) {
                   placeholder="VD: 2.000.000"
                   value={
                     form.originalPrice
-                      ? new Intl.NumberFormat("vi-VN").format(form.originalPrice)
+                      ? new Intl.NumberFormat("vi-VN").format(
+                          form.originalPrice,
+                        )
                       : ""
                   }
                   onChange={(e) => handlePriceInput("originalPrice", e)}
@@ -311,8 +306,19 @@ export function VariantModal({ variant, onSave, onClose }) {
           )}
         </div>
 
-        <div className="row" style={{ gap: "0.5rem", marginTop: "-0.5rem", marginBottom: "0.5rem", flexWrap: "wrap", alignItems: "center" }}>
-          <span className="small muted" style={{ fontSize: "12px" }}>Chọn ảnh mẫu:</span>
+        <div
+          className="row"
+          style={{
+            gap: "0.5rem",
+            marginTop: "-0.5rem",
+            marginBottom: "0.5rem",
+            flexWrap: "wrap",
+            alignItems: "center",
+          }}
+        >
+          <span className="small muted" style={{ fontSize: "12px" }}>
+            Chọn ảnh mẫu:
+          </span>
           {[
             { id: "ram", label: "RAM" },
             { id: "ssd", label: "SSD" },
@@ -357,7 +363,10 @@ export function VariantModal({ variant, onSave, onClose }) {
           )}
         </Field>
 
-        <div className="row" style={{ justifyContent: "flex-end", marginTop: "1rem" }}>
+        <div
+          className="row"
+          style={{ justifyContent: "flex-end", marginTop: "1rem" }}
+        >
           <Button type="button" tone="secondary" onClick={onClose}>
             Hủy
           </Button>

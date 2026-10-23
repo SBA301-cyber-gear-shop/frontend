@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { useStore } from "@/store";
 import { productApi } from "../api/productApi";
 import { getCategoryMockImage } from "../constants/mockImages";
@@ -15,83 +15,47 @@ export function useProductEditor({
 
   const isEditing = Boolean(product && product.id);
 
-  // Master product form
-  const [productForm, setProductForm] = useState({
-    name: "",
-    brandId: brands[0]?.id || 1,
-    categoryId: categories[0]?.id || 1,
-    warranty: 12,
-    description: "",
-    status: "DRAFT",
+  // ProductManagement keys the editor by product ID; refreshing the same
+  // product preserves unsaved input instead of resetting it in an effect.
+  const [productForm, setProductForm] = useState(() => ({
+    name: product?.name || "",
+    brandId: product?.brandId || brands[0]?.id || 1,
+    categoryId: product?.categoryId || categories[0]?.id || 1,
+    warranty: product?.warrantyPeriodMonths ?? 24,
+    description: product?.description || "",
+    status: (product?.status || "DRAFT").toUpperCase(),
+  }));
+  const [variants, setVariants] = useState(() => {
+    const slug =
+      categories.find((category) => category.id === product?.categoryId)
+        ?.slug || "ram";
+    const fallback = getCategoryMockImage(slug);
+    return (product?.variants || []).map((variant) => ({
+      ...variant,
+      sku: variant.serialCode,
+      variantName: variant.variantName || variant.serialCode,
+      variant: variant.variantName || variant.serialCode,
+      price: Number(variant.price),
+      originalPrice: Number(variant.originalPrice || 0),
+      stockQuantity: Number(variant.stockQuantity),
+      stock: Number(variant.stockQuantity),
+      imageUrl: variant.imageUrl || fallback,
+      image: variant.imageUrl || fallback,
+      attributes: variant.attributes || [],
+      specs: Object.fromEntries(
+        (variant.attributes || []).map((attribute) => [
+          attribute.specificationName,
+          attribute.value,
+        ]),
+      ),
+    }));
   });
-
-  // Variants state
-  const [variants, setVariants] = useState([]);
-  const [previewVariantId, setPreviewVariantId] = useState(null);
-
-  // Variant Modal state
+  const [previewVariantId, setPreviewVariantId] = useState(
+    () => variants[0]?.id ?? null,
+  );
   const [modalOpen, setModalOpen] = useState(false);
   const [editingVariant, setEditingVariant] = useState(null);
-
-  // Loading / Submitting flags
   const [submitting, setSubmitting] = useState(false);
-
-  // Initialize or reset form when product changes
-  useEffect(() => {
-    if (product) {
-      const catSlug = categories.find((c) => c.id === product.categoryId)?.slug || "ram";
-      const fallbackImg = getCategoryMockImage(catSlug);
-
-      setProductForm({
-        name: product.name || "",
-        brandId: product.brandId || brands[0]?.id || 1,
-        categoryId: product.categoryId || categories[0]?.id || 1,
-        warranty: product.warrantyPeriodMonths || 12,
-        description: product.description || "",
-        status: (product.status || "DRAFT").toUpperCase(),
-      });
-
-      const initialVariants = (product.variants || []).map((v) => ({
-        id: v.id,
-        serialCode: v.serialCode,
-        sku: v.serialCode,
-        variantName: v.variantName || v.serialCode,
-        variant: v.variantName || v.serialCode,
-        slug: v.slug,
-        price: Number(v.price),
-        originalPrice: Number(v.originalPrice || 0),
-        stockQuantity: Number(v.stockQuantity),
-        stock: Number(v.stockQuantity),
-        imageUrl: v.imageUrl || fallbackImg,
-        image: v.imageUrl || fallbackImg,
-        attributes: v.attributes || [],
-        specs: (v.attributes || []).reduce((acc, a) => {
-          acc[a.specificationName] = a.value;
-          return acc;
-        }, {}),
-      }));
-
-      setVariants(initialVariants);
-      if (initialVariants.length > 0) {
-        setPreviewVariantId(initialVariants[0].id);
-      } else {
-        setPreviewVariantId(null);
-      }
-    } else {
-      // Create new mode
-      setProductForm({
-        name: "",
-        brandId: brands[0]?.id || 1,
-        categoryId: categories[0]?.id || 1,
-        warranty: 24,
-        description: "",
-        status: "DRAFT",
-      });
-      setVariants([]);
-      setPreviewVariantId(null);
-    }
-  }, [product, brands, categories]);
-
   // Update a single field in the master product form
   const updateProduct = (key, value) => {
     setProductForm((prev) => ({ ...prev, [key]: value }));
@@ -130,17 +94,24 @@ export function useProductEditor({
         // Real Backend Variant CRUD
         const payload = {
           serialCode: variantData.serialCode.trim(),
-          variantName: variantData.variantName?.trim() || variantData.serialCode.trim(),
+          variantName:
+            variantData.variantName?.trim() || variantData.serialCode.trim(),
           slug: variantData.slug?.trim() || undefined,
           price: Number(variantData.price),
-          originalPrice: variantData.originalPrice ? Number(variantData.originalPrice) : null,
+          originalPrice: variantData.originalPrice
+            ? Number(variantData.originalPrice)
+            : null,
           stockQuantity: Number(variantData.stockQuantity || 0),
           imageUrl: variantData.imageUrl?.trim() || undefined,
         };
 
         if (editingVariant && typeof editingVariant.id === "number") {
           // Update existing variant via API
-          await productApi.updateVariant(product.id, editingVariant.id, payload);
+          await productApi.updateVariant(
+            product.id,
+            editingVariant.id,
+            payload,
+          );
           notify("Đã cập nhật biến thể thành công trên cơ sở dữ liệu.");
         } else {
           // Add new variant to existing product via API
@@ -173,13 +144,17 @@ export function useProductEditor({
         onRefreshList?.();
       } else {
         // In-memory drafting for new product
-        const targetId = editingVariant ? editingVariant.id : `draft-var-${Date.now()}`;
+        const targetId = editingVariant
+          ? editingVariant.id
+          : `draft-var-${Date.now()}`;
         const newRecord = {
           id: targetId,
           serialCode: variantData.serialCode.trim(),
           sku: variantData.serialCode.trim(),
-          variantName: variantData.variantName?.trim() || variantData.serialCode.trim(),
-          variant: variantData.variantName?.trim() || variantData.serialCode.trim(),
+          variantName:
+            variantData.variantName?.trim() || variantData.serialCode.trim(),
+          variant:
+            variantData.variantName?.trim() || variantData.serialCode.trim(),
           slug: variantData.slug?.trim() || "",
           price: Number(variantData.price),
           originalPrice: Number(variantData.originalPrice || 0),
@@ -191,7 +166,9 @@ export function useProductEditor({
         };
 
         if (editingVariant) {
-          setVariants((prev) => prev.map((v) => (v.id === targetId ? newRecord : v)));
+          setVariants((prev) =>
+            prev.map((v) => (v.id === targetId ? newRecord : v)),
+          );
           notify("Đã cập nhật bản nháp biến thể.");
         } else {
           setVariants((prev) => [...prev, newRecord]);
@@ -264,9 +241,17 @@ export function useProductEditor({
       if (!productForm.categoryId) {
         throw new Error("Vui lòng chọn Danh mục.");
       }
+      if (
+        !Number.isInteger(Number(productForm.warranty)) ||
+        Number(productForm.warranty) < 0
+      ) {
+        throw new Error("Thời hạn bảo hành phải là số tháng nguyên không âm.");
+      }
 
       if (targetStatus === "ACTIVE" && variants.length === 0) {
-        throw new Error("Sản phẩm phải có ít nhất 1 biến thể SKU hợp lệ để đăng bán.");
+        throw new Error(
+          "Sản phẩm phải có ít nhất 1 biến thể SKU hợp lệ để đăng bán.",
+        );
       }
 
       setSubmitting(true);
@@ -277,12 +262,15 @@ export function useProductEditor({
           name: productForm.name.trim(),
           brandId: Number(productForm.brandId),
           categoryId: Number(productForm.categoryId),
-          warrantyPeriodMonths: Number(productForm.warranty) || 12,
+          warrantyPeriodMonths: Number(productForm.warranty),
           description: productForm.description || "",
           status: targetStatus,
         };
 
-        const updated = await productApi.updateProduct(product.id, updatePayload);
+        const updated = await productApi.updateProduct(
+          product.id,
+          updatePayload,
+        );
 
         if (targetStatus === "ACTIVE" && product.status !== "ACTIVE") {
           await productApi.publishProduct(product.id);
@@ -292,11 +280,13 @@ export function useProductEditor({
         notify(
           targetStatus === "ACTIVE"
             ? "Đã cập nhật và Đăng bán sản phẩm thành công trên hệ thống!"
-            : "Đã cập nhật thông tin sản phẩm (Bản nháp)."
+            : "Đã cập nhật thông tin sản phẩm (Bản nháp).",
         );
 
         if (onSaved) {
-          onSaved(updated || { ...product, ...updatePayload, status: targetStatus });
+          onSaved(
+            updated || { ...product, ...updatePayload, status: targetStatus },
+          );
         }
       } else {
         // CREATE NEW PRODUCT
@@ -314,7 +304,7 @@ export function useProductEditor({
           name: productForm.name.trim(),
           brandId: Number(productForm.brandId),
           categoryId: Number(productForm.categoryId),
-          warrantyPeriodMonths: Number(productForm.warranty) || 12,
+          warrantyPeriodMonths: Number(productForm.warranty),
           description: productForm.description || "",
           variants: preparedVariants.length > 0 ? preparedVariants : undefined,
         };
@@ -328,7 +318,7 @@ export function useProductEditor({
         notify(
           targetStatus === "ACTIVE"
             ? "Đã tạo mới và Đăng bán sản phẩm thành công!"
-            : "Đã tạo sản phẩm mới dưới dạng Bản nháp."
+            : "Đã tạo sản phẩm mới dưới dạng Bản nháp.",
         );
 
         if (onSaved) {

@@ -1,7 +1,14 @@
 import { useState } from "react";
 import { money } from "@/utils";
-import { Badge, Button, Heading, Notice, Panel, Empty, Modal } from "@/components/ui";
-import { Field, Select } from "@/components/form";
+import {
+  Badge,
+  Button,
+  Heading,
+  Notice,
+  Panel,
+  Empty,
+  Modal,
+} from "@/components/ui";
 import { ProductEditor } from "./ProductEditor";
 import { useProductManagement } from "../hooks/useProductManagement";
 import { getCategoryMockImage } from "../constants/mockImages";
@@ -39,6 +46,7 @@ export function ProductManagement() {
   if (viewMode === "editor") {
     return (
       <ProductEditor
+        key={selectedProduct?.id || "new"}
         product={selectedProduct}
         brands={brands}
         categories={categories}
@@ -97,10 +105,20 @@ export function ProductManagement() {
             boxShadow: "0 1px 3px rgba(0,0,0,0.02)",
           }}
         >
-          <div className="muted small" style={{ textTransform: "uppercase", letterSpacing: "0.5px" }}>
+          <div
+            className="muted small"
+            style={{ textTransform: "uppercase", letterSpacing: "0.5px" }}
+          >
             Tổng sản phẩm
           </div>
-          <div style={{ fontSize: "28px", fontWeight: 750, color: "var(--ink)", marginTop: "4px" }}>
+          <div
+            style={{
+              fontSize: "28px",
+              fontWeight: 750,
+              color: "var(--ink)",
+              marginTop: "4px",
+            }}
+          >
             {metrics.totalProducts}
           </div>
           <div className="small muted" style={{ marginTop: "4px" }}>
@@ -118,10 +136,20 @@ export function ProductManagement() {
             boxShadow: "0 1px 3px rgba(0,0,0,0.02)",
           }}
         >
-          <div className="muted small" style={{ textTransform: "uppercase", letterSpacing: "0.5px" }}>
+          <div
+            className="muted small"
+            style={{ textTransform: "uppercase", letterSpacing: "0.5px" }}
+          >
             Đang kinh doanh
           </div>
-          <div style={{ fontSize: "28px", fontWeight: 750, color: "var(--green, #148465)", marginTop: "4px" }}>
+          <div
+            style={{
+              fontSize: "28px",
+              fontWeight: 750,
+              color: "var(--green, #148465)",
+              marginTop: "4px",
+            }}
+          >
             {metrics.activeCount}
           </div>
           <div className="small muted" style={{ marginTop: "4px" }}>
@@ -139,10 +167,20 @@ export function ProductManagement() {
             boxShadow: "0 1px 3px rgba(0,0,0,0.02)",
           }}
         >
-          <div className="muted small" style={{ textTransform: "uppercase", letterSpacing: "0.5px" }}>
+          <div
+            className="muted small"
+            style={{ textTransform: "uppercase", letterSpacing: "0.5px" }}
+          >
             Bản nháp
           </div>
-          <div style={{ fontSize: "28px", fontWeight: 750, color: "#d97706", marginTop: "4px" }}>
+          <div
+            style={{
+              fontSize: "28px",
+              fontWeight: 750,
+              color: "#d97706",
+              marginTop: "4px",
+            }}
+          >
             {metrics.draftCount}
           </div>
           <div className="small muted" style={{ marginTop: "4px" }}>
@@ -160,10 +198,20 @@ export function ProductManagement() {
             boxShadow: "0 1px 3px rgba(0,0,0,0.02)",
           }}
         >
-          <div className="muted small" style={{ textTransform: "uppercase", letterSpacing: "0.5px" }}>
+          <div
+            className="muted small"
+            style={{ textTransform: "uppercase", letterSpacing: "0.5px" }}
+          >
             Tổng biến thể SKU
           </div>
-          <div style={{ fontSize: "28px", fontWeight: 750, color: "var(--red, #d91f31)", marginTop: "4px" }}>
+          <div
+            style={{
+              fontSize: "28px",
+              fontWeight: 750,
+              color: "var(--red, #d91f31)",
+              marginTop: "4px",
+            }}
+          >
             {metrics.totalVariants}
           </div>
           <div className="small muted" style={{ marginTop: "4px" }}>
@@ -201,7 +249,10 @@ export function ProductManagement() {
         </div>
 
         {/* Status Tabs and Category Filter */}
-        <div className="row" style={{ flexWrap: "wrap", gap: "0.75rem", alignItems: "center" }}>
+        <div
+          className="row"
+          style={{ flexWrap: "wrap", gap: "0.75rem", alignItems: "center" }}
+        >
           {/* Status Tabs */}
           <div
             className="row"
@@ -231,7 +282,9 @@ export function ProductManagement() {
                     background: isSelected ? "#fff" : "transparent",
                     border: "none",
                     borderRadius: "6px",
-                    boxShadow: isSelected ? "0 1px 2px rgba(0,0,0,0.06)" : "none",
+                    boxShadow: isSelected
+                      ? "0 1px 2px rgba(0,0,0,0.06)"
+                      : "none",
                     cursor: "pointer",
                     transition: "all 0.15s ease",
                   }}
@@ -269,7 +322,13 @@ export function ProductManagement() {
       {/* PRODUCTS TABLE */}
       <Panel title={`Danh sách sản phẩm (${filteredProducts.length})`}>
         {loading && products.length === 0 ? (
-          <div style={{ padding: "3rem", textAlign: "center", color: "var(--muted)" }}>
+          <div
+            style={{
+              padding: "3rem",
+              textAlign: "center",
+              color: "var(--muted)",
+            }}
+          >
             Đang tải dữ liệu từ PostgreSQL Cloud...
           </div>
         ) : filteredProducts.length === 0 ? (
@@ -304,20 +363,34 @@ export function ProductManagement() {
                 {filteredProducts.map((p) => {
                   const variants = p.variants || [];
                   const variantCount = variants.length;
-                  const prices = variants.map((v) => Number(v.price)).filter((pr) => pr > 0);
+                  const prices = variants
+                    .map((v) => Number(v.price))
+                    .filter((pr) => pr > 0);
                   const minPrice = prices.length ? Math.min(...prices) : 0;
                   const maxPrice = prices.length ? Math.max(...prices) : 0;
-                  const totalStock = variants.reduce((sum, v) => sum + Number(v.stockQuantity || 0), 0);
+                  const totalStock = variants.reduce(
+                    (sum, v) => sum + Number(v.stockQuantity || 0),
+                    0,
+                  );
 
-                  const isStatusActive = (p.status || "").toUpperCase() === "ACTIVE";
-                  const catSlug = categories.find((c) => c.id === p.categoryId)?.slug || (p.categoryName || "").toLowerCase();
+                  const isStatusActive =
+                    (p.status || "").toUpperCase() === "ACTIVE";
+                  const catSlug =
+                    categories.find((c) => c.id === p.categoryId)?.slug ||
+                    (p.categoryName || "").toLowerCase();
                   const firstVariant = variants[0];
-                  const thumbnail = p.imageUrl || firstVariant?.imageUrl || getCategoryMockImage(catSlug);
+                  const thumbnail =
+                    p.imageUrl ||
+                    firstVariant?.imageUrl ||
+                    getCategoryMockImage(catSlug);
 
                   return (
                     <tr key={p.id}>
                       <td>
-                        <code className="mono" style={{ color: "var(--muted)" }}>
+                        <code
+                          className="mono"
+                          style={{ color: "var(--muted)" }}
+                        >
                           #{p.id}
                         </code>
                       </td>
@@ -340,7 +413,13 @@ export function ProductManagement() {
                         />
                       </td>
                       <td>
-                        <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+                        <div
+                          style={{
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: "2px",
+                          }}
+                        >
                           <span
                             style={{
                               fontWeight: 600,
@@ -359,24 +438,37 @@ export function ProductManagement() {
                         </div>
                       </td>
                       <td>
-                        <span className="badge" style={{ background: "rgba(0,0,0,0.04)" }}>
+                        <span
+                          className="badge"
+                          style={{ background: "rgba(0,0,0,0.04)" }}
+                        >
                           {p.categoryName || "Chưa phân loại"}
                         </span>
                       </td>
                       <td>
-                        <span className="small">{p.warrantyPeriodMonths || 12} tháng</span>
+                        <span className="small">
+                          {p.warrantyPeriodMonths ?? 12} tháng
+                        </span>
                       </td>
                       <td>
-                        <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+                        <div
+                          style={{
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: "2px",
+                          }}
+                        >
                           <span style={{ fontWeight: 600 }}>
-                            {variantCount > 0 ? `${variantCount} biến thể SKU` : "Chưa có biến thể"}
+                            {variantCount > 0
+                              ? `${variantCount} biến thể SKU`
+                              : "Chưa có biến thể"}
                           </span>
                           <span className="small muted">
                             {prices.length === 0
                               ? "Chưa set giá"
                               : minPrice === maxPrice
-                              ? money(minPrice)
-                              : `${money(minPrice)} - ${money(maxPrice)}`}
+                                ? money(minPrice)
+                                : `${money(minPrice)} - ${money(maxPrice)}`}
                           </span>
                         </div>
                       </td>
@@ -391,7 +483,10 @@ export function ProductManagement() {
                         </Badge>
                       </td>
                       <td style={{ textAlign: "right" }}>
-                        <div className="row" style={{ justifyContent: "flex-end", gap: "0.5rem" }}>
+                        <div
+                          className="row"
+                          style={{ justifyContent: "flex-end", gap: "0.5rem" }}
+                        >
                           <Button
                             size="small"
                             tone="secondary"
@@ -426,12 +521,18 @@ export function ProductManagement() {
           <div className="stack" style={{ gap: "1rem" }}>
             <p>
               Bạn có chắc chắn muốn xóa sản phẩm{" "}
-              <strong>'{deleteTarget.name}'</strong> (ID #{deleteTarget.id}) cùng tất cả các biến thể SKU liên quan?
+              <strong>'{deleteTarget.name}'</strong> (ID #{deleteTarget.id})
+              cùng tất cả các biến thể SKU liên quan?
             </p>
             <Notice tone="danger">
-              Hành động này sẽ xóa vĩnh viễn sản phẩm khỏi hệ thống. Nếu sản phẩm đã phát sinh trong đơn hàng của khách hàng, hệ thống sẽ tự động chặn xóa để đảm bảo toàn vẹn dữ liệu kế toán.
+              Hành động này sẽ xóa vĩnh viễn sản phẩm khỏi hệ thống. Nếu sản
+              phẩm đã phát sinh trong đơn hàng của khách hàng, hệ thống sẽ tự
+              động chặn xóa để đảm bảo toàn vẹn dữ liệu kế toán.
             </Notice>
-            <div className="row" style={{ justifyContent: "flex-end", gap: "0.75rem" }}>
+            <div
+              className="row"
+              style={{ justifyContent: "flex-end", gap: "0.75rem" }}
+            >
               <Button tone="secondary" onClick={() => setDeleteTarget(null)}>
                 Hủy bỏ
               </Button>

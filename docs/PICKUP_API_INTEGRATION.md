@@ -110,3 +110,9 @@ Backend `.\mvnw.cmd test` dùng H2 riêng, kiểm tra quyền, idempotency, giá
 - Backend: `mvn -o -B -Dtest=PurchaseApiTests,PickupOrderApiTests,PromotionManagementApiTests test`: 22/22 pass trên H2 riêng. Log: `D:\SBA_backend\target\pickup-fe-integration-tests.log`.
 
 Đã đồng bộ `main` tại `f29c585`. Kiểm thử trình duyệt dùng HTTP giả lập, backend dùng MockMvc/H2; chưa chạy FE → backend → PostgreSQL/Neon xuyên suốt trong lượt này.
+
+### Bản sửa main sau merge ngày 23/10/2026
+
+Nhánh `Vu_BuyAnhPurchase` đã đồng bộ với `origin/main` tại `bf0c8dc`, khôi phục endpoint mua hàng và các hàm tải/cập nhật giỏ trong `StoreProvider`, xử lý trùng module API bảo hành, và mở lại các route từ main. Đã sửa toàn bộ 6 lỗi lint quản trị sản phẩm: form khởi tạo theo sản phẩm/phiên bản được chọn, giữ nội dung chưa lưu khi refresh, và tải dữ liệu bất đồng bộ có cleanup. Số tháng bảo hành bằng 0 được giữ nguyên khi sửa/lưu sản phẩm.
+
+Kết quả: production build/TypeScript pass, `npm run lint` và kiểm tra kiến trúc pass, 31/31 unit/API test pass, 15/15 Playwright API test trên Edge pass. Test bổ sung kiểm tra sửa biến thể không làm mất bản nháp sản phẩm, chuyển sản phẩm/modal khởi tạo đúng dữ liệu và lưu bảo hành 0 tháng. Playwright vẫn dùng HTTP giả lập; chưa xác nhận toàn luồng với Neon thật. BE main đã được kiểm tra độc lập: 99/99 test trên H2 pass; bản sửa BE chỉ dọn dấu conflict trong README.

@@ -1,6 +1,14 @@
 import { useState } from "react";
 import { money } from "@/utils";
-import { Art, Badge, Button, Notice, Panel, Empty, Modal } from "@/components/ui";
+import {
+  Art,
+  Badge,
+  Button,
+  Notice,
+  Panel,
+  Empty,
+  Modal,
+} from "@/components/ui";
 import { Field, Select } from "@/components/form";
 import { useProductEditor } from "../hooks/useProductEditor";
 import { VariantModal } from "./VariantModal";
@@ -20,7 +28,6 @@ export function ProductEditor({
     updateProduct,
     variants,
     activePreviewVariant,
-    previewVariantId,
     setPreviewVariantId,
     modalOpen,
     editingVariant,
@@ -32,12 +39,21 @@ export function ProductEditor({
     handleSaveProduct,
     handleDeleteProduct,
     submitting,
-  } = useProductEditor({ product, brands, categories, onBack, onSaved, onRefreshList });
+  } = useProductEditor({
+    product,
+    brands,
+    categories,
+    onBack,
+    onSaved,
+    onRefreshList,
+  });
 
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
 
   // Verification Checklist
-  const hasNameAndBrand = Boolean(productForm.name.trim() && productForm.brandId);
+  const hasNameAndBrand = Boolean(
+    productForm.name.trim() && productForm.brandId,
+  );
   const hasCategory = Boolean(productForm.categoryId);
   const hasVariants = variants.length > 0;
   const canPublish = hasNameAndBrand && hasCategory && hasVariants;
@@ -61,15 +77,22 @@ export function ProductEditor({
             ← Quay lại danh sách
           </Button>
           <div>
-            <div className="eyebrow" style={{ fontSize: "11px", letterSpacing: "0.5px" }}>
-              QUẢN TRỊ / SẢN PHẨM / {isEditing ? `ID: #${product.id}` : "TẠO MỚI"}
+            <div
+              className="eyebrow"
+              style={{ fontSize: "11px", letterSpacing: "0.5px" }}
+            >
+              QUẢN TRỊ / SẢN PHẨM /{" "}
+              {isEditing ? `ID: #${product.id}` : "TẠO MỚI"}
             </div>
             <h2 style={{ margin: 0, fontSize: "20px", fontWeight: 700 }}>
-              {productForm.name || (isEditing ? "Chỉnh sửa sản phẩm" : "Tạo sản phẩm mới")}
+              {productForm.name ||
+                (isEditing ? "Chỉnh sửa sản phẩm" : "Tạo sản phẩm mới")}
             </h2>
           </div>
           <Badge tone={productForm.status === "ACTIVE" ? "success" : "warning"}>
-            {productForm.status === "ACTIVE" ? "ĐANG BÁN (ACTIVE)" : "BẢN NHÁP (DRAFT)"}
+            {productForm.status === "ACTIVE"
+              ? "ĐANG BÁN (ACTIVE)"
+              : "BẢN NHÁP (DRAFT)"}
           </Badge>
         </div>
 
@@ -117,7 +140,9 @@ export function ProductEditor({
               <Select
                 label="Thương hiệu *"
                 value={productForm.brandId}
-                onChange={(e) => updateProduct("brandId", Number(e.target.value))}
+                onChange={(e) =>
+                  updateProduct("brandId", Number(e.target.value))
+                }
                 options={brands.map((b) => ({
                   value: b.id,
                   label: b.name,
@@ -126,7 +151,9 @@ export function ProductEditor({
               <Select
                 label="Danh mục sản phẩm *"
                 value={productForm.categoryId}
-                onChange={(e) => updateProduct("categoryId", Number(e.target.value))}
+                onChange={(e) =>
+                  updateProduct("categoryId", Number(e.target.value))
+                }
                 options={categories.map((c) => ({
                   value: c.id,
                   label: c.name,
@@ -149,7 +176,9 @@ export function ProductEditor({
                     rows="3"
                     placeholder="Mô tả chi tiết về sản phẩm, tính năng nổi bật..."
                     value={productForm.description || ""}
-                    onChange={(e) => updateProduct("description", e.target.value)}
+                    onChange={(e) =>
+                      updateProduct("description", e.target.value)
+                    }
                   />
                 )}
               </Field>
@@ -213,29 +242,44 @@ export function ProductEditor({
                             </code>
                           </td>
                           <td>
-                            <strong>{v.variantName || v.variant || "Mặc định"}</strong>
+                            <strong>
+                              {v.variantName || v.variant || "Mặc định"}
+                            </strong>
                           </td>
                           <td>
                             <strong>{money(Number(v.price))}</strong>
                             {v.originalPrice > v.price && (
                               <div
                                 className="small muted"
-                                style={{ textDecoration: "line-through", fontSize: "11px" }}
+                                style={{
+                                  textDecoration: "line-through",
+                                  fontSize: "11px",
+                                }}
                               >
                                 {money(Number(v.originalPrice))}
                               </div>
                             )}
                           </td>
                           <td>
-                            <Badge tone={Number(v.stockQuantity ?? v.stock) > 0 ? "success" : "danger"}>
+                            <Badge
+                              tone={
+                                Number(v.stockQuantity ?? v.stock) > 0
+                                  ? "success"
+                                  : "danger"
+                              }
+                            >
                               {v.stockQuantity ?? v.stock ?? 0} cái
                             </Badge>
                           </td>
-                          <td className="small muted">
-                            {specSummary || "—"}
-                          </td>
+                          <td className="small muted">{specSummary || "—"}</td>
                           <td style={{ textAlign: "right" }}>
-                            <div className="row" style={{ justifyContent: "flex-end", gap: "0.4rem" }}>
+                            <div
+                              className="row"
+                              style={{
+                                justifyContent: "flex-end",
+                                gap: "0.4rem",
+                              }}
+                            >
                               <Button
                                 size="small"
                                 tone={isSelected ? "primary" : "secondary"}
@@ -270,12 +314,20 @@ export function ProductEditor({
         </div>
 
         {/* RIGHT COLUMN: PREVIEW & PUBLISHING STATUS */}
-        <aside className="stack" style={{ width: "340px", flexShrink: 0, gap: "1.5rem" }}>
+        <aside
+          className="stack"
+          style={{ width: "340px", flexShrink: 0, gap: "1.5rem" }}
+        >
           {/* CARD 1: STOREFRONT PREVIEW */}
           <Panel title="Xem trước trên cửa hàng">
             {(() => {
-              const catSlug = categories.find((c) => c.id === productForm.categoryId)?.slug || "ram";
-              const previewImg = activePreviewVariant?.imageUrl || activePreviewVariant?.image || getCategoryMockImage(catSlug);
+              const catSlug =
+                categories.find((c) => c.id === productForm.categoryId)?.slug ||
+                "ram";
+              const previewImg =
+                activePreviewVariant?.imageUrl ||
+                activePreviewVariant?.image ||
+                getCategoryMockImage(catSlug);
               return (
                 <div style={{ textAlign: "center", marginBottom: "1rem" }}>
                   <Art
@@ -286,33 +338,49 @@ export function ProductEditor({
                 </div>
               );
             })()}
-            <div className="eyebrow section" style={{ fontSize: "11px", letterSpacing: "1px" }}>
-              {brands.find((b) => b.id === productForm.brandId)?.name || "THƯƠNG HIỆU"}
+            <div
+              className="eyebrow section"
+              style={{ fontSize: "11px", letterSpacing: "1px" }}
+            >
+              {brands.find((b) => b.id === productForm.brandId)?.name ||
+                "THƯƠNG HIỆU"}
             </div>
             <h3 style={{ fontSize: "16px", marginTop: "4px" }}>
               {productForm.name || "Tên sản phẩm"}
             </h3>
             <p className="muted small" style={{ marginTop: "4px" }}>
               {activePreviewVariant
-                ? activePreviewVariant.variantName || activePreviewVariant.variant
+                ? activePreviewVariant.variantName ||
+                  activePreviewVariant.variant
                 : "Chưa chọn phiên bản"}
             </p>
-            <div className="price section" style={{ fontSize: "20px", fontWeight: 700, margin: "0.75rem 0" }}>
+            <div
+              className="price section"
+              style={{ fontSize: "20px", fontWeight: 700, margin: "0.75rem 0" }}
+            >
               {money(Number(activePreviewVariant?.price || 0))}
             </div>
             <div className="row" style={{ gap: "0.5rem" }}>
-              <Badge tone={productForm.status === "ACTIVE" ? "success" : "warning"}>
+              <Badge
+                tone={productForm.status === "ACTIVE" ? "success" : "warning"}
+              >
                 {productForm.status === "ACTIVE" ? "Đang bán" : "Bản nháp"}
               </Badge>
               {activePreviewVariant && (
                 <Badge
                   tone={
-                    Number(activePreviewVariant.stockQuantity ?? activePreviewVariant.stock) > 0
+                    Number(
+                      activePreviewVariant.stockQuantity ??
+                        activePreviewVariant.stock,
+                    ) > 0
                       ? "success"
                       : "danger"
                   }
                 >
-                  Tồn kho: {activePreviewVariant.stockQuantity ?? activePreviewVariant.stock ?? 0}
+                  Tồn kho:{" "}
+                  {activePreviewVariant.stockQuantity ??
+                    activePreviewVariant.stock ??
+                    0}
                 </Badge>
               )}
             </div>
@@ -320,14 +388,36 @@ export function ProductEditor({
 
           {/* CARD 2: PUBLISHING CHECKLIST */}
           <Panel title="Điều kiện xuất bản">
-            <ul style={{ listStyle: "none", padding: 0, margin: 0, fontSize: "13px", lineHeight: "1.8" }}>
-              <li style={{ color: hasNameAndBrand ? "var(--green, #148465)" : "var(--muted)" }}>
+            <ul
+              style={{
+                listStyle: "none",
+                padding: 0,
+                margin: 0,
+                fontSize: "13px",
+                lineHeight: "1.8",
+              }}
+            >
+              <li
+                style={{
+                  color: hasNameAndBrand
+                    ? "var(--green, #148465)"
+                    : "var(--muted)",
+                }}
+              >
                 {hasNameAndBrand ? "✓" : "○"} Tên sản phẩm & thương hiệu
               </li>
-              <li style={{ color: hasCategory ? "var(--green, #148465)" : "var(--muted)" }}>
+              <li
+                style={{
+                  color: hasCategory ? "var(--green, #148465)" : "var(--muted)",
+                }}
+              >
                 {hasCategory ? "✓" : "○"} Đã chọn danh mục hợp lệ
               </li>
-              <li style={{ color: hasVariants ? "var(--green, #148465)" : "var(--muted)" }}>
+              <li
+                style={{
+                  color: hasVariants ? "var(--green, #148465)" : "var(--muted)",
+                }}
+              >
                 {hasVariants ? "✓" : "○"} Ít nhất 1 biến thể SKU có giá
               </li>
             </ul>
@@ -345,6 +435,7 @@ export function ProductEditor({
       {/* VARIANT ADD / EDIT MODAL */}
       {modalOpen && (
         <VariantModal
+          key={editingVariant?.id || "new"}
           variant={editingVariant}
           onSave={handleSaveVariant}
           onClose={closeVariantModal}
@@ -360,13 +451,22 @@ export function ProductEditor({
           <div className="stack" style={{ gap: "1rem" }}>
             <p>
               Bạn có chắc chắn muốn xóa sản phẩm{" "}
-              <strong>'{productForm.name}'</strong> (kèm tất cả các biến thể SKU)?
+              <strong>'{productForm.name}'</strong> (kèm tất cả các biến thể
+              SKU)?
             </p>
             <Notice tone="danger">
-              Hành động này không thể hoàn tác. Nếu sản phẩm đã phát sinh trong đơn hàng của khách hàng, hệ thống sẽ chặn xóa để bảo toàn lịch sử giao dịch.
+              Hành động này không thể hoàn tác. Nếu sản phẩm đã phát sinh trong
+              đơn hàng của khách hàng, hệ thống sẽ chặn xóa để bảo toàn lịch sử
+              giao dịch.
             </Notice>
-            <div className="row" style={{ justifyContent: "flex-end", gap: "0.75rem" }}>
-              <Button tone="secondary" onClick={() => setConfirmDeleteOpen(false)}>
+            <div
+              className="row"
+              style={{ justifyContent: "flex-end", gap: "0.75rem" }}
+            >
+              <Button
+                tone="secondary"
+                onClick={() => setConfirmDeleteOpen(false)}
+              >
                 Hủy bỏ
               </Button>
               <Button
