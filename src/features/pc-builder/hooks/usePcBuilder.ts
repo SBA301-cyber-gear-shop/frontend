@@ -77,12 +77,10 @@ export function usePcBuilder() {
   }
 
   // Inputs
-  const [budget, setBudget] = useState<number>(25000000);
-  const [purpose, setPurpose] = useState<string>("gaming");
-  const [ramGb, setRamGb] = useState<number>(32);
-  const [userPrompt, setUserPrompt] = useState<string>(
-    "Thích case đen Montech, tản êm, chơi mượt Black Myth Wukong 2K",
-  );
+  const [budget, setBudget] = useState<number | "">("");
+  const [purpose, setPurpose] = useState<string>("");
+  const [ramGb, setRamGb] = useState<number | "">("");
+  const [userPrompt, setUserPrompt] = useState<string>("");
 
   // States
   const [buildId, setBuildId] = useState<number | string | null>(null);
@@ -106,8 +104,10 @@ export function usePcBuilder() {
     (sum, p) => sum + p.unitPrice * p.quantity,
     0,
   );
-  const remainingBudget = budget - grandTotal;
-  const rules = evaluateHardwareRules(buildParts, budget);
+  const numericBudget =
+    typeof budget === "number" ? budget : Number(budget) || 0;
+  const remainingBudget = numericBudget - grandTotal;
+  const rules = evaluateHardwareRules(buildParts, numericBudget);
   const allRulesPassed = rules.every((r) => r.status === "pass");
 
   // Candidates for the currently active modal role
@@ -120,9 +120,9 @@ export function usePcBuilder() {
 
   // Handlers
   async function handleAiSuggest() {
-    if (budget < 5000000) {
+    if (numericBudget < 5000000) {
       notify(
-        "Ngân sách tối thiểu để AI xây dựng cấu hình máy tính là 5.000.000 ₫.",
+        "Vui lòng nhập mức ngân sách dự chi (tối thiểu 5.000.000 ₫) để AI xây dựng cấu hình máy tính.",
         "danger",
       );
       return;
@@ -135,11 +135,11 @@ export function usePcBuilder() {
     try {
       // 1. Gọi Backend API
       const res = await pcBuilderApi.suggestBuild({
-        budget,
-        purpose,
-        ramGb,
+        budget: numericBudget,
+        purpose: purpose.trim() || undefined,
+        ramGb: typeof ramGb === "number" && ramGb > 0 ? ramGb : undefined,
         scope: "tower",
-        userPrompt,
+        userPrompt: userPrompt.trim() || undefined,
       });
 
       if (res) {
@@ -426,6 +426,10 @@ export function usePcBuilder() {
     setBuildParts([]);
     setAiInsight(null);
     setErrorMessage(null);
+    setBudget("");
+    setPurpose("");
+    setRamGb("");
+    setUserPrompt("");
   }
 
   function switchPreviewState(newState: BuilderStatus) {

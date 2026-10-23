@@ -132,23 +132,6 @@ export function PartsTable({
           </tbody>
         </table>
       </div>
-
-      <div className="builder-table-footer">
-        <div>
-          💡 <em>
-            Muốn đổi CPU, VGA hoặc nâng cấp thêm ổ cứng? Nhấp vào nút{" "}
-            <strong>"Đổi linh kiện"</strong> để xem các lựa chọn tương thích.
-          </em>
-        </div>
-        <button
-          type="button"
-          className="btn-replace-part"
-          onClick={() => onReplacePart("ram")}
-          style={{ fontSize: 13 }}
-        >
-          + Thêm / Đổi RAM
-        </button>
-      </div>
     </div>
   );
 }

@@ -300,16 +300,153 @@
   color: #86efac;
 }
 
-/* 5. AI LOADING BOX */
+/* 5. AI LOADING BOX & PEGTOP STREAM LOADER */
 .ai-loading-box {
   background: #ffffff;
   border: 1px solid var(--line, #e2e7ed);
   border-radius: var(--radius, 12px);
-  padding: 48px 24px;
+  padding: 44px 24px 40px;
   text-align: center;
   margin-bottom: 24px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 4px 20px rgba(37, 99, 235, 0.05), 0 1px 3px rgba(0, 0, 0, 0.04);
   animation: fadeIn 0.3s ease-out;
+  position: relative;
+  overflow: hidden;
+}
+
+.ai-loading-box::before {
+  content: "";
+  position: absolute;
+  top: 35%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 280px;
+  height: 200px;
+  background: radial-gradient(circle, rgba(37, 99, 235, 0.07) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.ai-loader-container {
+  position: relative;
+  width: 100%;
+  height: 125px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 12px;
+  overflow: visible;
+}
+
+/* From Uiverse.io by andrew-manzyk - Adjusted to TechZone AI Pro Theme */
+.loader {
+  --fill-color: #2563eb;
+  --shine-color: rgba(37, 99, 235, 0.35);
+  transform: scale(0.52);
+  width: 100px;
+  height: 100px;
+  position: relative;
+  filter: drop-shadow(0 0 12px var(--shine-color));
+}
+
+.loader #pegtopone,
+.loader #pegtoptwo,
+.loader #pegtopthree {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100px;
+  height: 100px;
+}
+
+.loader #pegtopone {
+  animation: flowe-one 1s linear infinite;
+}
+
+.loader #pegtoptwo {
+  opacity: 0;
+  transform: scale(0) translateY(-200px) translateX(-100px);
+  animation: flowe-two 1s linear infinite;
+  animation-delay: 0.3s;
+}
+
+.loader #pegtopthree {
+  opacity: 0;
+  transform: scale(0) translateY(-200px) translateX(100px);
+  animation: flowe-three 1s linear infinite;
+  animation-delay: 0.6s;
+}
+
+.loader svg g path:first-child {
+  fill: var(--fill-color);
+}
+
+@keyframes flowe-one {
+  0% {
+    transform: scale(0.5) translateY(-200px);
+    opacity: 0;
+  }
+  25% {
+    transform: scale(0.75) translateY(-100px);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1) translateY(0px);
+    opacity: 1;
+  }
+  75% {
+    transform: scale(0.5) translateY(50px);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(0) translateY(100px);
+    opacity: 0;
+  }
+}
+
+@keyframes flowe-two {
+  0% {
+    transform: scale(0.5) rotateZ(-10deg) translateY(-200px) translateX(-100px);
+    opacity: 0;
+  }
+  25% {
+    transform: scale(1) rotateZ(-5deg) translateY(-100px) translateX(-50px);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1) rotateZ(0deg) translateY(0px) translateX(-25px);
+    opacity: 1;
+  }
+  75% {
+    transform: scale(0.5) rotateZ(5deg) translateY(50px) translateX(0px);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(0) rotateZ(10deg) translateY(100px) translateX(25px);
+    opacity: 0;
+  }
+}
+
+@keyframes flowe-three {
+  0% {
+    transform: scale(0.5) rotateZ(10deg) translateY(-200px) translateX(100px);
+    opacity: 0;
+  }
+  25% {
+    transform: scale(1) rotateZ(5deg) translateY(-100px) translateX(50px);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1) rotateZ(0deg) translateY(0px) translateX(25px);
+    opacity: 1;
+  }
+  75% {
+    transform: scale(0.5) rotateZ(-5deg) translateY(50px) translateX(0px);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(0) rotateZ(-10deg) translateY(100px) translateX(-25px);
+    opacity: 0;
+  }
 }
 
 .loading-spinner {
@@ -323,15 +460,22 @@
 }
 
 .ai-loading-title {
+  font-family: var(--font, inherit);
   font-size: 17px;
   font-weight: 750;
   color: var(--ink, #152237);
+  letter-spacing: -0.2px;
 }
 
 .ai-loading-desc {
-  font-size: 13px;
+  font-family: var(--font, inherit);
+  font-size: 13.5px;
   color: var(--muted, #657185);
   margin-top: 6px;
+  max-width: 600px;
+  margin-left: auto;
+  margin-right: auto;
+  line-height: 1.6;
 }
 
 /* 6. BỐ CỤC CHIA ĐÔI (BUILDER SPLIT LAYOUT) */

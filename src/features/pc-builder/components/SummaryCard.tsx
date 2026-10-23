@@ -2,7 +2,7 @@ import { money } from "@/utils";
 import type { RuleCheck } from "../types/pcBuilder.types";
 
 interface SummaryCardProps {
-  budget: number;
+  budget: number | "";
   grandTotal: number;
   remainingBudget: number;
   rules: RuleCheck[];
@@ -49,7 +49,7 @@ export function SummaryCard({
         <div className="cost-row">
           <span>Ngân sách dự chi:</span>
           <strong style={{ color: "var(--ink, #152237)" }}>
-            {money(budget)}
+            {money(typeof budget === "number" ? budget : Number(budget) || 0)}
           </strong>
         </div>
         <div className="cost-row">

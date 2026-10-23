@@ -1,10 +1,10 @@
 interface BuilderToolbarProps {
-  budget: number;
-  onBudgetChange: (val: number) => void;
+  budget: number | "";
+  onBudgetChange: (val: number | "") => void;
   purpose: string;
   onPurposeChange: (val: string) => void;
-  ramGb: number;
-  onRamGbChange: (val: number) => void;
+  ramGb: number | "";
+  onRamGbChange: (val: number | "") => void;
   userPrompt: string;
   onPromptChange: (val: string) => void;
   onSubmit: () => void;
@@ -32,24 +32,30 @@ export function BuilderToolbar({
             id="inputBudget"
             type="number"
             className="field-input"
+            placeholder="Nhập số tiền (VD: 25000000)"
             value={budget}
             min={5000000}
             step={500000}
-            onChange={(e) => onBudgetChange(Number(e.target.value) || 0)}
+            onChange={(e) =>
+              onBudgetChange(e.target.value === "" ? "" : Number(e.target.value))
+            }
           />
         </div>
         <div className="field-group">
-          <label htmlFor="selectPurpose">Nhu cầu sử dụng chính</label>
-          <select
-            id="selectPurpose"
-            className="field-select"
+          <label htmlFor="inputPurpose">Nhu cầu sử dụng chính</label>
+          <input
+            id="inputPurpose"
+            type="text"
+            className="field-input"
+            placeholder="VD: Gaming đồ họa cao, thiết kế 3D, lập trình..."
             value={purpose}
             onChange={(e) => onPurposeChange(e.target.value)}
-          >
-            <option value="gaming">🎮 Gaming & Esport đồ họa cao</option>
-            <option value="creative">🎬 Thiết kế 3D, Đồ họa & Dựng phim 4K</option>
-            <option value="work">💼 Học tập, Văn phòng & Lập trình phần mềm</option>
-          </select>
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !isBusy) {
+                onSubmit();
+              }
+            }}
+          />
         </div>
         <div className="field-group">
           <label htmlFor="selectRam">Dung lượng RAM mong muốn</label>
@@ -57,11 +63,15 @@ export function BuilderToolbar({
             id="selectRam"
             className="field-select"
             value={ramGb}
-            onChange={(e) => onRamGbChange(Number(e.target.value))}
+            onChange={(e) =>
+              onRamGbChange(e.target.value === "" ? "" : Number(e.target.value))
+            }
           >
+            <option value="">-- Chọn dung lượng RAM --</option>
             <option value={16}>16 GB (Tiêu chuẩn)</option>
             <option value={32}>32 GB (Khuyên dùng cho Gaming 2026)</option>
             <option value={64}>64 GB (Chuyên nghiệp / Render 3D)</option>
+            <option value={128}>128 GB (Máy trạm / Workstation)</option>
           </select>
         </div>
       </div>
@@ -111,26 +121,6 @@ export function BuilderToolbar({
             </>
           )}
         </button>
-      </div>
-
-      <div className="toolbar-footnote">
-        <svg
-          width="15"
-          height="15"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="#2563eb"
-          strokeWidth="2"
-        >
-          <circle cx="12" cy="12" r="10" />
-          <line x1="12" y1="16" x2="12" y2="12" />
-          <line x1="12" y1="8" x2="12.01" y2="8" />
-        </svg>
-        <span>
-          Dữ liệu linh kiện được lọc trực tiếp từ CSDL kho đang sẵn hàng. Thuật
-          toán Rule Engine tự động thẩm định Socket, Chuẩn RAM, Chiều dài VGA, Khe
-          tản nhiệt và Nguồn.
-        </span>
       </div>
     </div>
   );
