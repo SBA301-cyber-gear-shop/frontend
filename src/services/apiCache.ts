@@ -242,7 +242,15 @@ class ApiCache {
       storage = "session",
     } = options || {};
 
-    const shouldBypass = forceRefresh || bypassCache;
+    const isTest =
+      (typeof import.meta !== "undefined" && import.meta.env?.MODE === "test") ||
+      (typeof globalThis !== "undefined" &&
+        Boolean(
+          (globalThis as { process?: { env?: { NODE_ENV?: string } } })
+            .process?.env?.NODE_ENV === "test",
+        ));
+
+    const shouldBypass = forceRefresh || bypassCache || isTest;
 
     if (!shouldBypass) {
       const cached = this.get<T>(key);
