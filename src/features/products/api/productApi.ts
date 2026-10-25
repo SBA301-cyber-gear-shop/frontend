@@ -97,6 +97,20 @@ export interface CategoryItemResponse {
   specifications: CategorySpecResponse[];
 }
 
+export interface CreateCategoryPayload {
+  name: string;
+  slug?: string;
+  parentId?: number | null;
+  description?: string;
+}
+
+export interface UpdateCategoryPayload {
+  name: string;
+  slug?: string;
+  parentId?: number | null;
+  description?: string;
+}
+
 export interface ConfigureCategorySpecPayload {
   specificationId: number;
   isFilterable?: boolean;
@@ -271,6 +285,52 @@ export const productApi = {
       },
       { ttl: 600_000, storage: "session", ...options }
     );
+  },
+
+  getFlatCategories: async (options?: CacheOptions): Promise<CategoryItemResponse[]> => {
+    return apiCache.fetchWithCache(
+      "admin_categories_flat",
+      async () => {
+        const res = await axiosClient.get<CategoryItemResponse[]>(`${endpoints.admin.categories}/flat`);
+        return res.data;
+      },
+      { ttl: 300_000, ...options }
+    );
+  },
+
+  getCategoryBySlug: async (slug: string, options?: CacheOptions): Promise<CategoryItemResponse> => {
+    const cacheKey = `category_slug_${slug}`;
+    return apiCache.fetchWithCache(
+      cacheKey,
+      async () => {
+        const res = await axiosClient.get<CategoryItemResponse>(`${endpoints.catalog.categories}/${slug}`);
+        return res.data;
+      },
+      { ttl: 300_000, ...options }
+    );
+  },
+
+  createCategory: async (payload: CreateCategoryPayload): Promise<CategoryItemResponse> => {
+    const res = await axiosClient.post<CategoryItemResponse>(endpoints.admin.categories, payload);
+    apiCache.invalidate("admin_categories");
+    apiCache.invalidate("admin_categories_flat");
+    apiCache.invalidate("catalog_categories");
+    return res.data;
+  },
+
+  updateCategory: async (id: number, payload: UpdateCategoryPayload): Promise<CategoryItemResponse> => {
+    const res = await axiosClient.put<CategoryItemResponse>(`${endpoints.admin.categories}/${id}`, payload);
+    apiCache.invalidate("admin_categories");
+    apiCache.invalidate("admin_categories_flat");
+    apiCache.invalidate("catalog_categories");
+    return res.data;
+  },
+
+  deleteCategory: async (id: number): Promise<void> => {
+    await axiosClient.delete(`${endpoints.admin.categories}/${id}`);
+    apiCache.invalidate("admin_categories");
+    apiCache.invalidate("admin_categories_flat");
+    apiCache.invalidate("catalog_categories");
   },
 
   configureCategorySpecifications: async (
