@@ -1,8 +1,7 @@
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { dateTime } from "@/utils";
 import {
-  Art,
   Badge,
   Button,
   Empty,
@@ -23,15 +22,15 @@ const intakeRoadmap = (intake) => ({
     .flatMap((c) => c.timeline)
     .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt)),
 });
-// Phiếu cũ chưa có trong danh sách lần gửi (hiếm): hiển thị như một lần gửi một linh kiện.
-const asIntake = (request) => ({
-  intakeCode: request.intakeCode || request.requestCode,
-  status: request.status,
-  createdAt: request.createdAt,
-  expectedReturnDate: request.expectedReturnDate,
-  issueDescription: request.issueDescription,
-  components: [request],
-});
+const day = (value) => new Date(value).toLocaleDateString("vi-VN");
+const cardState = (c) =>
+  c.status === "replaced"
+    ? "Đã đổi thiết bị"
+    : c.status !== "active"
+      ? "Thẻ không còn hiệu lực"
+      : c.valid
+        ? "Còn bảo hành"
+        : "Hết hạn";
 
 export function ApiCustomerWarranty() {
   const svc = useAftersales(),
@@ -59,6 +58,12 @@ export function ApiCustomerWarranty() {
   const shown = (cards || []).filter((c) =>
     c.serialNumber.toLowerCase().includes(search.toLowerCase()),
   );
+  // Gom thẻ theo đơn mua; Map giữ thứ tự BE trả về.
+  const orders = new Map();
+  for (const c of shown) {
+    if (!orders.has(c.orderCode)) orders.set(c.orderCode, []);
+    orders.get(c.orderCode).push(c);
+  }
   return (
     <>
       <Heading
@@ -84,81 +89,78 @@ export function ApiCustomerWarranty() {
           </Button>
         </div>
       )}
-      {intakes.length > 0 && (
-        <Panel title="Yêu cầu bảo hành của tôi" className="section">
-          {intakes.map((i) => (
-            <button
-              className="ticket-preview between full"
-              key={i.intakeCode}
-              onClick={() => setSelected(i)}
-            >
-              <b>{i.intakeCode}</b>
-              <span className="small muted">
-                Đơn {i.orderCode} · {i.components.length} linh kiện
-              </span>
-              <Badge tone="info">{CUSTOMER_STATUS[i.status]}</Badge>
-              <span>Xem tiến trình →</span>
-            </button>
-          ))}
-        </Panel>
-      )}
       <div className="stack section">
         {shown.length ? (
-          shown.map((c) => (
-            <Panel key={c.id}>
-              <div className="between">
-                <div className="row">
-                  <Art className="mini" />
-                  <div>
-                    <h3>{c.productName}</h3>
-                    <p className="small mono">{c.serialNumber}</p>
+          [...orders].map(([orderCode, items]) => {
+            const sent = intakes.filter((i) => i.orderCode === orderCode);
+            return (
+              <Panel key={orderCode}>
+                {/* Thu gọn như trang kỹ thuật; đang tìm serial thì mở sẵn các đơn khớp. */}
+                <details className="intake-group" open={search !== ""}>
+                  <summary>
+                    Đơn {orderCode} · {items.length} linh kiện
+                    {sent.length > 0 && " · " + sent.length + " lần gửi bảo hành"}
+                  </summary>
+                  {/* Một lưới chung cho cả đơn để các cột thẳng hàng giữa mọi linh kiện. */}
+                  <div className="warranty-table">
+                    <span className="th name">Linh kiện</span>
+                    <span className="th">Bắt đầu</span>
+                    <span className="th">Kết thúc</span>
+                    <span className="th">Trạng thái</span>
+                    {items.map((c) => (
+                      <Fragment key={c.id}>
+                        <div className="name">
+                          <b>{c.productName}</b>
+                          <p className="small mono">{c.serialNumber}</p>
+                          {c.replacedBySerialNumber && (
+                            <p className="small muted">
+                              Đã đổi sang serial{" "}
+                              <b className="mono">{c.replacedBySerialNumber}</b>
+                            </p>
+                          )}
+                        </div>
+                        <span className="small">{day(c.startDate)}</span>
+                        <span className="small">{day(c.endDate)}</span>
+                        <span>
+                          <Badge tone={c.valid ? "success" : "warning"}>
+                            {cardState(c)}
+                          </Badge>
+                        </span>
+                      </Fragment>
+                    ))}
                   </div>
-                </div>
-                <Badge tone={c.valid ? "success" : "warning"}>
-                  {c.status === "replaced"
-                    ? "Đã đổi thiết bị"
-                    : c.status !== "active"
-                      ? "Thẻ không còn hiệu lực"
-                      : c.valid
-                        ? "Còn bảo hành"
-                        : "Hết hạn"}
-                </Badge>
-              </div>
-              <div className="two-col section">
-                <KV label="Bắt đầu">
-                  {new Date(c.startDate).toLocaleDateString("vi-VN")}
-                </KV>
-                <KV label="Kết thúc">
-                  {new Date(c.endDate).toLocaleDateString("vi-VN")}
-                </KV>
-              </div>
-              {c.replacedBySerialNumber && (
-                <p className="small muted">
-                  Thiết bị đã được đổi sang serial{" "}
-                  <b className="mono">{c.replacedBySerialNumber}</b>.
-                </p>
-              )}
-              <Link className="text-button" to={"/don-hang/" + c.orderCode}>
-                Xem đơn mua {c.orderCode} →
-              </Link>
-              {c.requests.map((t) => (
-                <button
-                  className="ticket-preview between full"
-                  key={t.id}
-                  onClick={() =>
-                    setSelected(
-                      intakes.find((i) => i.intakeCode === t.intakeCode) ||
-                        asIntake(t),
-                    )
-                  }
-                >
-                  <b>{t.requestCode}</b>
-                  <Badge tone="info">{CUSTOMER_STATUS[t.status]}</Badge>
-                  <span>Xem tiến trình →</span>
-                </button>
-              ))}
-            </Panel>
-          ))
+                  {sent.length > 0 && (
+                    <>
+                      <h3 className="section">Lần gửi bảo hành</h3>
+                      {sent.map((i) => (
+                        <button
+                          className="ticket-preview intake-row full"
+                          key={i.intakeCode}
+                          onClick={() => setSelected(i)}
+                        >
+                          <b className="mono">{i.intakeCode}</b>
+                          <span className="small">{dateTime(i.createdAt)}</span>
+                          <span className="small">
+                            {i.components.length} linh kiện
+                          </span>
+                          <span className="state">
+                            <Badge tone="info">{CUSTOMER_STATUS[i.status]}</Badge>
+                          </span>
+                          <span className="small go">Xem tiến trình →</span>
+                        </button>
+                      ))}
+                    </>
+                  )}
+                  <Link
+                    className="text-button section"
+                    to={"/don-hang/" + orderCode}
+                  >
+                    Xem đơn mua {orderCode} →
+                  </Link>
+                </details>
+              </Panel>
+            );
+          })
         ) : (
           <Empty
             title={
