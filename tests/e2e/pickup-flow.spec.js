@@ -215,6 +215,7 @@ test("admin promotion → customer order → staff collection and handover → w
         });
       return respond(orders[0]);
     }
+    if (path === "/api/my/service-intakes") return respond({ data: [] });
     if (path === "/api/my/warranty-cards")
       return respond({
         data: cards.map((card) => ({
