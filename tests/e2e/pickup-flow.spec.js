@@ -350,6 +350,7 @@ test("admin promotion → customer order → staff collection and handover → w
   await logout();
   await login("Customer");
   await page.goto("/bao-hanh");
+  await page.getByText(/^Đơn TZ-PICKUP-TEST · 2 linh kiện/).click();
   await expect(page.getByText("DEVICE-A", { exact: true })).toBeVisible();
   await expect(page.getByText("DEVICE-B", { exact: true })).toBeVisible();
   await page.goto("/don-hang/TZ-PICKUP-TEST");
