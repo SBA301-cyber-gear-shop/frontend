@@ -87,25 +87,40 @@ export function ApiTechnicianWorkbench() {
               </option>
             ))}
           </select>
-          <div className="stack section">
-            {list?.map((t) => (
-              <button
-                className={"selection " + (t.id === activeId ? "selected" : "")}
-                key={t.id}
-                onClick={() => {
-                  setError("");
-                  setSelectedId(t.id);
-                }}
-              >
-                <div>
-                  <b>{t.requestCode}</b>
-                  <p className="small muted">
-                    {t.productName} · {t.serialNumber}
-                  </p>
-                  <p className="small muted">{t.issueDescription}</p>
-                  <Badge tone="info">{REQUEST_STATUS[t.status]}</Badge>
-                </div>
-              </button>
+          <div className="section">
+            {byOrder(list ?? []).map(([orderCode, rows]) => (
+              <details className="intake-group" key={orderCode}>
+                <summary>
+                  Đơn {orderCode} · {rows.length} phiếu
+                </summary>
+                {rows.map((t) => (
+                  <button
+                    className={
+                      "selection request-row " +
+                      (t.id === activeId ? "selected" : "")
+                    }
+                    key={t.id}
+                    onClick={() => {
+                      setError("");
+                      setSelectedId(t.id);
+                    }}
+                  >
+                    <div>
+                      <b>{t.requestCode}</b>
+                      {t.intakeCode && (
+                        <p className="small muted">
+                          Lần tiếp nhận {t.intakeCode}
+                        </p>
+                      )}
+                      <p className="small muted">
+                        {t.productName} · {t.serialNumber}
+                      </p>
+                      <p className="small muted">{t.issueDescription}</p>
+                      <Badge tone="info">{REQUEST_STATUS[t.status]}</Badge>
+                    </div>
+                  </button>
+                ))}
+              </details>
             ))}
             {list && !list.length && (
               <p className="small muted">Không có phiếu nào.</p>
@@ -129,13 +144,25 @@ export function ApiTechnicianWorkbench() {
     </>
   );
 }
+// Gom phiếu theo đơn hàng; Map giữ thứ tự gặp đầu tiên nên đơn có phiếu mới nhất đứng trước.
+function byOrder(rows) {
+  const groups = new Map();
+  for (const t of rows) {
+    const key = t.orderCode || "không rõ";
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(t);
+  }
+  return [...groups];
+}
 function ApiTicketEditor({ ticket: t, svc, onChanged }) {
   const { notify } = useStore(),
     [note, setNote] = useState(""),
     [publicNote, setPublicNote] = useState(""),
     [expected, setExpected] = useState(""),
-    [siblings, setSiblings] = useState([]),
+    [orderCards, setOrderCards] = useState([]),
+    [intake, setIntake] = useState(null),
     [target, setTarget] = useState(""),
+    [addTarget, setAddTarget] = useState(""),
     [serial, setSerial] = useState(""),
     [source, setSource] = useState("supplier"),
     [confirming, setConfirming] = useState(false),
@@ -143,24 +170,33 @@ function ApiTicketEditor({ ticket: t, svc, onChanged }) {
   const orderCode = t.card.orderCode,
     cardId = t.card.id,
     canRelink = t.canRelinkCard;
-  // Các thẻ khác cùng đơn hàng, dùng khi khách mang cả bộ máy và lỗi nằm ở linh kiện khác.
+  // Các thẻ cùng đơn hàng và các linh kiện cùng lần tiếp nhận: khách mang cả bộ máy, lỗi có thể nằm ở linh kiện khác.
   useEffect(() => {
-    if (!canRelink || !orderCode) return;
     let alive = true;
+    if (orderCode)
+      svc
+        .searchCards(orderCode)
+        .then((found) => alive && setOrderCards(found))
+        .catch(() => {});
     svc
-      .searchCards(orderCode)
-      .then(
-        (found) =>
-          alive &&
-          setSiblings(
-            found.filter((c) => c.id !== cardId && c.status === "active"),
-          ),
-      )
+      .getIntake(t.intakeId)
+      .then((found) => alive && setIntake(found))
       .catch(() => {});
     return () => {
       alive = false;
     };
-  }, [svc, canRelink, orderCode, cardId]);
+  }, [svc, orderCode, t.intakeId, t.version]);
+  const siblings = orderCards.filter(
+    (c) => c.id !== cardId && c.status === "active",
+  );
+  // Thêm được linh kiện còn hạn, chưa có phiếu đang mở; BE kiểm tra lại hiệu lực theo ngày tiếp nhận.
+  const addable = orderCards.filter(
+    (c) => c.status === "active" && c.valid && !c.openRequest,
+  );
+  const rest =
+    intake?.requests.filter(
+      (r) => r.status === "received" || r.status === "inspecting",
+    ) ?? [];
   async function run(action, message) {
     // Khóa form trong lúc gửi: phiếu được nạp lại khi có kết quả, chữ gõ dở lúc đó sẽ mất.
     setBusy(true);
@@ -286,6 +322,98 @@ function ApiTicketEditor({ ticket: t, svc, onChanged }) {
           </>
         )}
       </Panel>
+      {intake && (
+        <Panel
+          title={"Cùng lần tiếp nhận " + intake.intakeCode}
+          action={<Badge tone="info">{REQUEST_STATUS[intake.status]}</Badge>}
+        >
+          {intake.requests.map((r) => (
+            <div className="ticket-preview part-row" key={r.id}>
+              <b className="mono">{r.requestCode}</b>
+              <span className="row gap8">
+                <Badge tone="info">{REQUEST_STATUS[r.status]}</Badge>
+                {r.resolution && (
+                  <Badge>{REQUEST_RESOLUTION[r.resolution]}</Badge>
+                )}
+              </span>
+              <span className="small part-name">
+                {r.productName} · {r.serialNumber}
+                {r.id === t.id ? " (phiếu đang mở)" : ""}
+              </span>
+            </div>
+          ))}
+          {rest.length > 0 && (
+            <>
+              <p className="small muted section">
+                Sau khi đã tìm ra linh kiện lỗi: kết luận không tìm thấy lỗi cho{" "}
+                {rest.length} linh kiện còn chờ hoặc đang kiểm tra (
+                {rest.map((r) => r.serialNumber).join(", ")}). Ghi lý do ở ô ghi
+                chú nội bộ phía trên.
+              </p>
+              <Button
+                tone="secondary"
+                onClick={() =>
+                  run(
+                    () =>
+                      svc.noFaultRest(intake.id, {
+                        internalNote: note,
+                        publicNote,
+                      }),
+                    "Đã kết luận các linh kiện còn lại.",
+                  )
+                }
+              >
+                Các linh kiện còn lại không lỗi
+              </Button>
+            </>
+          )}
+        </Panel>
+      )}
+      {intake?.canAddComponent && addable.length > 0 && (
+        <Panel title="Thêm linh kiện cùng bộ máy">
+          <p className="small muted">
+            Dùng khi kiểm tra thấy thêm linh kiện khác trong bộ máy khách mang
+            tới cũng lỗi. Chỉ chọn được linh kiện cùng đơn hàng, còn bảo hành.
+            Lý do ghi ở ô ghi chú nội bộ phía trên.
+          </p>
+          <Field label="Linh kiện cần thêm">
+            {(id) => (
+              <select
+                id={id}
+                className="input full"
+                value={addTarget}
+                onChange={(e) => setAddTarget(e.target.value)}
+              >
+                <option value="">Chọn linh kiện</option>
+                {addable.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.serialNumber} · {c.productName}
+                  </option>
+                ))}
+              </select>
+            )}
+          </Field>
+          <Button
+            className="section"
+            tone="secondary"
+            disabled={!addTarget}
+            onClick={() =>
+              run(
+                () =>
+                  svc
+                    .addComponent(intake.id, {
+                      warrantyCardId: Number(addTarget),
+                      internalNote: note,
+                    })
+                    .then(() => null),
+                "Đã thêm linh kiện vào lần tiếp nhận.",
+              )
+            }
+          >
+            Thêm linh kiện
+          </Button>
+        </Panel>
+      )}
       {canRelink && siblings.length > 0 && (
         <Panel title="Đổi thẻ gắn với phiếu">
           <p className="small muted">
@@ -409,8 +537,8 @@ function ApiTicketEditor({ ticket: t, svc, onChanged }) {
         </Panel>
       )}
       <Notice tone="neutral">
-        Ghi chú nội bộ không hiển thị ở trang khách. Trả máy cho khách thực hiện
-        ở màn hình Tiếp nhận bảo hành.
+        Ghi chú nội bộ không hiển thị ở trang khách. Trả cả bộ máy cho khách
+        thực hiện ở màn hình Tiếp nhận bảo hành.
       </Notice>
     </fieldset>
   );

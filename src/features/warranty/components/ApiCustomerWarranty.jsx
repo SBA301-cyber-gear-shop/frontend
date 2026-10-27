@@ -16,20 +16,38 @@ import { CUSTOMER_RESOLUTION, CUSTOMER_STATUS } from "../constants";
 import { useAftersales } from "../hooks/useAftersales";
 import { RequestRoadmap } from "./RequestRoadmap";
 
+// Roadmap của cả lần gửi: trạng thái chung kèm tiến trình gộp của mọi linh kiện, mốc mới nhất thắng.
+const intakeRoadmap = (intake) => ({
+  status: intake.status,
+  timeline: intake.components
+    .flatMap((c) => c.timeline)
+    .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt)),
+});
+// Phiếu cũ chưa có trong danh sách lần gửi (hiếm): hiển thị như một lần gửi một linh kiện.
+const asIntake = (request) => ({
+  intakeCode: request.intakeCode || request.requestCode,
+  status: request.status,
+  createdAt: request.createdAt,
+  expectedReturnDate: request.expectedReturnDate,
+  issueDescription: request.issueDescription,
+  components: [request],
+});
+
 export function ApiCustomerWarranty() {
   const svc = useAftersales(),
     [cards, setCards] = useState(null),
+    [intakes, setIntakes] = useState([]),
     [error, setError] = useState(""),
     [search, setSearch] = useState(""),
     [selected, setSelected] = useState(null),
     [attempt, setAttempt] = useState(0);
   useEffect(() => {
     let alive = true;
-    svc
-      .myCards()
-      .then((found) => {
+    Promise.all([svc.myCards(), svc.myIntakes()])
+      .then(([found, mine]) => {
         if (alive) {
           setCards(found);
+          setIntakes(mine);
           setError("");
         }
       })
@@ -65,6 +83,24 @@ export function ApiCustomerWarranty() {
             Tải lại bảo hành
           </Button>
         </div>
+      )}
+      {intakes.length > 0 && (
+        <Panel title="Yêu cầu bảo hành của tôi" className="section">
+          {intakes.map((i) => (
+            <button
+              className="ticket-preview between full"
+              key={i.intakeCode}
+              onClick={() => setSelected(i)}
+            >
+              <b>{i.intakeCode}</b>
+              <span className="small muted">
+                Đơn {i.orderCode} · {i.components.length} linh kiện
+              </span>
+              <Badge tone="info">{CUSTOMER_STATUS[i.status]}</Badge>
+              <span>Xem tiến trình →</span>
+            </button>
+          ))}
+        </Panel>
       )}
       <div className="stack section">
         {shown.length ? (
@@ -109,7 +145,12 @@ export function ApiCustomerWarranty() {
                 <button
                   className="ticket-preview between full"
                   key={t.id}
-                  onClick={() => setSelected(t)}
+                  onClick={() =>
+                    setSelected(
+                      intakes.find((i) => i.intakeCode === t.intakeCode) ||
+                        asIntake(t),
+                    )
+                  }
                 >
                   <b>{t.requestCode}</b>
                   <Badge tone="info">{CUSTOMER_STATUS[t.status]}</Badge>
@@ -134,7 +175,7 @@ export function ApiCustomerWarranty() {
       {selected && (
         <Modal
           className="wide"
-          title={"Yêu cầu " + selected.requestCode}
+          title={"Yêu cầu " + selected.intakeCode}
           onClose={() => setSelected(null)}
         >
           <div className="info-grid">
@@ -147,24 +188,34 @@ export function ApiCustomerWarranty() {
                   )
                 : "Chưa có"}
             </KV>
-            {selected.resolution && (
-              <KV label="Kết quả">
-                {CUSTOMER_RESOLUTION[selected.resolution]}
-              </KV>
-            )}
+            <KV label="Linh kiện">{selected.components.length}</KV>
           </div>
-          <RequestRoadmap request={selected} />
-          <div className="info-grid two">
-            <div>
-              <h3>Lỗi bạn đã báo</h3>
-              <p className="small">{selected.issueDescription}</p>
-            </div>
-            <div>
-              <h3>Thông tin từ cửa hàng</h3>
-              <p className="small">
-                {selected.publicNote || "Cửa hàng đang xử lý yêu cầu."}
-              </p>
-            </div>
+          <RequestRoadmap request={intakeRoadmap(selected)} />
+          <p className="small">
+            <b>Lỗi bạn đã báo:</b> {selected.issueDescription}
+          </p>
+          <h3>Kết quả từng linh kiện</h3>
+          {/* Lưới gọn để cả bộ máy nhiều linh kiện vẫn vừa một màn hình; lời nhắn dài xem khi rê chuột. */}
+          <div className="parts-grid">
+            {selected.components.map((c) => {
+              const result =
+                (c.resolution
+                  ? CUSTOMER_RESOLUTION[c.resolution]
+                  : CUSTOMER_STATUS[c.status]) +
+                (c.publicNote ? " · " + c.publicNote : "");
+              return (
+                <p
+                  className="small"
+                  key={c.id}
+                  title={c.productName + " " + c.serialNumber + ": " + result}
+                >
+                  <b>{c.productName}</b>
+                  <span>
+                    <span className="mono">{c.serialNumber}</span> · {result}
+                  </span>
+                </p>
+              );
+            })}
           </div>
           <p className="tiny muted">Cửa hàng sẽ cập nhật tiến trình tại đây.</p>
         </Modal>

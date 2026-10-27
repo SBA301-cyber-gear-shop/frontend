@@ -17,7 +17,6 @@ export function createWarrantyApi(onSessionExpired) {
     );
   return {
     searchCards: (q) => call(axiosClient.get(e.cards, { params: { q } })),
-    createRequest: (body) => call(axiosClient.post(e.requests, body)),
     listRequests: (status) =>
       call(
         axiosClient.get(e.requests, {
@@ -31,5 +30,17 @@ export function createWarrantyApi(onSessionExpired) {
     replaceDevice: (id, body) =>
       call(axiosClient.post(e.replacement(id), body)),
     myCards: () => call(axiosClient.get(e.myCards)),
+    // Lần tiếp nhận: cả bộ máy khách mang tới, mỗi linh kiện một phiếu con.
+    createIntake: (body) => call(axiosClient.post(e.intakes, body)),
+    getIntake: (id) => call(axiosClient.get(e.intake(id))),
+    returnIntake: (id, body) =>
+      call(axiosClient.post(e.intakeReturn(id), body)),
+    cancelIntake: (id, body) =>
+      call(axiosClient.post(e.intakeCancel(id), body)),
+    addComponent: (id, body) =>
+      call(axiosClient.post(e.intakeComponents(id), body)),
+    noFaultRest: (id, body) =>
+      call(axiosClient.post(e.intakeNoFault(id), body)),
+    myIntakes: () => call(axiosClient.get(e.myIntakes)),
   };
 }

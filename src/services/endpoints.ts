@@ -39,5 +39,14 @@ export const endpoints = {
     replacement: (id: number | string) =>
       `/api/service-requests/${id}/replacement`,
     myCards: "/api/my/warranty-cards",
+    intakes: "/api/service-intakes",
+    intake: (id: number | string) => `/api/service-intakes/${id}`,
+    intakeReturn: (id: number | string) => `/api/service-intakes/${id}/return`,
+    intakeCancel: (id: number | string) => `/api/service-intakes/${id}/cancel`,
+    intakeComponents: (id: number | string) =>
+      `/api/service-intakes/${id}/requests`,
+    intakeNoFault: (id: number | string) =>
+      `/api/service-intakes/${id}/no-fault-rest`,
+    myIntakes: "/api/my/service-intakes",
   },
 } as const;

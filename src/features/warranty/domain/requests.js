@@ -7,7 +7,6 @@ const STEP_LABEL = {
   "repairing>waiting_for_parts": "Chờ linh kiện",
   "repairing>inspecting": "Kiểm tra lại",
   "waiting_for_parts>repairing": "Tiếp tục sửa chữa",
-  "ready_for_return>returned": "Xác nhận đã trả khách",
   "ready_for_return>inspecting": "Khách báo còn lỗi",
 };
 const RESOLUTION_STEP = {
@@ -34,11 +33,8 @@ export const stepButtons = (ticket) =>
         ],
   );
 // Màn hình quầy chỉ có các bước của lễ tân, kể cả khi Admin (được làm mọi bước) đang dùng.
-const COUNTER_STEPS = [
-  "received>canceled",
-  "ready_for_return>returned",
-  "ready_for_return>inspecting",
-];
+// Trả máy làm cho cả lần tiếp nhận, không nằm ở từng phiếu.
+const COUNTER_STEPS = ["received>canceled", "ready_for_return>inspecting"];
 export const counterSteps = (ticket) =>
   stepButtons(ticket).filter((s) =>
     COUNTER_STEPS.includes(ticket.status + ">" + s.toStatus),
