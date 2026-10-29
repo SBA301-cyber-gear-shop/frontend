@@ -28,19 +28,19 @@ export function useLiveCheckout() {
   });
   const [params] = useSearchParams();
   const fromBuild = params.get("source") === "build";
-  const [name, updateName] = useState(user?.name || "");
-  const [phone, updatePhone] = useState(user?.phone || "");
-  const [note, updateNote] = useState("");
-  const [inputCode, updateInputCode] = useState("");
-  const [applied, updateApplied] = useState("");
+  const [name, setName] = useState(user?.name || "");
+  const [phone, setPhone] = useState(user?.phone || "");
+  const [note, setNote] = useState("");
+  const [inputCode, setInputCode] = useState("");
+  const [applied, setApplied] = useState("");
+  const [discount, setDiscount] = useState(0);
   const [error, setError] = useState("");
+  const [promoError, setPromoError] = useState("");
   const [placing, setPlacing] = useState(false);
+  const [applying, setApplying] = useState(false);
   const [attempt, setAttempt] = useState(0);
   const [validation, setValidation] = useState(null);
-  const [preview, setPreview] = useState(null);
-  const request = useRef(0),
-    busy = useRef(false),
-    controller = useRef(null);
+  const busy = useRef(false);
 
   useEffect(() => {
     if (fromBuild || pendingAttempt) return;
@@ -58,14 +58,11 @@ export function useLiveCheckout() {
     return () => abort.abort();
   }, [data.cart, attempt, fromBuild, pendingAttempt]);
 
-  useEffect(() => () => controller.current?.abort(), []);
-
   const validationCurrent =
     validation?.source === data.cart && validation?.attempt === attempt;
   const validating = !fromBuild && !validationCurrent;
   const validationError = validationCurrent ? validation.error || "" : "";
-  const quote = preview?.source === data.cart ? preview.value : null;
-  const cart = quote || (validationCurrent ? validation.cart : null);
+  const cart = validationCurrent ? validation.cart : null;
   const lines = cart
     ? cart.items.map((item) => ({
         id: String(item.productVariantId),
@@ -78,79 +75,130 @@ export function useLiveCheckout() {
       }))
     : data.cart;
 
-  function edit(setter, value) {
-    ++request.current;
-    controller.current?.abort();
-    setPreview(null);
-    setError("");
-    setter(value);
-  }
+  const total =
+    cart?.totalAmount ??
+    lines.reduce((sum, line) => sum + line.quantity * line.unitPrice, 0);
 
-  async function previewDetails(code) {
-    if (busy.current || validating || validationError || fromBuild) return;
-    busy.current = true;
-    const revision = ++request.current;
-    const source = data.cart;
-    const abort = new AbortController();
-    controller.current = abort;
-    setPlacing(true);
-    setError("");
-    setPreview(null);
+  async function apply() {
+    const code = inputCode.trim();
+    if (!code) {
+      setPromoError("Vui lòng nhập mã giảm giá.");
+      return;
+    }
+    if (applying || placing || validating) return;
+    setApplying(true);
+    setPromoError("");
     try {
-      const result = await checkoutApi.preview(
-        {
-          pickupName: name,
-          pickupPhone: phone,
-          note,
-          promotionCode: code.trim(),
-        },
-        abort.signal,
-      );
-      if (revision !== request.current || abort.signal.aborted) return;
-      setPreview({ source, value: result });
-      updateApplied(result.promotionCode || "");
+      const result = await checkoutApi.preview({
+        pickupName: name.trim() || user?.name || "Khách nhận",
+        pickupPhone: phone.trim() || user?.phone || "0900000128",
+        note: note.trim(),
+        promotionCode: code,
+      });
+      const resolvedCode = result.promotionCode || code.toUpperCase();
+      setApplied(resolvedCode);
+      setInputCode(resolvedCode);
+      setDiscount(result.discountAmount ?? 0);
+      setPromoError("");
+      notify("Đã áp dụng mã giảm giá thành công.");
     } catch (failure) {
-      if (revision === request.current && !abort.signal.aborted) {
-        setError(failure.message);
-        updateApplied("");
-      }
+      setPromoError(failure.message || "Mã giảm giá không hợp lệ.");
+      setApplied("");
+      setDiscount(0);
     } finally {
-      busy.current = false;
-      setPlacing(false);
+      setApplying(false);
     }
   }
 
-  function retryValidation() {
-    ++request.current;
-    controller.current?.abort();
-    setPreview(null);
-    setError("");
-    setAttempt((value) => value + 1);
+  function handleSetApplied(val) {
+    setApplied(val);
+    if (!val) {
+      setDiscount(0);
+      setInputCode("");
+      setPromoError("");
+      notify("Đã bỏ áp dụng mã giảm giá.");
+    }
   }
 
-  async function confirmOrder() {
+  function handleSetInputCode(val) {
+    setInputCode(val);
+    if (promoError) setPromoError("");
+  }
+
+  function retryValidation() {
+    setError("");
+    setPromoError("");
+    setAttempt((value) => value + 1);
+    if (applied) {
+      checkoutApi
+        .preview({
+          pickupName: name.trim() || user?.name || "Khách nhận",
+          pickupPhone: phone.trim() || user?.phone || "0900000128",
+          note: note.trim(),
+          promotionCode: applied,
+        })
+        .then((result) => {
+          setDiscount(result.discountAmount ?? 0);
+        })
+        .catch(() => {
+          setApplied("");
+          setDiscount(0);
+        });
+    }
+  }
+
+  async function submit(event) {
+    if (event?.preventDefault) event.preventDefault();
     if (
       busy.current ||
-      (!pendingAttempt && (!quote || validating || validationError))
+      placing ||
+      validating ||
+      validationError ||
+      fromBuild ||
+      !lines.length
     )
       return;
+
+    const trimmedName = name.trim();
+    const trimmedPhone = phone.trim();
+
+    if (!trimmedName) {
+      setError("Vui lòng nhập họ tên người nhận.");
+      return;
+    }
+    if (trimmedName.length > 100) {
+      setError("Họ tên người nhận không được vượt quá 100 ký tự.");
+      return;
+    }
+    if (!trimmedPhone) {
+      setError("Vui lòng nhập số điện thoại người nhận.");
+      return;
+    }
+    const normalizedPhone = trimmedPhone.replaceAll(/[ .()-]/g, "");
+    if (!/^(?:0\d{9}|\+84\d{9})$/.test(normalizedPhone)) {
+      setError(
+        "Số điện thoại nhận hàng không hợp lệ (10 chữ số bắt đầu bằng 0 hoặc +84).",
+      );
+      return;
+    }
+
     const submission = pendingAttempt || {
       key: checkoutKey,
       payload: {
-        pickupName: name,
-        pickupPhone: phone,
-        note,
-        promotionCode: quote.promotionCode || "",
+        pickupName: trimmedName,
+        pickupPhone: trimmedPhone,
+        note: note.trim(),
+        promotionCode: applied || "",
         method: "store",
-        expectedTotal: quote.totalAmount,
-        expectedDiscount: quote.discountAmount,
+        expectedTotal: total,
+        expectedDiscount: discount,
       },
     };
+
     busy.current = true;
     setPlacing(true);
     setError("");
     try {
-      // Keep the exact request across reloads until its result is known.
       sessionStorage.setItem(attemptStorageKey, JSON.stringify(submission));
       const order = await ordersApi.place(submission.payload, submission.key);
       sessionStorage.removeItem(attemptStorageKey);
@@ -164,7 +212,6 @@ export function useLiveCheckout() {
       if (rejected) {
         sessionStorage.removeItem(attemptStorageKey);
         setPendingAttempt(null);
-        setPreview(null);
       } else {
         setPendingAttempt(submission);
       }
@@ -186,39 +233,37 @@ export function useLiveCheckout() {
     pendingAttempt,
     fromBuild,
     lines,
-    total:
-      cart?.totalAmount ??
-      lines.reduce((sum, line) => sum + line.quantity * line.unitPrice, 0),
+    total,
     name,
-    setName: (value) => edit(updateName, value),
+    setName: (val) => {
+      setName(val);
+      setError("");
+    },
     phone,
-    setPhone: (value) => edit(updatePhone, value),
+    setPhone: (val) => {
+      setPhone(val);
+      setError("");
+    },
     note,
-    setNote: (value) => edit(updateNote, value),
+    setNote: (val) => {
+      setNote(val);
+      setError("");
+    },
     inputCode,
-    setInputCode: (value) => {
-      edit(updateInputCode, value);
-      updateApplied("");
-    },
+    setInputCode: handleSetInputCode,
     applied,
-    setApplied: (value) => {
-      edit(updateApplied, value);
-      if (!value) updateInputCode("");
-    },
+    setApplied: handleSetApplied,
     method: "store",
     setMethod: () => {},
     error: error || validationError || cartError,
     placing,
+    applying,
     validating: !pendingAttempt && (validating || cartLoading || cartBusy),
     retryValidation,
-    discount: quote?.discountAmount || 0,
-    previewed: Boolean(quote),
-    confirmOrder,
-    promoError: "",
-    apply: () => previewDetails(inputCode),
-    submit: (event) => {
-      event.preventDefault();
-      void previewDetails(applied || inputCode);
-    },
+    discount,
+    promoError,
+    apply,
+    submit,
+    confirmOrder: submit,
   };
 }

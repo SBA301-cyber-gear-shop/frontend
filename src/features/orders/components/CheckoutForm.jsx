@@ -9,6 +9,7 @@ import {
   Steps,
 } from "@/components/ui";
 import { Field } from "@/components/form";
+import { OrderLines } from "@/features/products";
 import { useCheckout } from "../hooks/useCheckout";
 
 export function CheckoutForm() {
@@ -32,17 +33,17 @@ export function CheckoutForm() {
     setApplied,
     error,
     placing,
+    applying,
     discount,
     promoError,
     apply,
     submit,
     demoMode,
     validating,
-    previewed,
     retryValidation,
-    confirmOrder,
     pendingAttempt,
   } = useCheckout();
+
   if (!demoMode && pendingAttempt)
     return (
       <div className="stack">
@@ -61,7 +62,7 @@ export function CheckoutForm() {
             )}
           </KV>
         </Panel>
-        <Button disabled={placing} onClick={confirmOrder}>
+        <Button disabled={placing} onClick={submit}>
           {placing ? "Đang kiểm tra…" : "Kiểm tra lại yêu cầu đặt hàng"}
         </Button>
         <Button to="/don-hang" tone="secondary">
@@ -69,6 +70,7 @@ export function CheckoutForm() {
         </Button>
       </div>
     );
+
   if (!demoMode && fromBuild)
     return (
       <Notice>
@@ -76,8 +78,10 @@ export function CheckoutForm() {
         và thêm vào giỏ hàng.
       </Notice>
     );
+
   if (validating)
     return <Notice>Đang kiểm tra giá và tồn kho với cửa hàng…</Notice>;
+
   if (!demoMode && error && !lines.length)
     return (
       <div className="stack">
@@ -86,6 +90,7 @@ export function CheckoutForm() {
         <Button to="/gio-hang">Về giỏ hàng</Button>
       </div>
     );
+
   if (!lines.length)
     return (
       <Empty
@@ -93,6 +98,7 @@ export function CheckoutForm() {
         action={<Button to="/san-pham">Chọn sản phẩm</Button>}
       />
     );
+
   return (
     <>
       <Heading
@@ -203,10 +209,11 @@ export function CheckoutForm() {
                 />
                 <Button
                   tone="secondary"
+                  type="button"
                   onClick={apply}
-                  disabled={placing || (!!error && !demoMode)}
+                  disabled={placing || applying || (!!error && !demoMode)}
                 >
-                  Áp dụng
+                  {applying ? "Đang kiểm tra…" : "Áp dụng"}
                 </Button>
               </div>
               {applied && !promoError && (
@@ -223,6 +230,11 @@ export function CheckoutForm() {
                   </Notice>
                 </div>
               )}
+              {promoError && (
+                <div className="section">
+                  <Notice tone="danger">{promoError}</Notice>
+                </div>
+              )}
               <p className="tiny muted section">
                 Một mã mỗi đơn · Mỗi khách dùng một lần.
               </p>
@@ -237,9 +249,9 @@ export function CheckoutForm() {
                 Nhận tại cửa hàng ·{" "}
                 {method === "store" ? "Thanh toán tại quầy" : "Online mô phỏng"}
               </p>
-              {(error || promoError) && (
-                <div className="section">
-                  <Notice tone="danger">{error || promoError}</Notice>
+              {error && (
+                <div className="section stack">
+                  <Notice tone="danger">{error}</Notice>
                   {!demoMode && (
                     <Button tone="secondary" onClick={retryValidation}>
                       Kiểm tra lại giỏ hàng
@@ -247,40 +259,22 @@ export function CheckoutForm() {
                   )}
                 </div>
               )}
+              <div className="section">
+                <Notice>
+                  Thanh toán tại cửa hàng khi đến nhận sản phẩm.
+                </Notice>
+              </div>
               <Button
                 type="submit"
                 className="full"
-                disabled={placing || !!promoError}
+                disabled={placing || validating || !lines.length}
               >
                 {placing
                   ? demoMode
                     ? "Đang tạo đơn…"
-                    : "Đang kiểm tra…"
-                  : demoMode
-                    ? "Xác nhận đặt hàng →"
-                    : "Kiểm tra thông tin & voucher"}
+                    : "Đang đặt hàng…"
+                  : "Xác nhận đặt hàng →"}
               </Button>
-              {!demoMode && (
-                <div className="section stack">
-                  {previewed && (
-                    <Notice tone="success">
-                      Thông tin nhận hàng hợp lệ. Giá dự kiến đã được cập nhật
-                      từ cửa hàng.
-                    </Notice>
-                  )}
-                  <Notice>
-                    Kiểm tra thông tin và giá dự kiến, sau đó xác nhận đặt hàng.
-                    Thanh toán tại cửa hàng khi đến nhận sản phẩm.
-                  </Notice>
-                  <Button
-                    className="full"
-                    disabled={!previewed || placing}
-                    onClick={confirmOrder}
-                  >
-                    {placing ? "Đang xử lý…" : "Xác nhận đặt hàng →"}
-                  </Button>
-                </div>
-              )}
               <p className="tiny muted section">
                 Đặt hàng thành công chưa có nghĩa đã thanh toán hoặc hàng đã sẵn
                 sàng.
@@ -292,4 +286,3 @@ export function CheckoutForm() {
     </>
   );
 }
-import { OrderLines } from "@/features/products";

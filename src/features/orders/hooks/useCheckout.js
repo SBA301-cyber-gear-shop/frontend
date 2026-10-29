@@ -23,27 +23,36 @@ function useDemoCheckout() {
     [inputCode, setInputCode] = useState(""),
     [applied, setApplied] = useState(""),
     [error, setError] = useState(""),
+    [promoError, setPromoError] = useState(""),
     [placing, setPlacing] = useState(false);
-  let discount = 0,
-    promoError = "";
+  let discount = 0;
   try {
-    discount = promotionQuote(data, applied, user.id, total).discount;
+    if (applied) {
+      discount = promotionQuote(data, applied, user.id, total).discount;
+    }
   } catch (e) {
-    promoError = e.message;
+    if (!promoError) setPromoError(e.message);
   }
   function apply() {
+    const code = inputCode.trim();
+    if (!code) {
+      setPromoError("Vui lòng nhập mã giảm giá.");
+      return;
+    }
     try {
-      promotionQuote(data, inputCode, user.id, total);
-      setApplied(inputCode.trim().toUpperCase());
+      promotionQuote(data, code, user.id, total);
+      setApplied(code.toUpperCase());
+      setInputCode(code.toUpperCase());
       setError("");
+      setPromoError("");
       notify("Đã áp dụng mã cho giá dự kiến.");
     } catch (e) {
-      setError(e.message);
+      setPromoError(e.message);
       setApplied("");
     }
   }
   function submit(e) {
-    e.preventDefault();
+    if (e?.preventDefault) e.preventDefault();
     setError("");
     if (placing) return;
     setPlacing(true);
@@ -92,14 +101,28 @@ function useDemoCheckout() {
     method,
     setMethod,
     inputCode,
-    setInputCode,
+    setInputCode: (val) => {
+      setInputCode(val);
+      if (promoError) setPromoError("");
+    },
     applied,
-    setApplied,
+    setApplied: (val) => {
+      setApplied(val);
+      if (!val) {
+        setInputCode("");
+        setPromoError("");
+      }
+    },
     error,
     placing,
+    applying: false,
     discount,
     promoError,
     apply,
     submit,
+    validating: false,
+    retryValidation: () => {},
+    pendingAttempt: null,
+    confirmOrder: submit,
   };
 }
