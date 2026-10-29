@@ -1,5 +1,5 @@
-import { useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useStore } from "@/store";
 import type {
   BuildPart,
@@ -22,10 +22,14 @@ import { cartApi } from "@/features/cart";
 export function usePcBuilder() {
   const { user, commit, notify, demoMode, mutateCart, reloadCart } = useStore();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const editBuildId = searchParams.get("editBuildId") || searchParams.get("loadBuildId");
   const addingParts = useRef(false);
 
   async function addLiveParts(
     parts: { variantId: number | string; quantity: number }[],
+    buildName?: string,
+    buildIdVal?: number | string
   ) {
     if (addingParts.current) return;
     if (!user) {
@@ -56,6 +60,19 @@ export function usePcBuilder() {
         }
       });
       if (!updated) return;
+      try {
+        const buildSet = {
+          id: buildIdVal || ("set_" + Date.now()),
+          name: buildName || (userPrompt ? ("Dàn PC AI Build: " + userPrompt.slice(0, 30)) : "Dàn PC Gaming & Đồ Họa Pro"),
+          itemVariantIds: parts.map((p) => String(p.variantId)),
+          parts: buildParts.length > 0 ? buildParts : parts,
+          createdAt: Date.now(),
+        };
+        const existingSets = JSON.parse(localStorage.getItem("techzone_pc_build_sets") || "[]");
+        localStorage.setItem("techzone_pc_build_sets", JSON.stringify([...existingSets, buildSet]));
+      } catch (e) {
+        console.error(e);
+      }
       notify("Đã thêm các linh kiện vào giỏ hàng.");
       navigate("/gio-hang");
     } catch (error) {
@@ -98,6 +115,56 @@ export function usePcBuilder() {
   >([]);
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [isSaved, setIsSaved] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (!editBuildId) return;
+    let isMounted = true;
+    setIsBusy(true);
+
+    const numericId = Number(editBuildId);
+    if (numericId && user) {
+      pcBuilderApi
+        .getSavedBuildDetail(numericId)
+        .then((detail) => {
+          if (!isMounted) return;
+          loadSavedBuildIntoBuilder(detail);
+        })
+        .catch(() => {
+          loadFromLocal(editBuildId, isMounted);
+        })
+        .finally(() => {
+          if (isMounted) setIsBusy(false);
+        });
+    } else {
+      loadFromLocal(editBuildId, isMounted);
+      setIsBusy(false);
+    }
+
+    function loadFromLocal(idToFind: string, mounted: boolean) {
+      try {
+        const sets = JSON.parse(localStorage.getItem("techzone_pc_build_sets") || "[]");
+        const found = sets.find((s: any) => String(s.id) === String(idToFind));
+        if (found && Array.isArray(found.parts) && found.parts.length > 0 && mounted) {
+          setBuildParts(found.parts);
+          setBuildId(null);
+          setIsSaved(false);
+          setStatus("success");
+          setAiInsight({
+            title: found.name || "Cấu hình chỉnh sửa",
+            reasoning: "Cấu hình đã được nạp từ giỏ hàng vào bộ lắp ráp.",
+            highlight: "Bạn có thể tiếp tục tùy chỉnh các linh kiện bên dưới hoặc thêm lại vào giỏ.",
+          });
+          notify("✨ Đã nạp cấu hình \"" + (found.name || "từ giỏ hàng") + "\" vào bộ lắp ráp!", "success");
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    return () => {
+      isMounted = false;
+    };
+  }, [editBuildId, user]);
 
   // Derived calculations
   const grandTotal = buildParts.reduce(
@@ -324,7 +391,21 @@ export function usePcBuilder() {
   }
 
   function handleAddToCart() {
-    if (!demoMode) return addLiveParts(buildParts);
+    const buildName = userPrompt ? ("Dàn PC AI Build: " + userPrompt.slice(0, 30)) : "Dàn PC Gaming & Đồ Họa Pro";
+    if (!demoMode) return addLiveParts(buildParts, buildName, buildId || undefined);
+    try {
+      const buildSet = {
+        id: buildId || ("set_" + Date.now()),
+        name: buildName,
+        itemVariantIds: buildParts.map((p) => String(p.variantId)),
+        parts: buildParts,
+        createdAt: Date.now(),
+      };
+      const existingSets = JSON.parse(localStorage.getItem("techzone_pc_build_sets") || "[]");
+      localStorage.setItem("techzone_pc_build_sets", JSON.stringify([...existingSets, buildSet]));
+    } catch (e) {
+      console.error(e);
+    }
     // Thêm các linh kiện vào giỏ hàng, đồng thời liên kết buildId vào store
     commit((current: any) => {
       const existingProducts = Array.isArray(current.products)
@@ -511,7 +592,19 @@ export function usePcBuilder() {
       return;
     }
 
-    if (!demoMode) return addLiveParts(savedDetail.items);
+    if (!demoMode) return addLiveParts(savedDetail.items, savedDetail.buildName || ("Dàn PC #" + savedDetail.buildId), savedDetail.buildId);
+    try {
+      const buildSet = {
+        id: savedDetail.buildId || Date.now(),
+        name: savedDetail.buildName || ("Dàn PC #" + savedDetail.buildId),
+        itemVariantIds: savedDetail.items.map((p) => String(p.variantId)),
+        createdAt: Date.now(),
+      };
+      const existingSets = JSON.parse(localStorage.getItem("techzone_pc_build_sets") || "[]");
+      localStorage.setItem("techzone_pc_build_sets", JSON.stringify([...existingSets, buildSet]));
+    } catch (e) {
+      console.error(e);
+    }
 
     commit((current: any) => {
       const existingProducts = Array.isArray(current.products)

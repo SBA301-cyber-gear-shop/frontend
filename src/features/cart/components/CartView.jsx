@@ -1,24 +1,22 @@
+import { useState, useEffect, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { useCart } from "../hooks/useCart";
-import { money } from "@/utils";
-import { OrderLines } from "@/features/products";
-import {
-  Button,
-  Empty,
-  Heading,
-  KV,
-  Notice,
-  Panel,
-  Steps,
-} from "@/components/ui";
+import { Button, Empty, Heading, Modal, Notice, Steps } from "@/components/ui";
+import { CartActionBar } from "./CartActionBar";
+import { CartSetCard } from "./CartSetCard";
+import { CartLooseItem } from "./CartLooseItem";
+import { CartSummary } from "./CartSummary";
+
+const STORAGE_PC_SETS = "techzone_pc_build_sets";
 
 export function CartView() {
   const {
     data,
     totalCount,
-    totalAmount,
     hasRam,
     updateQuantity,
     removeFromCart,
+    removeMultiple,
     user,
     demoMode,
     cartLoading,
@@ -26,7 +24,207 @@ export function CartView() {
     cartBusy,
     reloadCart,
   } = useCart();
-  if (!demoMode && !user)
+
+  const navigate = useNavigate();
+
+  // Confirmation Modal State (replaces all window.confirm)
+  const [modalConfig, setModalConfig] = useState(null);
+
+  // Local storage build sets state
+  const [pcBuildSets, setPcBuildSets] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem(STORAGE_PC_SETS) || "[]");
+    } catch {
+      return [];
+    }
+  });
+
+  // Track selected product variant IDs (Set of strings)
+  const [selectedIds, setSelectedIds] = useState(() => {
+    return new Set(data.cart.map((line) => String(line.id)));
+  });
+
+  // Keep selectedIds in sync when cart changes (e.g. items added or deleted)
+  useEffect(() => {
+    setSelectedIds((prev) => {
+      const currentIds = new Set(data.cart.map((line) => String(line.id)));
+      if (prev.size === 0) return currentIds;
+      const updated = new Set();
+      for (const id of prev) {
+        if (currentIds.has(id)) updated.add(id);
+      }
+      return updated;
+    });
+  }, [data.cart]);
+
+  // Group items into PC Build Sets vs Loose Products
+  const { groupedSets, looseItems } = useMemo(() => {
+    const cartLines = data.cart;
+    const sets = [];
+    const claimedItemIds = new Set();
+
+    // Check each known PC build set
+    for (const buildSet of pcBuildSets) {
+      if (!Array.isArray(buildSet.itemVariantIds) || buildSet.itemVariantIds.length === 0) {
+        continue;
+      }
+      const setVariants = new Set(buildSet.itemVariantIds.map(String));
+      const matchingLines = cartLines.filter((line) => setVariants.has(String(line.id)));
+
+      // If at least 2 components of this set are present in cart, group them as a PC set
+      if (matchingLines.length >= 2) {
+        sets.push({
+          setMeta: buildSet,
+          items: matchingLines,
+        });
+        matchingLines.forEach((l) => claimedItemIds.add(String(l.id)));
+      }
+    }
+
+    // All other items are loose products
+    const loose = cartLines.filter((line) => !claimedItemIds.has(String(line.id)));
+
+    return { groupedSets: sets, looseItems: loose };
+  }, [data.cart, pcBuildSets]);
+
+  // Calculate selection metrics
+  const selectedLines = useMemo(() => {
+    return data.cart.filter((line) => selectedIds.has(String(line.id)));
+  }, [data.cart, selectedIds]);
+
+  const selectedCount = useMemo(() => {
+    return selectedLines.reduce((sum, line) => sum + line.quantity, 0);
+  }, [selectedLines]);
+
+  const selectedTotalAmount = useMemo(() => {
+    return selectedLines.reduce((sum, line) => {
+      const p = data.products.find((prod) => prod.id === line.id);
+      const unitPrice = line.unitPrice ?? p?.price ?? 0;
+      return sum + unitPrice * line.quantity;
+    }, 0);
+  }, [selectedLines, data.products]);
+
+  const isAllSelected = data.cart.length > 0 && selectedLines.length === data.cart.length;
+
+  // Selected sets breakdown
+  const selectedSetsCount = useMemo(() => {
+    return groupedSets.filter((s) => s.items.some((i) => selectedIds.has(String(i.id)))).length;
+  }, [groupedSets, selectedIds]);
+
+  const selectedLooseCount = useMemo(() => {
+    return looseItems.filter((i) => selectedIds.has(String(i.id))).length;
+  }, [looseItems, selectedIds]);
+
+  // Handlers for Checkbox toggling
+  const handleToggleSelectAll = (checked) => {
+    if (checked) {
+      setSelectedIds(new Set(data.cart.map((line) => String(line.id))));
+    } else {
+      setSelectedIds(new Set());
+    }
+  };
+
+  const handleToggleSet = (setId, checked) => {
+    const setObj = groupedSets.find((s) => s.setMeta.id === setId);
+    if (!setObj) return;
+
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      setObj.items.forEach((item) => {
+        if (checked) next.add(String(item.id));
+        else next.delete(String(item.id));
+      });
+      return next;
+    });
+  };
+
+  const handleToggleLooseItem = (itemId, checked) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (checked) next.add(String(itemId));
+      else next.delete(String(itemId));
+      return next;
+    });
+  };
+
+  // Navigate to PC Builder with this specific build loaded
+  const handleEditInBuilder = (setMeta) => {
+    navigate(`/build-pc?editBuildId=${setMeta.id}`);
+  };
+
+  // Ungroup PC Set
+  const executeUngroupSet = (setId) => {
+    const updated = pcBuildSets.filter((s) => s.id !== setId);
+    setPcBuildSets(updated);
+    try {
+      localStorage.setItem(STORAGE_PC_SETS, JSON.stringify(updated));
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleRequestUngroupSet = (setMeta) => {
+    setModalConfig({
+      title: "Tách bộ PC thành linh kiện mua lẻ?",
+      message: `Bạn đang chọn tách bộ máy "${setMeta.name || "Bộ PC"}" thành các linh kiện mua lẻ riêng biệt.`,
+      warning:
+        "⚠️ Lưu ý quan trọng: Khi tách lẻ, bạn sẽ không còn được hưởng ưu đãi 'Miễn phí công lắp ráp & Test máy 100%' và chính sách 'Bảo hành nguyên bộ máy' của TechZone Pro. Các linh kiện sẽ được đóng gói dưới dạng linh kiện rời nguyên hộp.",
+      confirmText: "Xác nhận tách mua lẻ",
+      tone: "primary",
+      onConfirm: async () => {
+        executeUngroupSet(setMeta.id);
+      },
+    });
+  };
+
+  // Delete Set
+  const handleRequestDeleteSet = (setMeta, items) => {
+    setModalConfig({
+      title: "Xác nhận xóa bộ PC khỏi giỏ hàng?",
+      message: `Bạn có chắc muốn xóa toàn bộ bộ máy "${setMeta.name || "Bộ PC"}" (${items.length} linh kiện) khỏi giỏ hàng?`,
+      warning: "Toàn bộ linh kiện thuộc bộ máy này sẽ bị gỡ khỏi giỏ hàng.",
+      confirmText: "Xóa cả bộ máy",
+      tone: "danger",
+      onConfirm: async () => {
+        const itemIds = items.map((i) => String(i.id));
+        await removeMultiple(itemIds);
+        executeUngroupSet(setMeta.id);
+      },
+    });
+  };
+
+  // Delete single loose item
+  const handleRequestDeleteLooseItem = (item) => {
+    setModalConfig({
+      title: "Xác nhận xóa sản phẩm?",
+      message: `Bạn có chắc muốn xóa sản phẩm "${item.name || "sản phẩm"}" khỏi giỏ hàng?`,
+      confirmText: "Xóa sản phẩm",
+      tone: "danger",
+      onConfirm: async () => {
+        await removeFromCart(item.id);
+      },
+    });
+  };
+
+  // Bulk Delete Selected
+  const handleRequestDeleteSelected = () => {
+    if (selectedIds.size === 0) return;
+    setModalConfig({
+      title: "Xác nhận xóa các mục đã chọn?",
+      message: `Bạn có chắc muốn xóa ${selectedCount} sản phẩm đang được chọn khỏi giỏ hàng?`,
+      warning: "Thao tác này sẽ xóa tất cả sản phẩm đang tick chọn khỏi giỏ hàng của bạn.",
+      confirmText: `Xóa ${selectedCount} sản phẩm`,
+      tone: "danger",
+      onConfirm: async () => {
+        const idsToDelete = Array.from(selectedIds);
+        await removeMultiple(idsToDelete);
+        setSelectedIds(new Set());
+      },
+    });
+  };
+
+  // Auth / Empty / Loading / Error Guards
+  if (!demoMode && !user) {
     return (
       <Empty
         title="Đăng nhập để xem giỏ hàng"
@@ -37,87 +235,180 @@ export function CartView() {
         }
       />
     );
-  if (cartLoading && !data.cart.length)
+  }
+
+  if (cartLoading && !data.cart.length) {
     return <Notice>Đang tải giỏ hàng…</Notice>;
-  if (cartError)
+  }
+
+  if (cartError) {
     return (
       <div className="stack">
         <Notice tone="danger">{cartError}</Notice>
         <Button onClick={() => reloadCart()}>Tải lại giỏ hàng</Button>
       </div>
     );
-  if (!data.cart.length)
+  }
+
+  if (!data.cart.length) {
     return (
-      <>
+      <div className="cart-page-container">
         <Heading title="Giỏ hàng của bạn" />
         <Empty
           title="Giỏ hàng đang trống"
-          description="Bắt đầu bằng một linh kiện phù hợp với góc máy của bạn."
-          action={<Button to="/san-pham">Khám phá sản phẩm →</Button>}
+          description="Bắt đầu xây dựng góc máy chuyên nghiệp hoặc cấu hình PC thông minh với AI ngay hôm nay."
+          action={
+            <div className="cart-empty-actions">
+              <Button to="/build-pc">⚡ Xây dựng cấu hình PC với AI</Button>
+              <Button to="/san-pham" tone="secondary">Khám phá linh kiện →</Button>
+            </div>
+          }
         />
-      </>
+      </div>
     );
+  }
+
   return (
-    <>
+    <div className="cart-page-container">
+      {/* Page Header */}
       <Heading
         title="Giỏ hàng của bạn"
-        sub={data.cart.length + " phiên bản · " + totalCount + " sản phẩm"}
+        sub={`${data.cart.length} phiên bản · ${totalCount} sản phẩm${groupedSets.length > 0 ? ` (trong đó có ${groupedSets.length} bộ máy PC)` : ""}`}
         action={
           <Button to="/san-pham" tone="secondary">
             ← Tiếp tục mua sắm
           </Button>
         }
       />
+
+      {/* Modern Checkout Stepper */}
       <Steps
         labels={["Giỏ hàng", "Thông tin & thanh toán", "Theo dõi đơn"]}
         current={0}
       />
-      <div className="split">
-        <div className="stack">
-          <OrderLines
-            lines={data.cart}
-            products={data.products}
-            editable
-            onChange={updateQuantity}
-            onRemove={removeFromCart}
-            disabled={cartBusy || cartLoading}
-          />
+
+      {/* Master Action Bar */}
+      <CartActionBar
+        totalItemsCount={totalCount}
+        selectedItemsCount={selectedCount}
+        isAllSelected={isAllSelected}
+        onToggleSelectAll={handleToggleSelectAll}
+        onDeleteSelected={handleRequestDeleteSelected}
+        disabled={cartBusy || cartLoading}
+      />
+
+      {/* Main Two-Column Layout */}
+      <div className="cart-main-grid">
+        {/* Left Column: Cart Items */}
+        <div className="cart-items-column">
+          {/* 1. PC Build Sets */}
+          {groupedSets.length > 0 && (
+            <div className="cart-section-sets">
+              {groupedSets.map((s) => (
+                <CartSetCard
+                  key={s.setMeta.id}
+                  set={s.setMeta}
+                  items={s.items}
+                  products={data.products}
+                  selectedIds={selectedIds}
+                  onToggleSet={handleToggleSet}
+                  onEditInBuilder={handleEditInBuilder}
+                  onRequestUngroupSet={handleRequestUngroupSet}
+                  onRequestDeleteSet={handleRequestDeleteSet}
+                  disabled={cartBusy || cartLoading}
+                />
+              ))}
+            </div>
+          )}
+
+          {/* 2. Loose Products */}
+          {looseItems.length > 0 && (
+            <div className="cart-section-loose">
+              <div className="cart-section-heading">
+                <h3>
+                  Sản phẩm & Phụ kiện mua lẻ ({looseItems.length} sản phẩm)
+                </h3>
+              </div>
+
+              <div className="cart-loose-list">
+                {looseItems.map((item) => {
+                  const product = data.products.find((p) => p.id === item.id);
+                  const isSelected = selectedIds.has(String(item.id));
+
+                  return (
+                    <CartLooseItem
+                      key={item.id}
+                      item={item}
+                      product={product}
+                      isSelected={isSelected}
+                      onToggleSelect={handleToggleLooseItem}
+                      onUpdateQuantity={updateQuantity}
+                      onRequestDelete={handleRequestDeleteLooseItem}
+                      disabled={cartBusy || cartLoading}
+                    />
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Logistics Note */}
           <Notice>
-            Nhận trực tiếp tại cửa hàng. Thông tin người nhận được xác nhận ở
-            bước tiếp theo.
+            Nhận trực tiếp tại cửa hàng hoặc giao hàng tận nơi. Thông tin người nhận và thời gian hẹn được xác nhận ở bước tiếp theo.
           </Notice>
+
+          {/* RAM Check Notification if applicable */}
           {hasRam && (
-            <Panel title="Kiểm tra số lượng RAM">
-              <p className="muted small">
-                RAM được bán theo từng thanh. Hai thanh 16GB tương ứng số lượng
-                2 và tổng dung lượng 32GB.
-              </p>
-            </Panel>
+            <div className="cart-ram-notice">
+              <strong>💡 Lưu ý về cấu hình RAM:</strong> RAM được tính theo từng thanh. Nếu bạn mua kit 2 thanh hoặc muốn kích hoạt Dual Channel, vui lòng kiểm tra số lượng thanh tương ứng trong cấu hình.
+            </div>
           )}
         </div>
-        <aside className="stack">
-          <Panel title="Tóm tắt giỏ hàng" className="summary">
-            <KV label="Tiền hàng">{money(totalAmount)}</KV>
-            <KV label="Tạm tính" total>
-              {money(totalAmount)}
-            </KV>
-            <Button
-              className="full"
-              to={cartBusy || cartLoading ? undefined : "/thanh-toan"}
-              disabled={cartBusy || cartLoading}
-            >
-              Tiếp tục đặt hàng →
-            </Button>
-            <p className="small muted section">
-              Áp dụng một mã giảm giá ở bước thanh toán.
-            </p>
-          </Panel>
-          <Notice tone="neutral">
-            Giỏ hàng chưa giữ tồn kho. Giá và số lượng được kiểm tra lại khi xác
-            nhận.
-          </Notice>
-        </aside>
+
+        {/* Right Column: Order Summary */}
+        <CartSummary
+          selectedCount={selectedCount}
+          selectedSetsCount={selectedSetsCount}
+          selectedLooseCount={selectedLooseCount}
+          selectedTotalAmount={selectedTotalAmount}
+          hasSelectedPcSet={groupedSets.length > 0}
+          cartBusy={cartBusy}
+          cartLoading={cartLoading}
+        />
       </div>
-    </>
+
+      {/* Custom Confirmation Modal */}
+      {modalConfig && (
+        <Modal title={modalConfig.title} onClose={() => setModalConfig(null)}>
+          <div className="cart-modal-content">
+            <p className="cart-modal-message">{modalConfig.message}</p>
+            {modalConfig.warning && (
+              <div className={`cart-modal-warning ${modalConfig.tone === "danger" ? "danger" : "amber"}`}>
+                {modalConfig.warning}
+              </div>
+            )}
+            <div className="cart-modal-actions">
+              <Button
+                tone="secondary"
+                onClick={() => setModalConfig(null)}
+                disabled={cartBusy || cartLoading}
+              >
+                Hủy bỏ
+              </Button>
+              <Button
+                tone={modalConfig.tone || "danger"}
+                onClick={async () => {
+                  await modalConfig.onConfirm();
+                  setModalConfig(null);
+                }}
+                disabled={cartBusy || cartLoading}
+              >
+                {cartBusy ? "Đang xử lý..." : modalConfig.confirmText || "Xác nhận"}
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
+    </div>
   );
 }
