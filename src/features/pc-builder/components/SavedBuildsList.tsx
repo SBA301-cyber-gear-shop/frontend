@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { money } from "@/utils";
 import { useStore } from "@/store";
+import { Button, Modal } from "@/components/ui";
 import type {
   SavedPcBuildSummary,
   SavedPcBuildDetail,
@@ -31,6 +32,7 @@ export function SavedBuildsList({
   const [selectedBuildId, setSelectedBuildId] = useState<number | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState<boolean>(false);
   const [isDeletingId, setIsDeletingId] = useState<number | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<SavedPcBuildSummary | null>(null);
 
   const fetchBuilds = useCallback(async () => {
     if (!user) {
@@ -58,17 +60,15 @@ export function SavedBuildsList({
     fetchBuilds();
   }, [fetchBuilds]);
 
-  async function handleDelete(build: SavedPcBuildSummary) {
+  function requestDelete(build: SavedPcBuildSummary) {
     if (build.isOrdered) {
       notify("Không thể xóa cấu hình đã gắn với đơn hàng.", "danger");
       return;
     }
+    setDeleteTarget(build);
+  }
 
-    const confirmed = window.confirm(
-      `Bạn có chắc chắn muốn xóa cấu hình "${build.buildName}" khỏi tài khoản của mình?`,
-    );
-    if (!confirmed) return;
-
+  async function executeDelete(build: SavedPcBuildSummary) {
     setIsDeletingId(build.buildId);
     try {
       await pcBuilderApi.deleteSavedBuild(build.buildId);
@@ -82,6 +82,7 @@ export function SavedBuildsList({
       );
     } finally {
       setIsDeletingId(null);
+      setDeleteTarget(null);
     }
   }
 
@@ -502,7 +503,7 @@ export function SavedBuildsList({
                       justifyContent: "center",
                     }}
                     title="Xóa cấu hình khỏi tài khoản"
-                    onClick={() => handleDelete(build)}
+                    onClick={() => requestDelete(build)}
                   >
                     {isDeleting ? "..." : (
                       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -525,6 +526,27 @@ export function SavedBuildsList({
         onAddToCart={onAddToCart}
         onLoadToBuilder={onLoadToBuilder}
       />
+    
+      {deleteTarget && (
+        <Modal title="Xác nhận xóa cấu hình?" onClose={() => setDeleteTarget(null)}>
+          <div style={{ padding: "16px 0", display: "flex", flexDirection: "column", gap: "16px" }}>
+            <p style={{ margin: 0, fontSize: "15px", color: "var(--color-text-main, #1e293b)" }}>
+              Bạn có chắc chắn muốn xóa cấu hình <strong>"{deleteTarget.buildName}"</strong> khỏi tài khoản?
+            </p>
+            <div style={{ padding: "12px 14px", borderRadius: "8px", background: "#fef2f2", border: "1px solid #fee2e2", color: "#b91c1c", fontSize: "13.5px" }}>
+              ⚠️ Cấu hình sẽ bị xóa vĩnh viễn khỏi danh sách lưu trữ của bạn.
+            </div>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: "12px", marginTop: "8px" }}>
+              <Button to={undefined} tone="secondary" onClick={() => setDeleteTarget(null)} disabled={isDeletingId === deleteTarget.buildId}>
+                Hủy bỏ
+              </Button>
+              <Button to={undefined} tone="danger" onClick={() => executeDelete(deleteTarget)} disabled={isDeletingId === deleteTarget.buildId}>
+                {isDeletingId === deleteTarget.buildId ? "Đang xóa..." : "Xác nhận xóa"}
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }

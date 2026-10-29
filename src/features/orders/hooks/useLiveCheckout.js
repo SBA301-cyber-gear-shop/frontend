@@ -93,13 +93,20 @@ export function useLiveCheckout() {
       }))
     : data.cart;
 
-  const lines = selectedVariantIds && !cart
-    ? rawLines.filter((l) => selectedVariantIds.includes(Number(l.id)))
-    : rawLines;
+  const lines = useMemo(() => {
+    if (!selectedVariantIds || selectedVariantIds.length === 0) {
+      return rawLines;
+    }
+    const selectedSet = new Set(selectedVariantIds.map(Number));
+    return rawLines.filter((l) => selectedSet.has(Number(l.id)));
+  }, [rawLines, selectedVariantIds]);
 
-  const total =
-    cart?.totalAmount ??
-    lines.reduce((sum, line) => sum + line.quantity * line.unitPrice, 0);
+  const total = useMemo(() => {
+    if (cart && (!selectedVariantIds || cart.items.length === lines.length)) {
+      return cart.totalAmount;
+    }
+    return lines.reduce((sum, line) => sum + line.quantity * line.unitPrice, 0);
+  }, [cart, selectedVariantIds, lines]);
 
   async function apply() {
     const code = inputCode.trim();

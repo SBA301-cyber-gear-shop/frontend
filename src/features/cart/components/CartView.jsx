@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useCart } from "../hooks/useCart";
 import { Button, Empty, Heading, Modal, Notice, Steps } from "@/components/ui";
@@ -41,59 +41,82 @@ export function CartView() {
     }
   });
 
+  // Track whether initial cart sync has taken place to avoid premature sessionStorage wipes
+  const isCartReadyRef = useRef(false);
+
   // Track selected product variant IDs (Set of strings) persisted in sessionStorage
   const [selectedIds, setSelectedIds] = useState(() => {
     try {
       const stored = sessionStorage.getItem(STORAGE_SELECTED_IDS);
-      if (stored) {
+      if (stored !== null) {
         const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed) && parsed.length > 0) {
+        if (Array.isArray(parsed)) {
           return new Set(parsed.map(String));
         }
       }
     } catch {}
-    return new Set(data.cart.map((line) => String(line.id)));
+    return new Set(data.cart ? data.cart.map((line) => String(line.id)) : []);
   });
-
-  // Save selectedIds to sessionStorage whenever it changes
-  useEffect(() => {
-    try {
-      const arr = Array.from(selectedIds);
-      sessionStorage.setItem(STORAGE_SELECTED_IDS, JSON.stringify(arr));
-      sessionStorage.setItem(STORAGE_CHECKOUT_SELECTED, JSON.stringify(arr));
-    } catch {}
-  }, [selectedIds]);
 
   // Keep selectedIds in sync when cart changes (e.g. items added or deleted)
   useEffect(() => {
+    if (cartLoading) return; // Do NOT clear selection while cart is still loading
+
     if (!data.cart || data.cart.length === 0) {
-      setSelectedIds(new Set());
+      if (isCartReadyRef.current) {
+        setSelectedIds(new Set());
+        try {
+          sessionStorage.removeItem(STORAGE_SELECTED_IDS);
+          sessionStorage.removeItem(STORAGE_CHECKOUT_SELECTED);
+        } catch {}
+      }
       return;
     }
+
+    const currentIds = new Set(data.cart.map((line) => String(line.id)));
+
     setSelectedIds((prev) => {
-      const currentIds = new Set(data.cart.map((line) => String(line.id)));
       let storedSet = null;
       try {
         const stored = sessionStorage.getItem(STORAGE_SELECTED_IDS);
-        if (stored) {
+        if (stored !== null) {
           const parsed = JSON.parse(stored);
-          if (Array.isArray(parsed) && parsed.length > 0) {
+          if (Array.isArray(parsed)) {
             storedSet = new Set(parsed.map(String));
           }
         }
       } catch {}
 
-      const candidateSet = prev && prev.size > 0 ? prev : storedSet;
-      if (candidateSet && candidateSet.size > 0) {
-        const updated = new Set();
-        for (const id of candidateSet) {
-          if (currentIds.has(id)) updated.add(id);
+      // If user has an existing selection (in prev state or in sessionStorage)
+      const baseSet = prev && prev.size > 0 ? prev : storedSet;
+      if (baseSet !== null) {
+        const retained = new Set();
+        for (const id of baseSet) {
+          if (currentIds.has(id)) retained.add(id);
         }
-        if (updated.size > 0) return updated;
+        // If user intentionally unchecked all items (empty array in storage)
+        if (storedSet !== null && storedSet.size === 0) {
+          return new Set();
+        }
+        if (retained.size > 0) return retained;
       }
       return currentIds;
     });
-  }, [data.cart]);
+
+    isCartReadyRef.current = true;
+  }, [data.cart, cartLoading]);
+
+  // Save selectedIds to sessionStorage whenever selection changes and cart is ready
+  useEffect(() => {
+    if (!isCartReadyRef.current && (!data.cart || data.cart.length === 0)) {
+      return; // Do NOT overwrite sessionStorage before cart items are loaded
+    }
+    try {
+      const arr = Array.from(selectedIds);
+      sessionStorage.setItem(STORAGE_SELECTED_IDS, JSON.stringify(arr));
+      sessionStorage.setItem(STORAGE_CHECKOUT_SELECTED, JSON.stringify(arr));
+    } catch {}
+  }, [selectedIds, data.cart]);
 
   // Group items into PC Build Sets vs Loose Products
   const { groupedSets, looseItems } = useMemo(() => {
