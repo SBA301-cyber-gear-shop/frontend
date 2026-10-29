@@ -1,4 +1,5 @@
-import { dateTime, money } from "@/utils";
+import { dateTime, money, formatShortOrderCode, formatOrderSuffix } from "@/utils";
+import { useState } from "react";
 import { ORDER_STATUS, PAYMENT_STATUS } from "../constants";
 import { OrderLines } from "@/features/products";
 import {
@@ -63,7 +64,7 @@ export function OrderDetails() {
             ? "Đã tạo đơn hàng của bạn"
             : "Chi tiết đơn hàng"
         }
-        sub={id + " · " + dateTime(order.createdAt)}
+        sub={formatShortOrderCode(id) + " · " + dateTime(order.createdAt)}
         action={
           <Badge tone={order.status === "completed" ? "success" : "info"}>
             {ORDER_STATUS[order.status]}

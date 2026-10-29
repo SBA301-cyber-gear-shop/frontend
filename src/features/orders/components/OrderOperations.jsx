@@ -1,4 +1,6 @@
-import { dateTime, money } from "@/utils";
+import { dateTime, money, formatShortOrderCode, formatOrderSuffix } from "@/utils";
+import { useState } from "react";
+import { OrderSelector } from "./OrderSelector";
 import { ORDER_STATUS, PAYMENT_STATUS } from "../constants";
 import { OrderLines } from "@/features/products";
 import {
@@ -51,6 +53,8 @@ export function OrderOperations({ handover = false }) {
     setCancelConfirm,
   } = useOrderOperations();
   
+  const [copied, setCopied] = useState(false);
+
   const handleAutoFillHandover = () => {
     if (!selected) return;
     const nextSerials = { ...serials };
@@ -94,53 +98,62 @@ export function OrderOperations({ handover = false }) {
         sub="Đối chiếu đơn, thu tiền và chuẩn bị bàn giao tại cửa hàng."
         eyebrow="VẬN HÀNH / ĐƠN HÀNG"
       />
-      <div className="row section-title">
-        <input
-          className="input flex"
-          aria-label="Tra cứu đơn hàng"
-          placeholder="Mã đơn, số điện thoại hoặc tên khách"
-          value={search}
-          disabled={busy}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-        <select
-          className="input"
-          aria-label="Lọc trạng thái đơn"
-          disabled={busy}
-          value={status}
-          onChange={(e) => setStatus(e.target.value)}
-        >
-          <option value="all">Tất cả trạng thái</option>
-          {Object.entries(ORDER_STATUS).map(([k, v]) => (
-            <option key={k} value={k}>
-              {v}
-            </option>
-          ))}
-        </select>
-      </div>
-      <div className="order-picker">
-        {filtered.map((o) => (
-          <button
-            key={o.id}
-            disabled={busy}
-            className={"chip " + (o.id === selected?.id ? "active" : "")}
-            onClick={() => {
-              setParams({ id: o.id });
-              setChecked(false);
-            }}
-          >
-            {o.id} · {ORDER_STATUS[o.status]}
-          </button>
-        ))}
-      </div>
-      {!filtered.length && <Empty title="Không tìm thấy đơn phù hợp" />}
+      <OrderSelector
+        orders={filtered}
+        selected={selected}
+        busy={busy}
+        search={search}
+        setSearch={setSearch}
+        status={status}
+        setStatus={setStatus}
+        onSelect={(o) => {
+          setParams({ id: o.id });
+          setChecked(false);
+        }}
+      />
       {selected && (
         <div className="split section">
           <div className="stack">
             <Panel
-              title={selected.id}
+              title={
+                <div className="order-detail-header-code">
+                  <span>{formatShortOrderCode(selected.id)}</span>
+                  <span className="order-full-code-chip" title="Mã đơn đầy đủ">
+                    {selected.id}
+                    <button
+                      type="button"
+                      className="order-copy-action-btn"
+                      title="Sao chép toàn bộ mã đơn"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigator.clipboard.writeText(selected.id);
+                        setCopied(true);
+                        setTimeout(() => setCopied(false), 2000);
+                      }}
+                    >
+                      {copied ? "✓ Đã chép" : "📋"}
+                    </button>
+                  </span>
+                  <span className="order-ref-suffix">
+                    Đuôi: #{formatOrderSuffix(selected.id)}
+                  </span>
+                </div>
+              }
               action={
-                <Badge tone="info">{ORDER_STATUS[selected.status]}</Badge>
+                <Badge
+                  tone={
+                    {
+                      pending: "warning",
+                      confirmed: "info",
+                      preparing: "info",
+                      ready_for_pickup: "success",
+                      completed: "success",
+                      canceled: "danger",
+                    }[selected.status] || "info"
+                  }
+                >
+                  {ORDER_STATUS[selected.status]}
+                </Badge>
               }
             >
               <p className="small muted">

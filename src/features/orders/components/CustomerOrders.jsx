@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { dateTime, money } from "@/utils";
+import { dateTime, money, formatShortOrderCode } from "@/utils";
 import { ORDER_STATUS, PAYMENT_STATUS } from "../constants";
 import {
   Art,
@@ -66,8 +66,8 @@ export function CustomerOrders() {
             <Panel key={o.id}>
               <div className="between">
                 <div>
-                  <Link className="red" to={"/don-hang/" + o.id}>
-                    <b>{o.id}</b>
+                  <Link className="red" to={"/don-hang/" + o.id} title={"Mã đầy đủ: " + o.id}>
+                    <b>{formatShortOrderCode(o.id)}</b>
                   </Link>
                   <p className="small muted">{dateTime(o.createdAt)}</p>
                 </div>
