@@ -176,7 +176,7 @@ export function useOrderOperations() {
     cancelConfirm,
     setCancelConfirm: (value) =>
       value ? openConfirm(setCancelConfirm) : setCancelConfirm(false),
-    recipientPhone: recipientPhones[selected?.id] || "",
+    recipientPhone: recipientPhones[selected?.id] !== undefined ? recipientPhones[selected?.id] : (selected?.pickupPhone || ""),
     setRecipientPhone: (value) =>
       setRecipientPhones((previous) => ({ ...previous, [selected.id]: value })),
     receivedAmount: amounts[selected?.id] || "",

@@ -50,6 +50,35 @@ export function OrderOperations({ handover = false }) {
     cancelConfirm,
     setCancelConfirm,
   } = useOrderOperations();
+  
+  const handleAutoFillHandover = () => {
+    if (!selected) return;
+    const nextSerials = { ...serials };
+    const prefix = Date.now().toString(36).slice(-4).toUpperCase();
+
+    warrantyLines
+      .flatMap((l) =>
+        Array.from({ length: l.quantity }, (_, i) => ({
+          line: l,
+          index: i,
+        })),
+      )
+      .forEach((u, i) => {
+        const cleanName = (u.line.name || "DEV")
+          .toUpperCase()
+          .replace(/[^A-Z0-9]/g, "")
+          .slice(0, 8);
+        const rand = Math.random().toString(36).substring(2, 6).toUpperCase();
+        nextSerials[`${selected.id}-${i}`] = `SN-${cleanName}-${prefix}${rand}`;
+      });
+
+    setSerials(nextSerials);
+    if (selected.pickupPhone) {
+      setRecipientPhone(selected.pickupPhone);
+    }
+    setChecked(true);
+  };
+
   if (loading) return <Notice>Đang tải danh sách đơn hàng…</Notice>;
   if (error)
     return (
@@ -137,10 +166,21 @@ export function OrderOperations({ handover = false }) {
               </p>
             </Panel>
             {handover && (
-              <Panel title={"Serial từng thiết bị · " + count + " thiết bị"}>
+              <Panel
+                title={"Serial từng thiết bị · " + count + " thiết bị"}
+                action={
+                  <Button
+                    tone="secondary"
+                    onClick={handleAutoFillHandover}
+                    disabled={busy}
+                    style={{ whiteSpace: "nowrap" }}
+                  >
+                    ⚡ Điền nhanh Serial & SĐT
+                  </Button>
+                }
+              >
                 <Notice>
-                  Nhập serial thực tế, duy nhất cho mỗi thiết bị. Thẻ bảo hành
-                  được tạo khi xác nhận bàn giao.
+                  Nhập số serial từ tem/vỏ hộp của từng thiết bị bàn giao. Mỗi thiết bị có một mã duy nhất để kích hoạt bảo hành điện tử.
                 </Notice>
                 <div className="stack section">
                   {warrantyLines
@@ -154,6 +194,7 @@ export function OrderOperations({ handover = false }) {
                       <Field
                         key={i}
                         label={u.line.name + " · Thiết bị " + (u.index + 1)}
+                        placeholder="VD: SN-8823901 (hoặc quét mã vạch trên vỏ hộp)"
                         value={serials[selected.id + "-" + i] || ""}
                         onChange={(e) =>
                           setSerials({
@@ -168,6 +209,7 @@ export function OrderOperations({ handover = false }) {
                   <div className="section">
                     <Field
                       label="Số điện thoại người đến nhận để đối chiếu"
+                      placeholder="VD: 0987654321"
                       value={recipientPhone}
                       maxLength={20}
                       onChange={(event) =>
