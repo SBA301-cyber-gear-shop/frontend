@@ -14,7 +14,19 @@ function useDemoCheckout() {
     [params] = useSearchParams(),
     navigate = useNavigate(),
     fromBuild = params.get("source") === "build";
-  const lines = fromBuild ? data.build : data.cart,
+  const selectedVariantIds = (() => {
+    if (fromBuild) return null;
+    try {
+      const stored = sessionStorage.getItem("techzone_checkout_selected_ids");
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed) && parsed.length > 0) return new Set(parsed.map(String));
+      }
+    } catch {}
+    return null;
+  })();
+  const rawLines = fromBuild ? data.build : data.cart,
+    lines = selectedVariantIds ? rawLines.filter((l) => selectedVariantIds.has(String(l.id))) : rawLines,
     total = totalOf(lines, data.products);
   const [name, setName] = useState(user?.name || ""),
     [phone, setPhone] = useState(user?.phone || ""),
@@ -78,6 +90,8 @@ function useDemoCheckout() {
             id,
           }).state,
       );
+      sessionStorage.removeItem("techzone_checkout_selected_ids");
+      sessionStorage.removeItem("techzone_cart_selected_ids");
       navigate("/don-hang/" + id + "?created=1");
       notify("Đã tạo đơn demo. Chưa phát sinh thanh toán thật.");
     } catch (err) {

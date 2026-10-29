@@ -62,7 +62,10 @@ export function placeOrder(
       orderId: id,
       status: order.payment === "SUCCESS" ? "USED" : "RESERVED",
     });
-  if (!fromBuild) next.cart = [];
+  if (!fromBuild) {
+    const purchasedIds = new Set(quoted.map((l) => String(l.id)));
+    next.cart = next.cart.filter((item) => !purchasedIds.has(String(item.id)));
+  }
   return { state: next, order };
 }
 export function transitionOrder(state, id, action, serials = []) {

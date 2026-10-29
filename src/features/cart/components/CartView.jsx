@@ -8,6 +8,8 @@ import { CartLooseItem } from "./CartLooseItem";
 import { CartSummary } from "./CartSummary";
 
 const STORAGE_PC_SETS = "techzone_pc_build_sets";
+const STORAGE_SELECTED_IDS = "techzone_cart_selected_ids";
+const STORAGE_CHECKOUT_SELECTED = "techzone_checkout_selected_ids";
 
 export function CartView() {
   const {
@@ -39,21 +41,57 @@ export function CartView() {
     }
   });
 
-  // Track selected product variant IDs (Set of strings)
+  // Track selected product variant IDs (Set of strings) persisted in sessionStorage
   const [selectedIds, setSelectedIds] = useState(() => {
+    try {
+      const stored = sessionStorage.getItem(STORAGE_SELECTED_IDS);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return new Set(parsed.map(String));
+        }
+      }
+    } catch {}
     return new Set(data.cart.map((line) => String(line.id)));
   });
 
+  // Save selectedIds to sessionStorage whenever it changes
+  useEffect(() => {
+    try {
+      const arr = Array.from(selectedIds);
+      sessionStorage.setItem(STORAGE_SELECTED_IDS, JSON.stringify(arr));
+      sessionStorage.setItem(STORAGE_CHECKOUT_SELECTED, JSON.stringify(arr));
+    } catch {}
+  }, [selectedIds]);
+
   // Keep selectedIds in sync when cart changes (e.g. items added or deleted)
   useEffect(() => {
+    if (!data.cart || data.cart.length === 0) {
+      setSelectedIds(new Set());
+      return;
+    }
     setSelectedIds((prev) => {
       const currentIds = new Set(data.cart.map((line) => String(line.id)));
-      if (prev.size === 0) return currentIds;
-      const updated = new Set();
-      for (const id of prev) {
-        if (currentIds.has(id)) updated.add(id);
+      let storedSet = null;
+      try {
+        const stored = sessionStorage.getItem(STORAGE_SELECTED_IDS);
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            storedSet = new Set(parsed.map(String));
+          }
+        }
+      } catch {}
+
+      const candidateSet = prev && prev.size > 0 ? prev : storedSet;
+      if (candidateSet && candidateSet.size > 0) {
+        const updated = new Set();
+        for (const id of candidateSet) {
+          if (currentIds.has(id)) updated.add(id);
+        }
+        if (updated.size > 0) return updated;
       }
-      return updated;
+      return currentIds;
     });
   }, [data.cart]);
 
@@ -371,6 +409,7 @@ export function CartView() {
           selectedSetsCount={selectedSetsCount}
           selectedLooseCount={selectedLooseCount}
           selectedTotalAmount={selectedTotalAmount}
+          selectedIds={selectedIds}
           hasSelectedPcSet={groupedSets.length > 0}
           cartBusy={cartBusy}
           cartLoading={cartLoading}

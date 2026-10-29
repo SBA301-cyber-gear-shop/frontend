@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { useStore } from "@/store";
 import { checkoutApi } from "../api/checkoutApi";
 import { ordersApi } from "../api/ordersApi";
@@ -27,7 +27,25 @@ export function useLiveCheckout() {
     }
   });
   const [params] = useSearchParams();
+  const location = useLocation();
   const fromBuild = params.get("source") === "build";
+
+  const selectedVariantIds = useMemo(() => {
+    if (fromBuild) return null;
+    if (Array.isArray(location.state?.selectedVariantIds) && location.state.selectedVariantIds.length > 0) {
+      return location.state.selectedVariantIds.map(Number);
+    }
+    try {
+      const stored = sessionStorage.getItem("techzone_checkout_selected_ids");
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.map(Number);
+        }
+      }
+    } catch {}
+    return null;
+  }, [location.state, fromBuild]);
   const [name, setName] = useState(user?.name || "");
   const [phone, setPhone] = useState(user?.phone || "");
   const [note, setNote] = useState("");
@@ -46,7 +64,7 @@ export function useLiveCheckout() {
     if (fromBuild || pendingAttempt) return;
     const abort = new AbortController();
     checkoutApi
-      .validate(abort.signal)
+      .validate(selectedVariantIds || undefined, abort.signal)
       .then((cart) => {
         if (!abort.signal.aborted)
           setValidation({ source: data.cart, attempt, cart });
@@ -56,14 +74,14 @@ export function useLiveCheckout() {
           setValidation({ source: data.cart, attempt, error: failure.message });
       });
     return () => abort.abort();
-  }, [data.cart, attempt, fromBuild, pendingAttempt]);
+  }, [data.cart, attempt, fromBuild, pendingAttempt, selectedVariantIds]);
 
   const validationCurrent =
     validation?.source === data.cart && validation?.attempt === attempt;
   const validating = !fromBuild && !validationCurrent;
   const validationError = validationCurrent ? validation.error || "" : "";
   const cart = validationCurrent ? validation.cart : null;
-  const lines = cart
+  const rawLines = cart
     ? cart.items.map((item) => ({
         id: String(item.productVariantId),
         quantity: item.quantity,
@@ -74,6 +92,10 @@ export function useLiveCheckout() {
         stock: item.stockQuantity,
       }))
     : data.cart;
+
+  const lines = selectedVariantIds && !cart
+    ? rawLines.filter((l) => selectedVariantIds.includes(Number(l.id)))
+    : rawLines;
 
   const total =
     cart?.totalAmount ??
@@ -94,6 +116,7 @@ export function useLiveCheckout() {
         pickupPhone: phone.trim() || user?.phone || "0900000128",
         note: note.trim(),
         promotionCode: code,
+        itemVariantIds: selectedVariantIds || undefined,
       });
       const resolvedCode = result.promotionCode || code.toUpperCase();
       setApplied(resolvedCode);
@@ -136,6 +159,7 @@ export function useLiveCheckout() {
           pickupPhone: phone.trim() || user?.phone || "0900000128",
           note: note.trim(),
           promotionCode: applied,
+          itemVariantIds: selectedVariantIds || undefined,
         })
         .then((result) => {
           setDiscount(result.discountAmount ?? 0);
@@ -192,6 +216,7 @@ export function useLiveCheckout() {
         method: "store",
         expectedTotal: total,
         expectedDiscount: discount,
+        itemVariantIds: selectedVariantIds || undefined,
       },
     };
 
@@ -203,6 +228,8 @@ export function useLiveCheckout() {
       const order = await ordersApi.place(submission.payload, submission.key);
       sessionStorage.removeItem(attemptStorageKey);
       sessionStorage.removeItem("techzone-checkout-key-" + user.id);
+      sessionStorage.removeItem("techzone_checkout_selected_ids");
+      sessionStorage.removeItem("techzone_cart_selected_ids");
       notify("Đã tạo đơn hàng. Vui lòng chờ cửa hàng xác nhận sẵn sàng nhận.");
       navigate("/don-hang/" + order.id + "?created=1");
       void reloadCart();

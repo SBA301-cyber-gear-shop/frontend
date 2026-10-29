@@ -7,6 +7,7 @@ export function CartSummary({
   selectedSetsCount,
   selectedLooseCount,
   selectedTotalAmount,
+  selectedIds,
   hasSelectedPcSet,
   cartBusy,
   cartLoading,
@@ -67,7 +68,11 @@ export function CartSummary({
 
         {/* Checkout CTA */}
         {isReady ? (
-          <Link to="/thanh-toan" className="cart-btn-checkout">
+          <Link
+            to="/thanh-toan"
+            state={{ selectedVariantIds: Array.from(selectedIds || []) }}
+            className="cart-btn-checkout"
+          >
             Tiếp tục đặt hàng ({selectedCount}) →
           </Link>
         ) : (

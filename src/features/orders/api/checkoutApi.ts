@@ -5,13 +5,18 @@ export interface CheckoutDetailsPayload {
   pickupPhone: string;
   note: string;
   promotionCode: string;
+  itemVariantIds?: number[];
 }
 
 export const checkoutApi = {
-  async validate(signal?: AbortSignal) {
+  async validate(itemVariantIds?: (number | string)[], signal?: AbortSignal) {
+    const payload =
+      itemVariantIds && itemVariantIds.length > 0
+        ? { itemVariantIds: itemVariantIds.map(Number) }
+        : undefined;
     const { data } = await axiosClient.post(
       endpoints.checkout.validate,
-      undefined,
+      payload,
       { signal },
     );
     return data;
