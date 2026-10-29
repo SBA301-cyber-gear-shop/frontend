@@ -51,32 +51,42 @@ export function OrderSelector({
 
   return (
     <div className="order-selector-box">
-      {/* 1. Ô tìm kiếm & Dropdown chọn trạng thái */}
-      <div className="row section-title" style={{ marginBottom: "12px", gap: "10px" }}>
+      {/* 1. Ô tìm kiếm nhanh */}
+      <div style={{ marginBottom: "12px", position: "relative" }}>
         <input
-          className="input flex"
+          className="input full"
           aria-label="Tra cứu đơn hàng"
-          placeholder="Mã đơn (kể cả đuôi mã), SĐT hoặc tên khách…"
+          placeholder="🔍 Tìm nhanh theo mã đơn (kể cả đuôi mã), SĐT hoặc tên khách…"
           value={search}
           disabled={busy}
           onChange={(e) => setSearch(e.target.value)}
         />
-        <select
-          className="input"
-          aria-label="Lọc trạng thái đơn"
-          disabled={busy}
-          value={status}
-          onChange={(e) => setStatus(e.target.value)}
-        >
-          <option value="all">
-            Tất cả trạng thái ({statusCounts.all ?? orders.length})
-          </option>
-          {Object.entries(ORDER_STATUS).map(([k, v]) => (
-            <option key={k} value={k}>
-              {v} ({statusCounts[k] ?? 0})
-            </option>
-          ))}
-        </select>
+        {search && (
+          <button
+            type="button"
+            title="Xóa tìm kiếm"
+            onClick={() => setSearch("")}
+            style={{
+              position: "absolute",
+              right: "12px",
+              top: "50%",
+              transform: "translateY(-50%)",
+              background: "#e2e8f0",
+              border: 0,
+              borderRadius: "50%",
+              width: "22px",
+              height: "22px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              cursor: "pointer",
+              fontSize: "11px",
+              color: "#475569",
+            }}
+          >
+            ✕
+          </button>
+        )}
       </div>
 
       {/* 2. Thanh Status Pills lọc nhanh trực quan với số lượng từng trạng thái */}
