@@ -29,6 +29,7 @@ export function OrderOperations({ handover = false }) {
     setConfirm,
     navigate,
     filtered,
+    statusCounts,
     selected,
     serials,
     setSerials,
@@ -100,6 +101,7 @@ export function OrderOperations({ handover = false }) {
       />
       <OrderSelector
         orders={filtered}
+        statusCounts={statusCounts}
         selected={selected}
         busy={busy}
         search={search}

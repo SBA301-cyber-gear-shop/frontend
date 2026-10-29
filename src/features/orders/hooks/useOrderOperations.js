@@ -1,7 +1,8 @@
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useStore } from "@/store";
 import { transitionOrder } from "../domain";
+import { ORDER_STATUS } from "../constants";
 import { ordersApi } from "../api/ordersApi";
 import { useApiOrders } from "./useApiOrders";
 import { useDebounce } from "@/hooks";
@@ -16,7 +17,7 @@ export function useOrderOperations() {
   const remote = useApiOrders({
     operations: true,
     search: useDebounce(search, 300),
-    status,
+    status: "all",
   });
   const pending = useRef(false),
     [busy, setBusy] = useState(false);
@@ -25,13 +26,30 @@ export function useOrderOperations() {
   const [amounts, setAmounts] = useState({}),
     [references, setReferences] = useState({});
   const orders = demoMode ? data.orders : remote.orders;
-  const filtered = orders.filter(
-    (o) =>
-      (status === "all" || o.status === status) &&
-      (o.id + " " + o.pickupPhone + " " + o.pickupName)
-        .toLowerCase()
-        .includes(search.toLowerCase()),
-  );
+
+  const statusCounts = useMemo(() => {
+    const list = orders || [];
+    const counts = { all: list.length };
+    for (const key of Object.keys(ORDER_STATUS)) {
+      counts[key] = 0;
+    }
+    for (const o of list) {
+      if (counts[o.status] !== undefined) {
+        counts[o.status]++;
+      }
+    }
+    return counts;
+  }, [orders]);
+
+  const filtered = useMemo(() => {
+    return (orders || []).filter(
+      (o) =>
+        (status === "all" || o.status === status) &&
+        (o.id + " " + (o.pickupPhone || "") + " " + (o.pickupName || ""))
+          .toLowerCase()
+          .includes(search.toLowerCase()),
+    );
+  }, [orders, status, search]);
   const selected = params.has("id")
     ? filtered.find((o) => o.id === params.get("id"))
     : filtered[0];
@@ -159,6 +177,7 @@ export function useOrderOperations() {
       value ? openConfirm(setConfirm) : setConfirm(false),
     navigate,
     filtered,
+    statusCounts,
     selected,
     serials,
     setSerials,

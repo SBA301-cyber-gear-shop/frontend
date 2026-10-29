@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Badge, Empty } from "@/components/ui";
-import { money, dateTime, formatShortOrderCode, formatOrderSuffix } from "@/utils";
+import { money, dateTime, formatShortOrderCode } from "@/utils";
 import { ORDER_STATUS } from "../constants";
 
 const STATUS_TONES = {
@@ -16,6 +16,7 @@ const PAGE_SIZE = 8;
 
 export function OrderSelector({
   orders = [],
+  statusCounts = {},
   selected,
   onSelect,
   busy = false,
@@ -50,7 +51,8 @@ export function OrderSelector({
 
   return (
     <div className="order-selector-box">
-      <div className="row section-title" style={{ marginBottom: "12px" }}>
+      {/* 1. Ô tìm kiếm & Dropdown chọn trạng thái */}
+      <div className="row section-title" style={{ marginBottom: "12px", gap: "10px" }}>
         <input
           className="input flex"
           aria-label="Tra cứu đơn hàng"
@@ -66,15 +68,49 @@ export function OrderSelector({
           value={status}
           onChange={(e) => setStatus(e.target.value)}
         >
-          <option value="all">Tất cả trạng thái ({orders.length})</option>
+          <option value="all">
+            Tất cả trạng thái ({statusCounts.all ?? orders.length})
+          </option>
           {Object.entries(ORDER_STATUS).map(([k, v]) => (
             <option key={k} value={k}>
-              {v}
+              {v} ({statusCounts[k] ?? 0})
             </option>
           ))}
         </select>
       </div>
 
+      {/* 2. Thanh Status Pills lọc nhanh trực quan với số lượng từng trạng thái */}
+      <div className="status-pills-bar" role="tablist" aria-label="Lọc nhanh theo trạng thái">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={status === "all"}
+          className={`status-pill-btn ${status === "all" ? "active" : ""} ${(statusCounts.all ?? 0) > 0 ? "has-items" : "empty-items"}`}
+          onClick={() => setStatus("all")}
+        >
+          <span>Tất cả</span>
+          <span className="status-pill-count">{statusCounts.all ?? orders.length}</span>
+        </button>
+        {Object.entries(ORDER_STATUS).map(([k, v]) => {
+          const count = statusCounts[k] ?? 0;
+          const isActive = status === k;
+          return (
+            <button
+              key={k}
+              type="button"
+              role="tab"
+              aria-selected={isActive}
+              className={`status-pill-btn ${isActive ? "active" : ""} ${count > 0 ? "has-items" : "empty-items"}`}
+              onClick={() => setStatus(k)}
+            >
+              <span>{v}</span>
+              <span className="status-pill-count">{count}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* 3. Tiêu đề danh sách & Nút thu gọn */}
       <div className="order-selector-header">
         <div className="order-selector-header-title">
           <span>Danh sách đơn hàng</span>
