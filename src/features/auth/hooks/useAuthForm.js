@@ -112,6 +112,7 @@ export function useAuthForm({ register = false }) {
           name: authData.user.fullName,
           email: authData.user.email,
           phone: authData.user.phone,
+          address: authData.user.address,
           role: authData.user.role,
         };
 
@@ -134,6 +135,7 @@ export function useAuthForm({ register = false }) {
           name: authData.user.fullName,
           email: authData.user.email,
           phone: authData.user.phone,
+          address: authData.user.address,
           role: authData.user.role,
         };
 

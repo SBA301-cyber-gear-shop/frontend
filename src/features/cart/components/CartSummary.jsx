@@ -51,10 +51,6 @@ export function CartSummary({
             <span className="cart-perk-val">0 đ</span>
           </div>
 
-          <div className="cart-summary-row">
-            <span>Phí vận chuyển</span>
-            <span className="cart-summary-note">Tính ở bước thanh toán</span>
-          </div>
         </div>
 
         {/* Total Calculation */}

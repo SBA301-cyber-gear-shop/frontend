@@ -5,9 +5,10 @@ import { AiInsightPanel } from "./AiInsightPanel";
 import { AiLoadingBox } from "./AiLoadingBox";
 import { AiErrorBox } from "./AiErrorBox";
 import { PartsTable } from "./PartsTable";
-import { SummaryCard } from "./SummaryCard";
+import { SummaryCard, buildVerdict } from "./SummaryCard";
 import { ReplacePartModal } from "./ReplacePartModal";
 import { SavedBuildsList } from "./SavedBuildsList";
+import { NeedsProfilePanel } from "./NeedsProfilePanel";
 
 export function PcBuilder() {
   const [activeTab, setActiveTab] = useState<"builder" | "saved">("builder");
@@ -17,25 +18,33 @@ export function PcBuilder() {
     setBudget,
     purpose,
     setPurpose,
-    ramGb,
-    setRamGb,
     userPrompt,
     setUserPrompt,
     status,
     errorMessage,
+    apiError,
+    retryLockedUntil,
     isBusy,
     isFetchingCandidates,
     buildParts,
     aiInsight,
+    aiResult,
     activeReplaceRole,
     isModalOpen,
     isSaved,
     grandTotal,
-    remainingBudget,
     rules,
     allRulesPassed,
+    canAddToCart,
+    options,
+    profile,
+    setProfileDraft,
+    validation,
+    isRevalidating,
     modalCandidates,
     handleAiSuggest,
+    handleResuggestWithProfile,
+    handleRetry,
     handleReset,
     openReplaceModal,
     closeReplaceModal,
@@ -46,6 +55,18 @@ export function PcBuilder() {
     loadSavedBuildIntoBuilder,
     addSavedBuildToCart,
   } = usePcBuilder();
+
+  const verdict = buildVerdict(rules, allRulesPassed, isRevalidating);
+  const profilePanel = profile && (
+    <NeedsProfilePanel
+      profile={profile}
+      relaxedItems={aiResult?.relaxedItems}
+      dictionary={options?.dictionary}
+      onDraftChange={setProfileDraft}
+      onResuggest={handleResuggestWithProfile}
+      isBusy={isBusy}
+    />
+  );
 
   return (
     <div className="pc-builder-container">
@@ -134,12 +155,11 @@ export function PcBuilder() {
             onBudgetChange={setBudget}
             purpose={purpose}
             onPurposeChange={setPurpose}
-            ramGb={ramGb}
-            onRamGbChange={setRamGb}
             userPrompt={userPrompt}
             onPromptChange={setUserPrompt}
             onSubmit={handleAiSuggest}
             isBusy={isBusy}
+            options={options}
           />
 
           {/* CÁC TRẠNG THÁI HIỂN THỊ */}
@@ -171,6 +191,7 @@ export function PcBuilder() {
                 type="button"
                 className="btn-ai-submit"
                 onClick={handleAiSuggest}
+                disabled={isBusy}
               >
                 Bắt đầu đề xuất với AI
               </button>
@@ -178,22 +199,45 @@ export function PcBuilder() {
           )}
 
           {status === "error" && (
-            <AiErrorBox
-              message={errorMessage}
-              onRetry={handleAiSuggest}
-              onReset={handleReset}
-            />
+            <>
+              <AiErrorBox
+                message={errorMessage}
+                error={apiError}
+                retryLockedUntil={retryLockedUntil}
+                isBusy={isBusy}
+                onRetry={handleRetry}
+                onReset={handleReset}
+                onSetBudget={setBudget}
+              />
+              {/* Giữ hồ sơ để khách bỏ bớt yêu cầu rồi đề xuất lại (NO_FEASIBLE_BUILD) */}
+              {profilePanel}
+            </>
           )}
 
           {status === "success" && buildParts.length > 0 && (
             <>
               {/* THẺ NHẬN XÉT CỦA CHUYÊN GIA AI */}
-              {aiInsight && <AiInsightPanel insight={aiInsight} />}
+              {aiInsight && (
+                <AiInsightPanel
+                  insight={aiInsight}
+                  reasonCode={aiResult?.reasonCode}
+                  budgetFit={aiResult?.budgetFit}
+                  totalPrice={aiResult?.totalPrice}
+                  profile={profile}
+                  relaxedItems={aiResult?.relaxedItems}
+                  warnings={aiResult?.warnings}
+                />
+              )}
+
+              {/* HỒ SƠ NHU CẦU: XEM / SỬA RỒI ĐỀ XUẤT LẠI */}
+              {profilePanel}
 
               {/* BỐ CỤC CHIA ĐÔI: BẢNG LINH KIỆN & SIDEBAR TỔNG QUAN */}
               <div className="builder-split" id="builderMainSplit">
                 <PartsTable
                   parts={buildParts}
+                  capacity={validation?.capacity}
+                  verdict={verdict}
                   onReplacePart={openReplaceModal}
                   onUpdateQuantity={updateQuantity}
                 />
@@ -201,9 +245,11 @@ export function PcBuilder() {
                 <SummaryCard
                   budget={budget}
                   grandTotal={grandTotal}
-                  remainingBudget={remainingBudget}
                   rules={rules}
                   allRulesPassed={allRulesPassed}
+                  budgetFit={validation?.budgetFit}
+                  isRevalidating={isRevalidating}
+                  canAddToCart={canAddToCart}
                   isSaved={isSaved}
                   onAddToCart={handleAddToCart}
                   isBusy={isBusy}
@@ -219,6 +265,7 @@ export function PcBuilder() {
             role={activeReplaceRole}
             candidates={modalCandidates}
             isLoading={isFetchingCandidates}
+            profile={profile}
             onSelect={selectReplacement}
             onClose={closeReplaceModal}
           />

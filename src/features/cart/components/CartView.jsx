@@ -415,7 +415,7 @@ export function CartView() {
 
           {/* Logistics Note */}
           <Notice>
-            Nhận trực tiếp tại cửa hàng hoặc giao hàng tận nơi. Thông tin người nhận và thời gian hẹn được xác nhận ở bước tiếp theo.
+            Nhận hàng trực tiếp tại cửa hàng. Thông tin người nhận được xác nhận ở bước tiếp theo.
           </Notice>
 
           {/* RAM Check Notification if applicable */}

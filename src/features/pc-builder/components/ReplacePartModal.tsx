@@ -1,16 +1,29 @@
 import { useEffect } from "react";
+import { Badge } from "@/components/ui";
 import { money } from "@/utils";
 import type {
+  CompatibilityStatus,
   ComponentRole,
   ReplacementCandidate,
+  RequirementProfile,
 } from "../types/pcBuilder.types";
 import { ROLE_LABELS } from "../domain";
+import { CHECK_STATUS } from "./SummaryCard";
+import { itemReason } from "./ProfileEditor";
+
+const STATUS_TEXT: Record<CompatibilityStatus, string> = {
+  pass: "Tương thích",
+  warning: "Cần lưu ý",
+  unknown: "Chưa xác minh",
+  fail: "Xung đột phần cứng",
+};
 
 interface ReplacePartModalProps {
   isOpen: boolean;
   role: ComponentRole | null;
   candidates: ReplacementCandidate[];
   isLoading?: boolean;
+  profile?: RequirementProfile | null;
   onSelect: (candidate: ReplacementCandidate) => void;
   onClose: () => void;
 }
@@ -20,6 +33,7 @@ export function ReplacePartModal({
   role,
   candidates,
   isLoading = false,
+  profile,
   onSelect,
   onClose,
 }: ReplacePartModalProps) {
@@ -115,43 +129,52 @@ export function ReplacePartModal({
             </div>
           ) : (
             candidates.map((c) => {
-              const isCompatible = c.isCompatible;
+              const status: CompatibilityStatus =
+                c.status ?? (c.isCompatible ? "pass" : "fail");
+              const isCompatible = c.isCompatible && status !== "fail";
               const isCurrent = c.isCurrent;
+              // Check P:{id} là lệch hồ sơ: chỉ cảnh báo, vẫn cho chọn (DD 7.4)
+              const profileMisses = (c.warningChecks || [])
+                .filter((key) => key.startsWith("P:"))
+                .map((key) => itemReason(profile, key.slice(2)));
 
               return (
                 <div
                   key={c.variantId}
-                  className={`replacement-item ${
+                  className={`replacement-item ${status} ${
                     !isCompatible ? "incompatible" : ""
                   } ${isCurrent ? "current-selected" : ""}`}
                 >
                   <div className="item-meta">
                     <div className="item-header-row">
                       <strong>{c.productName}</strong>
-                      <span
-                        className={`badge-compat ${
-                          isCompatible ? "pass" : "fail"
-                        }`}
-                      >
-                        {isCompatible
-                          ? isCurrent
-                            ? "Đang chọn"
-                            : "Tương thích"
-                          : "Xung đột phần cứng"}
-                      </span>
+                      <Badge tone={CHECK_STATUS[status].tone}>
+                        {isCurrent && isCompatible ? "Đang chọn" : STATUS_TEXT[status]}
+                      </Badge>
                     </div>
                     <div className="item-variant-desc">{c.variantName}</div>
-                    <div
-                      style={{
-                        fontSize: 12,
-                        marginTop: 3,
-                        color: isCompatible ? "#148465" : "#d91f31",
-                        fontWeight: 600,
-                      }}
-                    >
+                    <div className={`replacement-note ${status}`}>
                       {c.compatibilityNote}
                     </div>
-                    <div className="item-price">{money(c.price)}</div>
+                    {profileMisses.map((reason) => (
+                      <div key={reason} className="replacement-profile-miss">
+                        Không đạt: {reason}
+                      </div>
+                    ))}
+                    <div className="item-price">
+                      {money(c.price)}
+                      {!isCurrent && c.priceDelta != null && (
+                        <span className={`replacement-delta ${c.priceDelta > 0 ? "up" : "down"}`}>
+                          {c.priceDelta > 0 ? "+" : "−"}
+                          {money(Math.abs(c.priceDelta))}
+                        </span>
+                      )}
+                      {!isCurrent && c.newPercent != null && (
+                        <span className="replacement-percent">
+                          → {c.newPercent.toLocaleString("vi-VN", { maximumFractionDigits: 1 })}% ngân sách
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   <div>

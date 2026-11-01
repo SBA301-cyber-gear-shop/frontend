@@ -1,115 +1,171 @@
+import { Badge } from "@/components/ui";
 import { money } from "@/utils";
-import type { RuleCheck } from "../types/pcBuilder.types";
+import type { BudgetFit, CompatibilityStatus, RuleCheck } from "../types/pcBuilder.types";
+
+export const CHECK_STATUS: Record<
+  CompatibilityStatus,
+  { icon: string; tone: string; text: string }
+> = {
+  pass: { icon: "✓", tone: "success", text: "PASS" },
+  warning: { icon: "!", tone: "warning", text: "LƯU Ý" },
+  fail: { icon: "✕", tone: "danger", text: "FAIL" },
+  unknown: { icon: "?", tone: "info", text: "CHƯA RÕ" },
+};
+
+/** Nhãn tổng của bộ máy: "PASS ALL" chỉ khi backend không có fail/warning/unknown (DD 10.3, AC7). */
+export function buildVerdict(rules: RuleCheck[], allRulesPassed: boolean, isRevalidating = false) {
+  if (isRevalidating) return { label: "ĐANG KIỂM TRA…", tone: "info" };
+  if (rules.some((r) => r.status === "fail")) return { label: "KHÔNG TƯƠNG THÍCH", tone: "danger" };
+  if (allRulesPassed) return { label: "PASS ALL", tone: "success" };
+  return { label: "CẦN LƯU Ý", tone: "warning" };
+}
 
 interface SummaryCardProps {
   budget: number | "";
   grandTotal: number;
-  remainingBudget: number;
   rules: RuleCheck[];
   allRulesPassed: boolean;
+  budgetFit?: BudgetFit | null;
+  isRevalidating?: boolean;
+  canAddToCart?: boolean;
   isSaved: boolean;
   onAddToCart: () => void;
   onSaveBuild: () => void;
   isBusy?: boolean;
 }
 
+function CheckList({ rules }: { rules: RuleCheck[] }) {
+  return (
+    <div className="check-list">
+      {rules.map((rule) => {
+        const s = CHECK_STATUS[rule.status] ?? CHECK_STATUS.unknown;
+        return (
+          <div key={rule.id} className={`check-item ${rule.status}`}>
+            <div className={`check-icon-badge ${rule.status}`} aria-hidden="true">
+              {s.icon}
+            </div>
+            <div className="check-content">
+              <strong>{rule.title}</strong>
+              <span>{rule.detail}</span>
+            </div>
+            <Badge tone={s.tone}>{s.text}</Badge>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export function SummaryCard({
   budget,
   grandTotal,
-  remainingBudget,
   rules,
   allRulesPassed,
+  budgetFit,
+  isRevalidating = false,
+  canAddToCart = true,
   isSaved,
   onAddToCart,
   onSaveBuild,
   isBusy = false,
 }: SummaryCardProps) {
-  const passCount = rules.filter((r) => r.status === "pass").length;
+  const numericBudget = typeof budget === "number" ? budget : Number(budget) || 0;
+  // Ưu tiên số của backend; demo mode / chưa có kết quả thì tính từ tổng hiển thị
+  const percent = budgetFit?.percent ?? (numericBudget ? (grandTotal / numericBudget) * 100 : 0);
+  const leftover = budgetFit?.leftover ?? numericBudget - grandTotal;
+  const isOver = budgetFit ? budgetFit.status === "OVER" : numericBudget > 0 && grandTotal > numericBudget;
+  const verdict = buildVerdict(rules, allRulesPassed, isRevalidating);
+  const hardwareRules = rules.filter((r) => !r.id.startsWith("P:"));
+  const profileRules = rules.filter((r) => r.id.startsWith("P:"));
+  const passCount = hardwareRules.filter((r) => r.status === "pass").length;
+  const fitTone = isOver ? "over" : percent >= 90 ? "in-window" : "under";
 
   return (
     <aside className="summary-card">
       <div className="summary-title">
         <span>Tổng quan cấu hình</span>
-        <span
-          style={{
-            fontSize: 11,
-            fontWeight: 700,
-            color: allRulesPassed ? "#148465" : "#b91c1c",
-            background: allRulesPassed ? "#e6f6f1" : "#fee2e2",
-            padding: "3px 8px",
-            borderRadius: 4,
-          }}
-        >
-          {allRulesPassed ? "PASS ALL" : "CẦN LƯU Ý"}
-        </span>
+        <Badge tone={verdict.tone}>{verdict.label}</Badge>
       </div>
 
       {/* KHỐI TÍNH TOÁN TIỀN */}
       <div className="cost-block">
         <div className="cost-row">
           <span>Ngân sách dự chi:</span>
-          <strong style={{ color: "var(--ink, #152237)" }}>
-            {money(typeof budget === "number" ? budget : Number(budget) || 0)}
-          </strong>
+          <strong style={{ color: "var(--ink, #152237)" }}>{money(numericBudget)}</strong>
         </div>
         <div className="cost-row">
           <span>Tổng chi phí linh kiện:</span>
           <span className="total-cost-amount">{money(grandTotal)}</span>
         </div>
-        <div className="cost-row">
-          <span>Dư trong ngân sách:</span>
-          <strong
-            style={{
-              color: remainingBudget >= 0 ? "#148465" : "#d91f31",
-              fontSize: 14,
-            }}
-          >
-            {remainingBudget >= 0
-              ? `+${money(remainingBudget)}`
-              : `-${money(Math.abs(remainingBudget))}`}
-          </strong>
-        </div>
+        {numericBudget > 0 && (
+          <>
+            <div
+              className={`budget-fit-bar ${fitTone}`}
+              role="meter"
+              aria-label="Độ sát ngân sách"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={Math.round(percent * 10) / 10}
+            >
+              <div className="budget-fit-window" />
+              <div className="budget-fit-fill" style={{ width: `${Math.min(percent, 100)}%` }} />
+            </div>
+            <div className="cost-row">
+              <span>Độ sát ngân sách:</span>
+              <strong className={`budget-fit-percent ${fitTone}`}>
+                {percent.toLocaleString("vi-VN", { maximumFractionDigits: 1 })}%
+              </strong>
+            </div>
+            <div className="cost-row">
+              {isOver ? (
+                <strong className="budget-over" role="status">
+                  Vượt {money(Math.abs(leftover))}
+                </strong>
+              ) : (
+                <span>
+                  Còn dư <strong style={{ color: "#148465" }}>{money(leftover)}</strong>
+                </span>
+              )}
+            </div>
+          </>
+        )}
       </div>
 
-      {/* CHECKLIST KIỂM ĐỊNH TƯƠNG THÍCH (HARDWARE RULE ENGINE) */}
+      {/* KẾT QUẢ KIỂM TRA CỦA BACKEND (DEMO: rules.ts) */}
       <div className="checklist-section-title">
-        <span>KIỂM ĐỊNH TƯƠNG THÍCH (RULE ENGINE)</span>
-        <span
-          style={{
-            color: allRulesPassed ? "#148465" : "#d91f31",
-            fontWeight: 750,
-          }}
-        >
-          {passCount} / {rules.length} QUY TẮC
+        <span>KIỂM ĐỊNH TƯƠNG THÍCH</span>
+        <span>
+          {isRevalidating ? "Đang kiểm tra…" : `${passCount} / ${hardwareRules.length} QUY TẮC`}
         </span>
       </div>
+      {hardwareRules.length === 0 && !isRevalidating ? (
+        <p className="check-empty">Chưa có kết quả kiểm tra tương thích.</p>
+      ) : (
+        <CheckList rules={hardwareRules} />
+      )}
 
-      <div className="check-list">
-        {rules.map((rule) => {
-          const isPass = rule.status === "pass";
-          return (
-            <div key={rule.id} className="check-item">
-              <div className={`check-icon-badge ${isPass ? "pass" : "fail"}`}>
-                {isPass ? "✓" : "✕"}
-              </div>
-              <div className="check-content">
-                <strong>{rule.title}</strong>
-                <span>{rule.detail}</span>
-              </div>
-              <span className={`badge-status ${isPass ? "pass" : "fail"}`}>
-                {isPass ? "PASS" : "FAIL"}
-              </span>
-            </div>
-          );
-        })}
-      </div>
+      {profileRules.length > 0 && (
+        <>
+          <div className="checklist-section-title">
+            <span>SO VỚI NHU CẦU</span>
+          </div>
+          <CheckList rules={profileRules} />
+        </>
+      )}
 
       {/* NÚT MUA VÀ LƯU BẢN NHÁP */}
       <button
         type="button"
         className="btn-buy-now"
         onClick={onAddToCart}
-        disabled={isBusy}
+        disabled={isBusy || !canAddToCart}
+        title={
+          canAddToCart
+            ? undefined
+            : isRevalidating
+              ? "Đang kiểm tra tương thích"
+              : "Cấu hình chưa tương thích hoặc vượt ngân sách"
+        }
       >
         <svg
           width="18"
@@ -130,6 +186,7 @@ export function SummaryCard({
         type="button"
         className={`btn-save-build ${isSaved ? "saved" : ""}`}
         onClick={onSaveBuild}
+        disabled={isBusy}
       >
         <svg
           width="16"

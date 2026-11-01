@@ -19,6 +19,11 @@ interface CacheEntry<T> {
 
 const STORAGE_PREFIX = "tz_cache_";
 
+const isCanceled = (error: unknown) => {
+  const { code, name } = (error ?? {}) as { code?: string; name?: string };
+  return code === "ERR_CANCELED" || name === "CanceledError" || name === "AbortError";
+};
+
 class ApiCache {
   private memoryCache = new Map<string, CacheEntry<unknown>>();
   private inflightRequests = new Map<string, Promise<unknown>>();
@@ -261,7 +266,11 @@ class ApiCache {
 
     // Request deduplication: if the exact same request is already in-flight, return the existing Promise
     if (this.inflightRequests.has(key)) {
-      return this.inflightRequests.get(key) as Promise<T>;
+      // Yêu cầu đang chạy thuộc về người gọi trước. Nếu người đó hủy thì người gọi này tự gửi lại bằng fetcher của mình.
+      return (this.inflightRequests.get(key) as Promise<T>).catch((error) => {
+        if (isCanceled(error)) return this.fetchWithCache(key, fetcher, options);
+        throw error;
+      });
     }
 
     const promise = (async () => {

@@ -429,20 +429,20 @@ export function LandingExperience() {
             <div className="l-bento">
               <Link
                 className="l-bento-card l-bento-monitor"
-                to="/danh-muc/monitor"
+                to="/danh-muc/gpu"
               >
                 <div>
-                  <span>Mở rộng góc nhìn</span>
+                  <span>Nâng tầm đồ họa</span>
                   <h3>
-                    Một màn hình.
+                    Một card đồ họa.
                     <br />
                     Nhiều cảm hứng.
                   </h3>
                   <span className="l-card-link">
-                    Khám phá màn hình <Icon name="arrow" />
+                    Khám phá card đồ họa <Icon name="arrow" />
                   </span>
                 </div>
-                <Art type="monitor" />
+                <Art type="gpu" />
               </Link>
               <Link className="l-bento-card l-bento-parts" to="/san-pham/ram16">
                 <div>

@@ -45,7 +45,7 @@ export interface BuildLine {
 }
 
 /** Trạng thái kiểm tra của từng tiêu chí tương thích */
-export type CompatibilityStatus = "pass" | "fail" | "unknown";
+export type CompatibilityStatus = "pass" | "warning" | "fail" | "unknown";
 
 /** Kết quả kiểm tra một tiêu chí tương thích (VD: Socket, Công suất nguồn...) */
 export interface CompatibilityCheck {
@@ -82,10 +82,9 @@ export interface ComponentCandidateDTO {
 /** Payload gửi lên khi gọi AI PC Builder tư vấn */
 export interface AiBuildRequestPayload {
   budget: number;
-  purpose?: string; // "gaming", "creative", "work"
-  ramGb?: number; // 16, 32, 64
-  scope?: string; // "tower", "full"
-  userPrompt?: string; // Prompt tự do
+  purpose?: string; // nhu cầu chính, văn bản tự do
+  userPrompt?: string; // mong muốn thêm, văn bản tự do
+  profile?: RequirementProfile; // gửi khi khách sửa hồ sơ rồi đề xuất lại
 }
 
 /** Dòng linh kiện được AI đề xuất trả về từ Backend */
@@ -106,7 +105,7 @@ export interface SelectedPartResponse {
 export interface CompatibilityCheckResponse {
   key?: string;
   label: string;
-  status: string; // "pass", "fail", "warning"
+  status: CompatibilityStatus;
   detail: string;
   valid?: boolean;
 }
@@ -123,6 +122,15 @@ export interface AiBuildResponse {
   isCompatible: boolean;
   checks: CompatibilityCheckResponse[];
   items: SelectedPartResponse[];
+  reasonCode?: string | null; // null | NEEDS_SATURATED | CATALOG_CEILING | REQUIREMENT_RELAXED
+  budgetFit?: BudgetFit;
+  profile?: RequirementProfile;
+  relaxedItems?: string[];
+  warnings?: string[];
+  capacity?: BuildCapacity;
+  requiredPsuW?: number;
+  floorPrice?: number;
+  metadata?: AiBuildMetadata;
 }
 
 /** Linh kiện thay thế tương thích thông minh từ Backend */
@@ -136,14 +144,33 @@ export interface CompatibleReplacementResponse {
   specs: Record<string, string>;
   isCompatible: boolean;
   compatibilityNote: string;
+  status?: CompatibilityStatus;
+  failedChecks?: string[];
+  warningChecks?: string[];
+  priceDelta?: number;
+  newTotal?: number;
+  newPercent?: number | null;
 }
 
-/** Query parameters khi tìm linh kiện thay thế tương thích (Smart Replace) */
-export interface CompatibleReplacementsQuery {
+/** Một dòng linh kiện gửi lên /validate, /compatible-replacements */
+export interface BuildItemPayload {
   role: ComponentRole;
-  currentCpuId?: number;
-  currentMainboardId?: number;
-  budgetLimit?: number;
+  variantId: number;
+  quantity: number;
+}
+
+/** Body POST /validate */
+export interface ValidateBuildPayload {
+  budget?: number;
+  profile?: RequirementProfile | null;
+  items: BuildItemPayload[];
+}
+
+/** Body POST /compatible-replacements: mỗi ứng viên được kiểm trên toàn bộ build */
+export interface CompatibleReplacementsQuery extends ValidateBuildPayload {
+  role: ComponentRole;
+  lineIndex?: number;
+  limit?: number;
 }
 
 
@@ -171,6 +198,10 @@ export interface ReplacementCandidate {
   isCompatible: boolean;
   compatibilityNote: string;
   isCurrent: boolean;
+  status?: CompatibilityStatus;
+  warningChecks?: string[];
+  priceDelta?: number;
+  newPercent?: number | null;
 }
 
 /** Tiêu chí kiểm định tương thích 8 quy tắc */
@@ -213,4 +244,172 @@ export interface SavedPcBuildDetail {
   orderId: number | null;
   isOrdered: boolean;
   items: SelectedPartResponse[];
+}
+
+// ==========================================
+// 5. HỒ SƠ NHU CẦU & KẾT QUẢ KIỂM TRA (DD 10.1)
+// ==========================================
+
+export type ProfileRole = "cpu" | "mainboard" | "ram" | "gpu" | "ssd" | "psu" | "case" | "cooler";
+export type ProfilePriority = 1 | 2 | 3;
+export type ProfileMetric =
+  | "TOTAL_RAM_GB"
+  | "TOTAL_STORAGE_GB"
+  | "TOTAL_VRAM_GB"
+  | "GPU_COUNT"
+  | "CPU_COUNT"
+  | "TOTAL_CPU_CORES";
+
+export interface ProfileConstraint {
+  id: string;
+  role: ProfileRole;
+  spec: string;
+  op: "GTE" | "LTE" | "EQ" | "IN" | "NOT_IN" | "CONTAINS";
+  value?: number;
+  values?: string[];
+  priority: ProfilePriority;
+  reason?: string;
+  label?: string; // do server điền
+  satisfied?: boolean;
+  unsatisfiable?: boolean;
+}
+
+export interface ProfileMetricConstraint {
+  id: string;
+  metric: ProfileMetric;
+  op: "GTE" | "LTE" | "EQ";
+  value: number;
+  priority: ProfilePriority;
+  reason?: string;
+  label?: string;
+  satisfied?: boolean;
+  unsatisfiable?: boolean;
+}
+
+export interface ProfilePreference {
+  id: string;
+  role?: ProfileRole;
+  spec?: string;
+  metric?: ProfileMetric;
+  direction: "MAX" | "MIN" | "PREFER";
+  values?: string[];
+  weight: number;
+  cap?: number | null;
+  reason?: string;
+}
+
+export interface RequirementProfile {
+  profileVersion: 1;
+  source: "AI" | "USER_EDITED";
+  summary: string;
+  archetype: "GAMING" | "CREATIVE" | "AI_DATA" | "OFFICE" | "DEV" | "GENERAL";
+  useCases?: string[];
+  roleWeights: Partial<Record<ProfileRole, number>>;
+  requiredRoles: { role: ProfileRole; priority: ProfilePriority; reason?: string }[];
+  excludedRoles: { role: ProfileRole; reason?: string }[];
+  constraints: ProfileConstraint[];
+  metrics: ProfileMetricConstraint[];
+  preferences: ProfilePreference[];
+  balancePairs?: { a: ProfileRole; b: ProfileRole; maxGap: number }[];
+  brands?: { prefer: string[]; avoid: string[] };
+  unmetNeeds?: string[];
+  droppedItems?: { id: string; reason: string; detail?: string }[];
+  confidence?: number;
+  clarifyingQuestion?: string;
+}
+
+export interface BudgetFit {
+  ratio: number;
+  percent: number;
+  status:
+    | "IN_WINDOW"
+    | "UNDER_WINDOW"
+    | "UNDER_SATURATED"
+    | "UNDER_CEILING"
+    | "UNDER_RELAXED"
+    | "OVER";
+  windowMin: number;
+  windowMax: number;
+  leftover: number;
+}
+
+export interface BuildCapacity {
+  ramSlotsUsed: number;
+  ramSlotsMax: number;
+  ramGb: number;
+  ramMaxGb: number;
+  m2Used: number;
+  m2Max: number;
+  gpuCount: number;
+  gpuMax: number;
+}
+
+export interface AiBuildMetadata {
+  requestId?: string;
+  generatedAt?: string;
+  extractStatus?: "OK" | "CACHED" | "USER_PROFILE";
+  aiStatus?: "OK" | "PARTIAL";
+  provider?: string;
+  model?: string;
+  promptVersions?: Record<string, string>;
+  dictionaryVersion?: string;
+  latencyMs?: Record<string, number>;
+  candidateCount?: number;
+  solverIterations?: number;
+}
+
+export interface ValidateBuildResponse {
+  isCompatible: boolean;
+  hasWarnings: boolean;
+  hasUnknown: boolean;
+  totalPrice: number;
+  budgetFit: BudgetFit | null; // null khi request không có budget
+  checks: CompatibilityCheckResponse[];
+  requiredPsuW: number;
+  capacity: BuildCapacity;
+  items: SelectedPartResponse[];
+}
+
+export interface MetadataSpecEntry {
+  type: "ENUM" | "LIST" | "INT";
+  unit?: string;
+  min?: number;
+  max?: number;
+  values?: Record<string, string>; // ENUM/LIST: code → nhãn hiển thị
+}
+
+export interface MetadataDictionary {
+  dictionaryVersion?: string;
+  roles: Partial<
+    Record<
+      ProfileRole,
+      {
+        label: string;
+        priceRange?: number[];
+        brands?: string[];
+        specs: Record<string, MetadataSpecEntry>;
+      }
+    >
+  >;
+  metrics: Partial<
+    Record<ProfileMetric, { label: string; unit?: string; min?: number; max?: number }>
+  >;
+}
+
+export interface BuildOptionsResponse {
+  minBudget: number;
+  floorPrice: number;
+  maxBudget: number;
+  dictionaryVersion: string;
+  dictionary: MetadataDictionary;
+  examples: string[];
+  tiers: { code: string; min: number; max: number | null }[];
+}
+
+/** Body lỗi chuẩn của backend: {timestamp, status, error, message, code?, data?} */
+export interface ApiErrorBody {
+  status: number;
+  code?: string;
+  message: string;
+  data?: unknown;
 }

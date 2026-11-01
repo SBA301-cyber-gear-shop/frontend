@@ -4,8 +4,8 @@ export const fits = [
     label: "Chơi game",
     title: "Đắm mình trong từng khung hình.",
     description:
-      "Bắt đầu từ tựa game, độ phân giải và ngân sách. Cân đối card đồ họa, CPU và màn hình cho trải nghiệm bạn muốn.",
-    focus: ["Card đồ họa", "Bộ vi xử lý", "Màn hình 144Hz+"],
+      "Bắt đầu từ tựa game, độ phân giải và ngân sách. Cân đối card đồ họa, CPU và RAM cho trải nghiệm bạn muốn.",
+    focus: ["Card đồ họa", "Bộ vi xử lý", "RAM tốc độ cao"],
     budgetRecommendation: "Từ 18.500.000₫",
     perfHighlight: "240+ FPS Esports / 90+ FPS AAA 2K",
     image: "gpu",
@@ -28,12 +28,12 @@ export const fits = [
     label: "Làm việc",
     title: "Gọn góc làm việc. Rộng khả năng.",
     description:
-      "Ưu tiên tính ổn định, tản nhiệt êm ái, màn hình chuẩn màu và khả năng nâng cấp lâu dài cho văn phòng & lập trình.",
-    focus: ["Đa nhiệm mượt mà", "Màn hình IPS chuẩn màu", "Tiết kiệm điện"],
+      "Ưu tiên tính ổn định, tản nhiệt êm ái và khả năng nâng cấp lâu dài cho văn phòng & lập trình.",
+    focus: ["Đa nhiệm mượt mà", "SSD khởi động nhanh", "Tiết kiệm điện"],
     budgetRecommendation: "Từ 12.900.000₫",
     perfHighlight: "Đa nhiệm 50+ tabs, biên dịch mã tức thì",
-    image: "laptop",
-    link: "/danh-muc/laptop",
+    image: "cpu",
+    link: "/build-pc?purpose=work",
   },
 ];
 export const budgetPresets = [

@@ -145,6 +145,201 @@ async function login(page, destination = /cua-hang/) {
   await expect(page).toHaveURL(destination);
 }
 
+// ---- PC Builder (DD 13.5) ----
+const builderProfile = {
+  profileVersion: 1,
+  source: "AI",
+  summary: "Chơi game 2K, thỉnh thoảng stream",
+  archetype: "GAMING",
+  roleWeights: { gpu: 0.4, cpu: 0.2 },
+  requiredRoles: [],
+  excludedRoles: [],
+  constraints: [
+    {
+      id: "c1",
+      role: "gpu",
+      spec: "VRAM_GB",
+      op: "GTE",
+      value: 12,
+      priority: 2,
+      reason: "Game 2K cần VRAM lớn",
+      label: "VRAM ≥ 12 GB",
+      satisfied: true,
+    },
+    {
+      id: "c2",
+      role: "case",
+      spec: "Color",
+      op: "IN",
+      values: ["WHITE"],
+      priority: 1,
+      reason: "Khách thích case trắng",
+      label: "Màu vỏ: Trắng",
+      satisfied: true,
+    },
+  ],
+  metrics: [
+    {
+      id: "m1",
+      metric: "TOTAL_RAM_GB",
+      op: "GTE",
+      value: 32,
+      priority: 3,
+      reason: "Stream cần nhiều RAM",
+      label: "Tổng RAM ≥ 32 GB",
+      satisfied: true,
+    },
+  ],
+  preferences: [],
+  unmetNeeds: [],
+  droppedItems: [],
+  confidence: 0.9,
+};
+
+const builderOptions = {
+  minBudget: 8000000,
+  floorPrice: 6969000,
+  maxBudget: 9999999999,
+  dictionaryVersion: "t1",
+  dictionary: {
+    roles: {
+      gpu: {
+        label: "Card đồ họa",
+        specs: { VRAM_GB: { type: "INT", unit: "GB", min: 4, max: 96 } },
+      },
+    },
+    metrics: {
+      TOTAL_RAM_GB: { label: "Tổng RAM", unit: "GB", min: 8, max: 2048 },
+    },
+  },
+  examples: ["Chơi game 2K, thỉnh thoảng stream"],
+  tiers: [],
+};
+
+const builderCapacity = {
+  ramSlotsUsed: 2,
+  ramSlotsMax: 4,
+  ramGb: 32,
+  ramMaxGb: 128,
+  m2Used: 1,
+  m2Max: 2,
+  gpuCount: 1,
+  gpuMax: 1,
+};
+
+const part = (role, variantId, productName, unitPrice, quantity = 1) => ({
+  role,
+  variantId,
+  productName,
+  variantName: "Tiêu chuẩn",
+  unitPrice,
+  quantity,
+  subtotal: unitPrice * quantity,
+  specs: {},
+});
+
+function suggestion(overrides = {}) {
+  return {
+    buildId: null,
+    buildName: "Máy chơi game 2K",
+    purpose: "Chơi game 2K",
+    budget: 30000000,
+    totalPrice: 29500000,
+    aiReasoning: "Cân đối CPU và GPU cho 2K",
+    performanceHighlight: "2K mượt",
+    isCompatible: true,
+    checks: [
+      {
+        key: "R1",
+        label: "CPU ↔ Bo mạch chủ (Socket)",
+        status: "pass",
+        detail: "AM5 = AM5",
+        valid: true,
+      },
+    ],
+    items: [
+      part("cpu", 1, "AMD Ryzen 5 7600", 5000000),
+      part("ram", 2, "RAM DDR5 16GB", 1500000, 2),
+      part("psu", 3, "Nguồn PF650", 1500000),
+      part("gpu", 4, "RX 9060 XT 16GB", 20000000),
+    ],
+    reasonCode: null,
+    budgetFit: {
+      ratio: 0.9833,
+      percent: 98.3,
+      status: "IN_WINDOW",
+      windowMin: 27000000,
+      windowMax: 30000000,
+      leftover: 500000,
+    },
+    profile: builderProfile,
+    relaxedItems: [],
+    warnings: [],
+    capacity: builderCapacity,
+    requiredPsuW: 450,
+    ...overrides,
+  };
+}
+
+function validated(label, overrides = {}) {
+  return {
+    isCompatible: true,
+    hasWarnings: false,
+    hasUnknown: false,
+    totalPrice: 29500000,
+    budgetFit: suggestion().budgetFit,
+    checks: [{ key: "R1", label, status: "pass", detail: "" }],
+    requiredPsuW: 450,
+    capacity: builderCapacity,
+    items: [],
+    ...overrides,
+  };
+}
+
+/** Mock các endpoint pc-build; trả về request body đã nhận để kiểm tra. */
+async function builderPage(page, { suggest, validate, replacements } = {}) {
+  await backend(page);
+  const requests = { suggest: [], validate: [] };
+  // Request đã bị AbortController hủy thì fulfill sẽ lỗi: bỏ qua
+  const reply = (route, response) => route.fulfill(response).catch(() => {});
+  await page.route("**/api/v1/pc-build/options", (route) =>
+    reply(route, { json: { data: builderOptions } }),
+  );
+  await page.route("**/api/v1/pc-build/ai-suggest", async (route) => {
+    const body = route.request().postDataJSON();
+    requests.suggest.push(body);
+    const response = suggest
+      ? await suggest(body, requests.suggest.length)
+      : { json: suggestion() };
+    await reply(route, response);
+  });
+  await page.route("**/api/v1/pc-build/validate", async (route) => {
+    const body = route.request().postDataJSON();
+    requests.validate.push(body);
+    const response = validate
+      ? await validate(body, requests.validate.length)
+      : { json: validated("Đã kiểm tra lại") };
+    await reply(route, response);
+  });
+  await page.route("**/api/v1/pc-build/compatible-replacements", (route) =>
+    reply(route, { json: replacements ?? [] }),
+  );
+  await page.goto("/build-pc");
+  return requests;
+}
+
+async function suggestFrom(page, budget = "30000000", purpose = "Chơi game 2K") {
+  await page.locator("#inputBudget").fill(budget);
+  await page.locator("#inputPurpose").fill(purpose);
+  await page
+    .getByRole("button", { name: "Đề xuất cấu hình với AI", exact: true })
+    .click();
+}
+
+const addToCartButton = (page) =>
+  page.getByRole("button", { name: "Thêm vào giỏ & Đặt hàng", exact: true });
+const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
 test("product cards and details show average stars and distinct buyer counts on mobile", async ({
   page,
 }) => {
@@ -506,6 +701,18 @@ for (const failAdd of [false, true]) {
           aiReasoning: "Linh kiện kiểm thử",
           checks: [],
           isCompatible: true,
+          reasonCode: "NEEDS_SATURATED",
+          budgetFit: {
+            ratio: 0.096,
+            percent: 9.6,
+            status: "UNDER_SATURATED",
+            windowMin: 22500000,
+            windowMax: 25000000,
+            leftover: 22600000,
+          },
+          profile: builderProfile,
+          relaxedItems: [],
+          warnings: [],
           items: [
             {
               role: "ram",
@@ -522,6 +729,8 @@ for (const failAdd of [false, true]) {
     );
     await login(page);
     await page.goto("/build-pc");
+    await page.locator("#inputBudget").fill("25000000");
+    await page.locator("#inputPurpose").fill("Gaming 1080p");
     await page
       .getByRole("button", { name: "Đề xuất cấu hình với AI", exact: true })
       .click();
@@ -529,7 +738,9 @@ for (const failAdd of [false, true]) {
       .getByRole("button", { name: "Thêm vào giỏ & Đặt hàng", exact: true })
       .click();
     if (failAdd) {
-      await expect(page.getByRole("alert")).toContainText("Không đủ tồn kho");
+      await expect(
+        page.getByRole("alert").filter({ hasText: "Không đủ tồn kho" }),
+      ).toBeVisible();
       await expect(page).toHaveURL(/build-pc/);
     } else {
       await expect(page).toHaveURL(/gio-hang/);
@@ -547,6 +758,309 @@ for (const failAdd of [false, true]) {
     ).toBeNull();
   });
 }
+
+test("PC builder shows backend fail checks in red and locks add to cart", async ({
+  page,
+}) => {
+  await builderPage(page, {
+    suggest: () => ({
+      json: suggestion({
+        isCompatible: false,
+        checks: [
+          {
+            key: "R3",
+            label: "GPU ↔ Vỏ (chiều dài)",
+            status: "fail",
+            detail: "GPU 340 mm > vỏ 320 mm",
+          },
+        ],
+      }),
+    }),
+  });
+  await suggestFrom(page);
+  const summary = page.locator(".summary-card");
+  await expect(summary.getByText("KHÔNG TƯƠNG THÍCH")).toBeVisible();
+  await expect(page.getByText("PASS ALL")).toHaveCount(0);
+  await expect(summary.locator(".check-item.fail")).toContainText(
+    "GPU 340 mm > vỏ 320 mm",
+  );
+  await expect(addToCartButton(page)).toBeDisabled();
+});
+
+test("PC builder shows the needs profile and re-suggests without a disabled chip", async ({
+  page,
+}) => {
+  const requests = await builderPage(page);
+  await suggestFrom(page);
+  expect(requests.suggest[0]).toEqual({
+    budget: 30000000,
+    purpose: "Chơi game 2K",
+  });
+  const panel = page.locator(".needs-profile-panel");
+  await expect(panel).toContainText("Chơi game 2K, thỉnh thoảng stream");
+  await expect(
+    panel.locator(".profile-chip", { hasText: "VRAM ≥ 12 GB" }),
+  ).toContainText("Đề xuất theo nhu cầu");
+  await expect(
+    panel.locator(".profile-chip", { hasText: "Màu vỏ: Trắng" }),
+  ).toContainText("Bạn yêu cầu");
+  await expect(
+    panel.locator(".profile-chip", { hasText: "Tổng RAM ≥ 32 GB" }),
+  ).toContainText("Nên có");
+
+  await panel.getByRole("button", { name: "Chỉnh hồ sơ" }).click();
+  await panel.getByRole("checkbox", { name: "VRAM ≥ 12 GB" }).uncheck();
+  await panel
+    .getByRole("button", { name: "Đề xuất lại theo hồ sơ này" })
+    .click();
+  await expect.poll(() => requests.suggest.length).toBe(2);
+  const sent = requests.suggest[1];
+  expect(sent).toMatchObject({ budget: 30000000, purpose: "Chơi game 2K" });
+  expect(sent.profile.source).toBe("USER_EDITED");
+  expect(sent.profile.constraints.map((c) => c.id)).toEqual(["c2"]);
+  expect(sent.profile.metrics.map((m) => m.id)).toEqual(["m1"]);
+});
+
+test("PC builder AI_UNAVAILABLE hides the old build and retries the same request", async ({
+  page,
+}) => {
+  const requests = await builderPage(page, {
+    suggest: (_body, n) =>
+      n === 2
+        ? {
+            status: 503,
+            // Backend khác origin: giống SecurityConfig, phải expose Retry-After
+            headers: {
+              "Retry-After": "2",
+              "Access-Control-Expose-Headers": "Retry-After",
+            },
+            json: { status: 503, code: "AI_UNAVAILABLE", message: "AI bận" },
+          }
+        : { json: suggestion() },
+  });
+  await suggestFrom(page);
+  await expect(page.locator(".builder-table")).toBeVisible();
+  await page
+    .getByRole("button", { name: "Đề xuất cấu hình với AI", exact: true })
+    .click();
+  const box = page.locator("#aiErrorBox");
+  await expect(box).toContainText("Trợ lý AI đang bận");
+  await expect(page.locator(".builder-table")).toHaveCount(0);
+  const retry = box.getByRole("button", { name: /Thử lại/ });
+  await expect(retry).toBeDisabled();
+  await expect(retry).toBeEnabled({ timeout: 5000 });
+  await retry.click();
+  await expect(page.locator(".builder-table")).toBeVisible();
+  expect(requests.suggest).toHaveLength(3);
+  expect(requests.suggest[2]).toEqual(requests.suggest[1]);
+});
+
+test("PC builder NEEDS_UNCLEAR shows the clarifying question", async ({
+  page,
+}) => {
+  await builderPage(page, {
+    suggest: () => ({
+      status: 422,
+      json: {
+        status: 422,
+        code: "NEEDS_UNCLEAR",
+        message: "Nhu cầu chưa rõ",
+        data: { clarifyingQuestion: "Bạn định dùng máy chủ yếu để làm gì?" },
+      },
+    }),
+  });
+  await suggestFrom(page, "30000000", "máy");
+  await expect(page.locator("#aiErrorBox")).toContainText(
+    "Bạn định dùng máy chủ yếu để làm gì?",
+  );
+  await expect(page.locator("#inputPurpose")).toBeFocused();
+});
+
+test("PC builder explains NEEDS_SATURATED with the leftover", async ({
+  page,
+}) => {
+  await builderPage(page, {
+    suggest: () => ({
+      json: suggestion({
+        budget: 100000000,
+        reasonCode: "NEEDS_SATURATED",
+        budgetFit: {
+          ratio: 0.295,
+          percent: 29.5,
+          status: "UNDER_SATURATED",
+          windowMin: 90000000,
+          windowMax: 100000000,
+          leftover: 70500000,
+        },
+      }),
+    }),
+  });
+  await suggestFrom(page, "100000000", "Văn phòng");
+  const note = page.locator("#aiReasonNote");
+  await expect(note).toContainText("đã đáp ứng tối đa");
+  await expect(note).toContainText("còn dư 70.500.000");
+});
+
+test("PC builder rejects budgets outside 8.000.000–9.999.999.999 ₫", async ({
+  page,
+}) => {
+  const requests = await builderPage(page, {
+    suggest: () => ({
+      status: 400,
+      json: {
+        status: 400,
+        code: "BUDGET_BELOW_FLOOR",
+        message: "Ngân sách dưới mức tối thiểu",
+        data: { minBudget: 8000000, floorPrice: 9000000 },
+      },
+    }),
+  });
+  await suggestFrom(page, "7999999");
+  await expect(
+    page.getByText(/Ngân sách tối thiểu để ráp một bộ máy mới là 8\.000\.000/),
+  ).toBeVisible();
+  await suggestFrom(page, "10000000000");
+  await expect(
+    page.getByText(/Ngân sách tối đa là 9\.999\.999\.999/),
+  ).toBeVisible();
+  expect(requests.suggest).toHaveLength(0);
+
+  // Backend vẫn từ chối khi floorPrice cao hơn: đặt nhanh ngân sách tối thiểu
+  await suggestFrom(page, "8500000");
+  const box = page.locator("#aiErrorBox");
+  await expect(box).toContainText("Ngân sách chưa đủ");
+  await box.getByRole("button", { name: /Đặt ngân sách tối thiểu/ }).click();
+  await expect(page.locator("#inputBudget")).toHaveValue("9000000");
+});
+
+test("PC builder replacement modal and edits over budget lock add to cart", async ({
+  page,
+}) => {
+  const requests = await builderPage(page, {
+    replacements: [
+      {
+        variantId: 31,
+        productName: "Nguồn 300W",
+        variantName: "300W",
+        price: 500000,
+        specs: {},
+        isCompatible: false,
+        compatibilityNote: "Nguồn 300W < tải 450W",
+        status: "fail",
+        failedChecks: ["J4"],
+        warningChecks: [],
+        priceDelta: -1000000,
+        newTotal: 28500000,
+        newPercent: 95,
+      },
+      {
+        variantId: 32,
+        productName: "Nguồn 750W Gold",
+        variantName: "750W",
+        price: 1800000,
+        specs: {},
+        isCompatible: true,
+        compatibilityNote: "Tương thích",
+        status: "warning",
+        failedChecks: [],
+        warningChecks: ["P:m1"],
+        priceDelta: 300000,
+        newTotal: 29800000,
+        newPercent: 99.3,
+      },
+    ],
+    validate: () => ({
+      json: validated("Ngân sách", {
+        isCompatible: false,
+        totalPrice: 30008000,
+        budgetFit: {
+          ratio: 1.0003,
+          percent: 100.03,
+          status: "OVER",
+          windowMin: 27000000,
+          windowMax: 30000000,
+          leftover: -8000,
+        },
+        checks: [
+          {
+            key: "J8a",
+            label: "Ngân sách",
+            status: "fail",
+            detail: "Vượt ngân sách 8.000 ₫",
+          },
+        ],
+      }),
+    }),
+  });
+  await suggestFrom(page);
+  await page
+    .locator("tr", { hasText: "Nguồn PF650" })
+    .getByRole("button", { name: "Đổi linh kiện" })
+    .click();
+  const dialog = page.getByRole("dialog");
+  const failed = dialog.locator(".replacement-item", { hasText: "Nguồn 300W" });
+  await expect(failed).toContainText("Nguồn 300W < tải 450W");
+  await expect(
+    failed.getByRole("button", { name: "Không thể chọn" }),
+  ).toBeDisabled();
+  await expect(
+    dialog.locator(".replacement-item", { hasText: "Nguồn 750W Gold" }),
+  ).toContainText("Không đạt: Stream cần nhiều RAM");
+  await page.keyboard.press("Escape");
+
+  await page.getByRole("button", { name: "Tăng số lượng ram" }).click();
+  await expect(page.locator(".summary-card")).toContainText("Vượt 8.000");
+  await expect(addToCartButton(page)).toBeDisabled();
+  expect(requests.validate).toHaveLength(1);
+  expect(requests.validate[0].items).toContainEqual({
+    role: "ram",
+    variantId: 2,
+    quantity: 3,
+  });
+  expect(requests.validate[0].profile.summary).toBe(builderProfile.summary);
+});
+
+test("PC builder double-click on Đề xuất sends one /ai-suggest", async ({
+  page,
+}) => {
+  const requests = await builderPage(page, {
+    suggest: async () => {
+      await wait(800);
+      return { json: suggestion() };
+    },
+  });
+  await page.locator("#inputBudget").fill("30000000");
+  await page.locator("#inputPurpose").fill("Chơi game 2K");
+  await page.locator("#btnRunAi").dblclick();
+  await expect(page.locator("#btnRunAi")).toBeDisabled();
+  await expect(page.locator(".builder-table")).toBeVisible();
+  expect(requests.suggest).toHaveLength(1);
+});
+
+test("PC builder applies only the latest /validate when an older one returns late", async ({
+  page,
+}) => {
+  const requests = await builderPage(page, {
+    validate: async (_body, n) => {
+      if (n === 1) await wait(1500);
+      return { json: validated(`Kết quả lần ${n}`) };
+    },
+  });
+  await suggestFrom(page);
+  const plus = page.getByRole("button", { name: "Tăng số lượng ram" });
+  await plus.click();
+  await expect.poll(() => requests.validate.length).toBe(1);
+  await plus.click();
+  const summary = page.locator(".summary-card");
+  await expect(summary).toContainText("Kết quả lần 2");
+  await wait(1800);
+  await expect(summary).not.toContainText("Kết quả lần 1");
+  expect(requests.validate[1].items).toContainEqual({
+    role: "ram",
+    variantId: 2,
+    quantity: 4,
+  });
+});
 
 test("customer cancels a zero-total order using its snapshot even after the product disappears", async ({
   page,

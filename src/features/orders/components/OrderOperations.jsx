@@ -184,14 +184,17 @@ export function OrderOperations({ handover = false }) {
               <Panel
                 title={"Serial từng thiết bị · " + count + " thiết bị"}
                 action={
-                  <Button
-                    tone="secondary"
-                    onClick={handleAutoFillHandover}
-                    disabled={busy}
-                    style={{ whiteSpace: "nowrap" }}
-                  >
-                    ⚡ Điền nhanh Serial & SĐT
-                  </Button>
+                  // Serial giả chỉ để thử trên máy dev; bản build không có nút này.
+                  import.meta.env.DEV && (
+                    <Button
+                      tone="secondary"
+                      onClick={handleAutoFillHandover}
+                      disabled={busy}
+                      style={{ whiteSpace: "nowrap" }}
+                    >
+                      ⚡ Điền nhanh Serial & SĐT
+                    </Button>
+                  )
                 }
               >
                 <Notice>

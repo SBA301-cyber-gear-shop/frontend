@@ -26,6 +26,9 @@ export function useOrderOperations() {
   const [amounts, setAmounts] = useState({}),
     [references, setReferences] = useState({});
   const orders = demoMode ? data.orders : remote.orders;
+  // Một nguồn cho cả ô hiển thị và dữ liệu gửi đi: chưa gõ thì dùng số trong đơn.
+  const phoneFor = (order) =>
+    recipientPhones[order?.id] ?? (order?.pickupPhone || "");
 
   const statusCounts = useMemo(() => {
     const list = orders || [];
@@ -127,7 +130,7 @@ export function useOrderOperations() {
           Array.from({ length: line.quantity }, () => line),
         );
         const result = await ordersApi.handover(selected.id, {
-          recipientPhone: recipientPhones[selected.id] || "",
+          recipientPhone: phoneFor(selected),
           recipientVerified: checked,
           devices: units.map((line, index) => ({
             orderItemId: line.orderItemId,
@@ -195,7 +198,7 @@ export function useOrderOperations() {
     cancelConfirm,
     setCancelConfirm: (value) =>
       value ? openConfirm(setCancelConfirm) : setCancelConfirm(false),
-    recipientPhone: recipientPhones[selected?.id] !== undefined ? recipientPhones[selected?.id] : (selected?.pickupPhone || ""),
+    recipientPhone: phoneFor(selected),
     setRecipientPhone: (value) =>
       setRecipientPhones((previous) => ({ ...previous, [selected.id]: value })),
     receivedAmount: amounts[selected?.id] || "",

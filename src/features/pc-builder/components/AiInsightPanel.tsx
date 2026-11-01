@@ -1,10 +1,67 @@
-import type { AiBuildInsight } from "../types/pcBuilder.types";
+import { money } from "@/utils";
+import type { AiBuildInsight, BudgetFit, RequirementProfile } from "../types/pcBuilder.types";
+import { itemReason } from "./ProfileEditor";
+
+const WARNING_TEXT: Record<string, string> = {
+  REQUIREMENT_RELAXED: "Đã hạ yêu cầu để vừa ngân sách",
+  CONSTRAINT_UNSATISFIABLE: "Yêu cầu vượt khoảng giá trị kho đang có",
+  BRAND_NOT_AVAILABLE: "Thương hiệu bạn muốn chưa có trong kho",
+  PSU_HIGH_WATTAGE: "Bộ máy cần nguồn trên 1600 W",
+};
+
+/** Câu thân thiện cho reasonCode theo bảng DD 6.6; null khi không có gì để nói. */
+export function reasonMessage(
+  reasonCode: string | null | undefined,
+  budgetFit: BudgetFit | null | undefined,
+  totalPrice: number,
+  profile?: RequirementProfile | null,
+  relaxedItems: string[] = [],
+): string | null {
+  const leftover = money(budgetFit?.leftover ?? 0);
+  switch (reasonCode) {
+    case "NEEDS_SATURATED":
+      return `Với nhu cầu "${profile?.summary || "của bạn"}", cấu hình ${money(totalPrice)} đã đáp ứng tối đa. Nâng cấp thêm không cải thiện trải nghiệm. Bạn còn dư ${leftover}.`;
+    case "CATALOG_CEILING":
+      return `Đây là cấu hình mạnh nhất cửa hàng đang có cho nhu cầu này. Còn dư ${leftover}, vui lòng liên hệ để báo giá máy trạm/server.`;
+    case "REQUIREMENT_RELAXED": {
+      const reasons = relaxedItems.map((id) => itemReason(profile, id));
+      return `Ngân sách chưa đủ cho: ${reasons.join("; ") || "một số yêu cầu"}. Hệ thống đã đề xuất mức gần nhất.`;
+    }
+    default:
+      if (!budgetFit) return null;
+      return `Tổng giá đạt ${budgetFit.percent.toLocaleString("vi-VN", { maximumFractionDigits: 1 })}% ngân sách, còn dư ${leftover}.`;
+  }
+}
+
+/** "CODE:chi tiết" → câu tiếng Việt; mã lạ thì giữ nguyên. */
+function warningText(warning: string) {
+  const [code, ...rest] = warning.split(":");
+  const text = WARNING_TEXT[code];
+  if (!text) return warning;
+  return rest.length ? `${text} (${rest.join(":")})` : text;
+}
 
 interface AiInsightPanelProps {
   insight: AiBuildInsight;
+  reasonCode?: string | null;
+  budgetFit?: BudgetFit | null;
+  totalPrice?: number;
+  profile?: RequirementProfile | null;
+  relaxedItems?: string[];
+  warnings?: string[];
 }
 
-export function AiInsightPanel({ insight }: AiInsightPanelProps) {
+export function AiInsightPanel({
+  insight,
+  reasonCode,
+  budgetFit,
+  totalPrice = 0,
+  profile,
+  relaxedItems = [],
+  warnings = [],
+}: AiInsightPanelProps) {
+  const reason = reasonMessage(reasonCode, budgetFit, totalPrice, profile, relaxedItems);
+
   return (
     <div className="ai-insight-panel" id="aiInsightPanel">
       <div className="ai-header-row">
@@ -42,6 +99,18 @@ export function AiInsightPanel({ insight }: AiInsightPanelProps) {
           <strong>Hiệu năng dự kiến:</strong> {insight.highlight}
         </span>
       </div>
+      {reason && (
+        <p className={`ai-reason-note ${reasonCode ? "has-code" : ""}`} id="aiReasonNote">
+          {reason}
+        </p>
+      )}
+      {warnings.length > 0 && (
+        <ul className="ai-warning-list" aria-label="Lưu ý từ hệ thống">
+          {warnings.map((w) => (
+            <li key={w}>{warningText(w)}</li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

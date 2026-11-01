@@ -354,7 +354,7 @@ export function ProductManagement() {
       {/* HEADER SECTION */}
       <Heading
         title="Sản phẩm & Phiên bản"
-        sub="Quản lý danh mục sản phẩm, biến thể SKU và giá bán từ cơ sở dữ liệu Neon PostgreSQL."
+        sub="Quản lý danh mục sản phẩm, biến thể SKU và giá bán từ cơ sở dữ liệu PostgreSQL."
         eyebrow="QUẢN TRỊ / SẢN PHẨM"
         action={
           <div className="row" style={{ gap: "0.75rem" }}>

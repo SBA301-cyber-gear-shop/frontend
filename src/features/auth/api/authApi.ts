@@ -15,6 +15,14 @@ export const authApi = {
     );
     return data;
   },
+  async updateProfile(payload: {
+    fullName: string;
+    phone: string;
+    address: string;
+  }) {
+    const { data } = await axiosClient.put(endpoints.auth.me, payload);
+    return data.data;
+  },
   async register(payload: RegisterPayload): Promise<AuthResponseBody> {
     const { data } = await axiosClient.post<AuthResponseBody>(
       endpoints.auth.register,

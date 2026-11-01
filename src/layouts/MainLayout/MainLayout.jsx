@@ -85,8 +85,6 @@ export function MainLayout() {
           </NavLink>
           <NavLink to="/cua-hang">Trang chủ</NavLink>
           <NavLink to="/san-pham?category=parts">Linh kiện PC</NavLink>
-          <NavLink to="/danh-muc/monitor">Màn hình</NavLink>
-          <NavLink to="/danh-muc/laptop">Laptop</NavLink>
           <NavLink to="/don-hang">Đơn hàng của tôi</NavLink>
           <NavLink to="/bao-hanh">Bảo hành</NavLink>
         </nav>

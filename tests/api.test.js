@@ -13,7 +13,11 @@ import {
 } from "vitest";
 import { axiosClient } from "@/services";
 import { authApi } from "../src/features/auth/api/authApi";
-import { pcBuilderApi } from "../src/features/pc-builder/api/pcBuilderApi";
+import {
+  pcBuilderApi,
+  PcBuildApiError,
+  isAbortError,
+} from "../src/features/pc-builder/api/pcBuilderApi";
 import { cartApi } from "../src/features/cart/api/cartApi";
 import { catalogApi } from "../src/features/products/api/catalogApi";
 import { checkoutApi } from "../src/features/orders/api/checkoutApi";
@@ -46,6 +50,7 @@ beforeAll(async () => {
     });
     response.writeHead(reply.status, {
       "Content-Type": reply.contentType || "application/json",
+      ...reply.headers,
     });
     response.end(reply.raw ?? JSON.stringify(reply.body));
   });
@@ -295,15 +300,88 @@ test.each([false, true])(
     reply.body = wrapped ? { data: suggestion } : suggestion;
     const payload = {
       budget: 15000000,
-      purpose: "office",
-      ramGb: 16,
-      scope: "tower",
+      purpose: "Văn phòng, học online",
+      userPrompt: "Máy êm",
     };
     expect(await pcBuilderApi.suggest(payload)).toEqual(suggestion);
     expect(requests[0].url).toBe("/backend/api/v1/pc-build/ai-suggest");
     expect(JSON.parse(requests[0].body)).toEqual(payload);
+    expect(JSON.parse(requests[0].body)).not.toHaveProperty("ramGb");
   },
 );
+
+test("suggestBuild throws PcBuildApiError with backend code, data and Retry-After", async () => {
+  reply = {
+    status: 503,
+    headers: { "Retry-After": "7" },
+    body: {
+      status: 503,
+      error: "Service Unavailable",
+      message: "Trợ lý AI đang bận",
+      code: "AI_UNAVAILABLE",
+      data: { detail: "TIMEOUT" },
+    },
+  };
+  const error = await pcBuilderApi
+    .suggestBuild({ budget: 20000000, purpose: "gaming" })
+    .catch((e) => e);
+  expect(error).toBeInstanceOf(PcBuildApiError);
+  expect(error).toMatchObject({
+    status: 503,
+    code: "AI_UNAVAILABLE",
+    retryAfter: 7,
+    message: "Trợ lý AI đang bận",
+    data: { detail: "TIMEOUT" },
+  });
+});
+
+test("PcBuildApiError without Retry-After keeps retryAfter null", async () => {
+  reply = {
+    status: 422,
+    body: { status: 422, message: "Nhu cầu chưa rõ", code: "NEEDS_UNCLEAR", data: { clarifyingQuestion: "Bạn dùng máy làm gì?" } },
+  };
+  const error = await pcBuilderApi.suggestBuild({ budget: 20000000, purpose: "ab" }).catch((e) => e);
+  expect(error).toMatchObject({ status: 422, code: "NEEDS_UNCLEAR", retryAfter: null });
+});
+
+test("aborted PC Builder requests stay cancel errors, not PcBuildApiError", async () => {
+  const controller = new AbortController();
+  controller.abort();
+  const error = await pcBuilderApi
+    .validateBuild({ items: [] }, { signal: controller.signal })
+    .catch((e) => e);
+  expect(axios.isCancel(error)).toBe(true);
+  expect(isAbortError(error)).toBe(true);
+  expect(error).not.toBeInstanceOf(PcBuildApiError);
+  expect(requests).toHaveLength(0);
+});
+
+test("validate and replacements POST the whole build; save omits client prices", async () => {
+  const items = [
+    { role: "cpu", variantId: 11, quantity: 1 },
+    { role: "ram", variantId: 31, quantity: 2 },
+  ];
+  reply.body = { data: { isCompatible: true, checks: [] } };
+  await pcBuilderApi.validateBuild({ budget: 20000000, profile: null, items });
+  expect(requests.at(-1)).toMatchObject({ method: "POST", url: "/backend/api/v1/pc-build/validate" });
+  expect(JSON.parse(requests.at(-1).body)).toEqual({ budget: 20000000, profile: null, items });
+
+  reply.body = { data: [{ variantId: 12, status: "pass" }] };
+  const list = await pcBuilderApi.getCompatibleReplacements({ role: "cpu", budget: 20000000, items, lineIndex: 0 });
+  expect(list).toEqual([{ variantId: 12, status: "pass" }]);
+  expect(requests.at(-1)).toMatchObject({ method: "POST", url: "/backend/api/v1/pc-build/compatible-replacements" });
+  expect(JSON.parse(requests.at(-1).body)).toEqual({ role: "cpu", budget: 20000000, items, lineIndex: 0 });
+
+  reply.body = { data: 77 };
+  expect(await pcBuilderApi.saveCustomBuild({ buildName: "PC", items })).toBe(77);
+  expect(JSON.parse(requests.at(-1).body)).toEqual({ buildName: "PC", items });
+});
+
+test("getBuildOptions reads GET /options", async () => {
+  reply.body = { data: { minBudget: 8000000, floorPrice: 6778000, maxBudget: 9999999999, examples: [] } };
+  expect(await pcBuilderApi.getBuildOptions()).toMatchObject({ minBudget: 8000000, maxBudget: 9999999999 });
+  expect(requests.at(-1)).toMatchObject({ method: "GET", url: "/backend/api/v1/pc-build/options" });
+});
 
 test("network errors remain distinguishable from HTTP errors", async () => {
   const networkError = new axios.AxiosError("Network Error", "ERR_NETWORK");

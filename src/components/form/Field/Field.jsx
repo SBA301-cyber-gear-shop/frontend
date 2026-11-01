@@ -1,5 +1,6 @@
 import { useId } from "react";
 
+/** @param {{ label: any, hint?: any, error?: any, children?: (id: string) => any, [key: string]: any }} props */
 export function Field({ label, hint, error, children, ...props }) {
   const id = useId();
   return (

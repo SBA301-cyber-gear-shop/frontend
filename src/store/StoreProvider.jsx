@@ -221,7 +221,7 @@ export default function StoreProvider({ children, catalogApi, cartApi }) {
   }
   function signIn(profile) {
     const safe = safeProfile(profile);
-    if (!demoMode || activeUser.current?.id !== safe.id) {
+    if (activeUser.current?.id !== safe.id) {
       clearLiveCart();
       if (!demoMode) setCartLoading(true);
     }

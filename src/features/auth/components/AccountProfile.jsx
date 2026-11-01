@@ -4,8 +4,17 @@ import { useAccountProfile } from "../hooks/useAccountProfile";
 import { demoMode } from "@/utils";
 
 export function AccountProfile() {
-  const { user, name, setName, phone, setPhone, address, setAddress, save } =
-    useAccountProfile();
+  const {
+    user,
+    name,
+    setName,
+    phone,
+    setPhone,
+    address,
+    setAddress,
+    saving,
+    save,
+  } = useAccountProfile();
   return (
     <>
       <Heading
@@ -38,8 +47,8 @@ export function AccountProfile() {
                 onChange={(e) => setAddress(e.target.value)}
               />
             </div>
-            <Button type="submit" className="section" disabled={!demoMode}>
-              Lưu thay đổi
+            <Button type="submit" className="section" disabled={saving}>
+              {saving ? "Đang lưu…" : "Lưu thay đổi"}
             </Button>
           </form>
         </Panel>
@@ -49,11 +58,11 @@ export function AccountProfile() {
             description="Bạn vẫn có thể thanh toán tại cửa hàng. Việc lưu phương thức thanh toán cần tích hợp token từ cổng thanh toán."
           />
         </Panel>
-        <Notice tone="neutral">
-          {demoMode
-            ? "Dữ liệu demo lưu tại trình duyệt. Không nhập thông tin thẻ hoặc dữ liệu nhạy cảm thật."
-            : "Thông tin tài khoản lấy từ lần đăng nhập. Chức năng cập nhật hồ sơ đang được hoàn thiện."}
-        </Notice>
+        {demoMode && (
+          <Notice tone="neutral">
+            Dữ liệu demo lưu tại trình duyệt. Không nhập thông tin thẻ hoặc dữ liệu nhạy cảm thật.
+          </Notice>
+        )}
       </div>
     </>
   );

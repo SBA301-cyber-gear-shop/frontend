@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { useStore } from "@/store";
 import { productApi } from "../api/productApi";
 import { getCategoryMockImage } from "../constants/mockImages";
+import { toVariantAttributes } from "../domain";
 
 export function useProductEditor({
   product,
@@ -90,6 +91,11 @@ export function useProductEditor({
   // Save Variant (supports both Real API on existing product and In-Memory Draft for new product)
   const handleSaveVariant = async (variantData) => {
     try {
+      const attributes = toVariantAttributes(
+        variantData.specs,
+        await productApi.getSpecifications(),
+        editingVariant?.attributes,
+      );
       if (isEditing) {
         // Real Backend Variant CRUD
         const payload = {
@@ -103,6 +109,7 @@ export function useProductEditor({
             : null,
           stockQuantity: Number(variantData.stockQuantity || 0),
           imageUrl: variantData.imageUrl?.trim() || undefined,
+          attributes,
         };
 
         if (editingVariant && typeof editingVariant.id === "number") {
@@ -163,6 +170,7 @@ export function useProductEditor({
           imageUrl: variantData.imageUrl?.trim() || "",
           image: variantData.imageUrl?.trim() || "",
           specs: variantData.specs || {},
+          attributes,
         };
 
         if (editingVariant) {
@@ -258,13 +266,16 @@ export function useProductEditor({
 
       if (isEditing) {
         // UPDATE EXISTING PRODUCT
+        // Chỉ /publish mới được chuyển sang ACTIVE, vì nó kiểm tra điều kiện đăng bán.
+        const needsPublish =
+          targetStatus === "ACTIVE" && productForm.status !== "ACTIVE";
         const updatePayload = {
           name: productForm.name.trim(),
           brandId: Number(productForm.brandId),
           categoryId: Number(productForm.categoryId),
           warrantyPeriodMonths: Number(productForm.warranty),
           description: productForm.description || "",
-          status: targetStatus,
+          status: needsPublish ? undefined : targetStatus,
         };
 
         const updated = await productApi.updateProduct(
@@ -272,8 +283,15 @@ export function useProductEditor({
           updatePayload,
         );
 
-        if (targetStatus === "ACTIVE" && product.status !== "ACTIVE") {
-          await productApi.publishProduct(product.id);
+        if (needsPublish) {
+          try {
+            await productApi.publishProduct(product.id);
+          } catch (e) {
+            onRefreshList?.();
+            throw new Error(`Đã lưu thông tin nhưng chưa đăng bán: ${e.message}`, {
+              cause: e,
+            });
+          }
         }
 
         setProductForm((prev) => ({ ...prev, status: targetStatus }));
@@ -298,6 +316,7 @@ export function useProductEditor({
           originalPrice: v.originalPrice ? Number(v.originalPrice) : null,
           stockQuantity: Number(v.stockQuantity || 0),
           imageUrl: v.imageUrl?.trim() || undefined,
+          attributes: v.attributes,
         }));
 
         const createPayload = {
@@ -312,7 +331,14 @@ export function useProductEditor({
         const createdProd = await productApi.createProductDraft(createPayload);
 
         if (targetStatus === "ACTIVE" && preparedVariants.length > 0) {
-          await productApi.publishProduct(createdProd.id);
+          try {
+            await productApi.publishProduct(createdProd.id);
+          } catch (e) {
+            // Bản nháp đã tạo: mở nó ra để sửa, tránh bấm lại bị trùng SKU.
+            notify(`Đã tạo bản nháp nhưng chưa đăng bán: ${e.message}`, "danger");
+            onSaved?.(createdProd);
+            return;
+          }
         }
 
         notify(

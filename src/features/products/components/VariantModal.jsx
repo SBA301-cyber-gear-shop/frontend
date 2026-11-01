@@ -3,8 +3,9 @@ import { Modal, Button, Notice } from "@/components/ui";
 import { Field } from "@/components/form";
 import { money } from "@/utils";
 import { getCategoryMockImage } from "../constants/mockImages";
+import { parsePriceInput } from "../domain";
 
-export function VariantModal({ variant, onSave, onClose }) {
+export function VariantModal({ variant, requiredSpecs = [], onSave, onClose }) {
   const [form, setForm] = useState(() => ({
     serialCode: variant?.serialCode || variant?.sku || "",
     variantName: variant?.variantName || variant?.variant || "",
@@ -28,6 +29,8 @@ export function VariantModal({ variant, onSave, onClose }) {
       .join("\n");
   });
   const [error, setError] = useState("");
+  // Giá nhập sai được giữ nguyên trên ô để người nhập thấy và sửa, không tự đổi thành số khác.
+  const [invalidPrice, setInvalidPrice] = useState({});
 
   const update = (key, val) => setForm((prev) => ({ ...prev, [key]: val }));
 
@@ -35,8 +38,19 @@ export function VariantModal({ variant, onSave, onClose }) {
     const input = e.target;
     const rawBefore = input.value;
     const cursorPos = input.selectionStart || 0;
-    const digitsOnly = rawBefore.replace(/\D/g, "");
-    const num = digitsOnly ? Number(digitsOnly) : 0;
+    const parsed = parsePriceInput(
+      rawBefore,
+      e.nativeEvent?.inputType === "insertFromPaste" || Boolean(invalidPrice[key]),
+    );
+    if (parsed.error) {
+      setInvalidPrice((prev) => ({
+        ...prev,
+        [key]: { text: rawBefore, error: parsed.error },
+      }));
+      return;
+    }
+    setInvalidPrice((prev) => ({ ...prev, [key]: undefined }));
+    const num = parsed.value;
 
     // Count digits before cursor to maintain position
     const digitsBeforeCursor = rawBefore
@@ -63,12 +77,17 @@ export function VariantModal({ variant, onSave, onClose }) {
     });
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
 
     if (!form.serialCode.trim()) {
       setError("Mã SKU (serial_code) không được để trống.");
+      return;
+    }
+
+    if (invalidPrice.price || invalidPrice.originalPrice) {
+      setError((invalidPrice.price || invalidPrice.originalPrice).error);
       return;
     }
 
@@ -104,7 +123,7 @@ export function VariantModal({ variant, onSave, onClose }) {
     }
 
     try {
-      onSave({
+      await onSave({
         ...form,
         id: variant?.id,
         serialCode: form.serialCode.trim().toUpperCase(),
@@ -146,8 +165,9 @@ export function VariantModal({ variant, onSave, onClose }) {
           />
           <Field
             label="Giá bán (₫) *"
+            error={invalidPrice.price?.error}
             hint={
-              form.price > 0 ? (
+              invalidPrice.price ? undefined : form.price > 0 ? (
                 <span
                   style={{
                     color: "var(--brand-teal, #008779)",
@@ -175,10 +195,12 @@ export function VariantModal({ variant, onSave, onClose }) {
                   type="text"
                   inputMode="numeric"
                   placeholder="VD: 1.500.000"
+                  aria-invalid={Boolean(invalidPrice.price)}
                   value={
-                    form.price
+                    invalidPrice.price?.text ??
+                    (form.price
                       ? new Intl.NumberFormat("vi-VN").format(form.price)
-                      : ""
+                      : "")
                   }
                   onChange={(e) => handlePriceInput("price", e)}
                   style={{
@@ -205,8 +227,9 @@ export function VariantModal({ variant, onSave, onClose }) {
           </Field>
           <Field
             label="Giá gốc tham chiếu (₫)"
+            error={invalidPrice.originalPrice?.error}
             hint={
-              form.originalPrice > 0 ? (
+              invalidPrice.originalPrice ? undefined : form.originalPrice > 0 ? (
                 <span style={{ color: "var(--ink-muted, #64748b)" }}>
                   Gốc: <del>{money(form.originalPrice)}</del>
                 </span>
@@ -229,12 +252,14 @@ export function VariantModal({ variant, onSave, onClose }) {
                   type="text"
                   inputMode="numeric"
                   placeholder="VD: 2.000.000"
+                  aria-invalid={Boolean(invalidPrice.originalPrice)}
                   value={
-                    form.originalPrice
+                    invalidPrice.originalPrice?.text ??
+                    (form.originalPrice
                       ? new Intl.NumberFormat("vi-VN").format(
                           form.originalPrice,
                         )
-                      : ""
+                      : "")
                   }
                   onChange={(e) => handlePriceInput("originalPrice", e)}
                   style={{
@@ -349,7 +374,12 @@ export function VariantModal({ variant, onSave, onClose }) {
 
         <Field
           label="Thông số kỹ thuật của biến thể (EAV)"
-          hint="Mỗi dòng một thông số dạng 'Tên: Giá trị' (VD: Chuẩn RAM: DDR5)"
+          hint={
+            "Mỗi dòng một thông số dạng 'Tên: Giá trị', tên phải khớp trang Quản lý thông số." +
+            (requiredSpecs.length
+              ? " Bắt buộc để đăng bán: " + requiredSpecs.join(", ") + "."
+              : "")
+          }
         >
           {(id) => (
             <textarea
@@ -358,7 +388,9 @@ export function VariantModal({ variant, onSave, onClose }) {
               rows="5"
               value={specText}
               onChange={(e) => setSpecText(e.target.value)}
-              placeholder={"Chuẩn RAM: DDR5\nDung lượng: 16GB\nBus: 5600 MT/s"}
+              placeholder={requiredSpecs
+                .map((name) => name + ": ...")
+                .join("\n")}
             />
           )}
         </Field>

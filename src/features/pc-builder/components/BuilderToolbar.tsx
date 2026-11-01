@@ -1,14 +1,27 @@
+import type { KeyboardEvent } from "react";
+import { money } from "@/utils";
+import type { BuildOptionsResponse } from "../types/pcBuilder.types";
+
+// Dùng khi /options chưa tải được; backend vẫn kiểm lại (DD 10.3)
+const DEFAULT_MIN_BUDGET = 8_000_000;
+const DEFAULT_MAX_BUDGET = 9_999_999_999;
+const FALLBACK_EXAMPLES = [
+  "Chơi game 2K, thỉnh thoảng stream",
+  "Dựng phim 4K bằng DaVinci Resolve",
+  "Văn phòng, Excel, họp online",
+  "Lập trình web, chạy Docker",
+];
+
 interface BuilderToolbarProps {
   budget: number | "";
   onBudgetChange: (val: number | "") => void;
   purpose: string;
   onPurposeChange: (val: string) => void;
-  ramGb: number | "";
-  onRamGbChange: (val: number | "") => void;
   userPrompt: string;
   onPromptChange: (val: string) => void;
   onSubmit: () => void;
   isBusy: boolean;
+  options?: BuildOptionsResponse | null;
 }
 
 export function BuilderToolbar({
@@ -16,13 +29,23 @@ export function BuilderToolbar({
   onBudgetChange,
   purpose,
   onPurposeChange,
-  ramGb,
-  onRamGbChange,
   userPrompt,
   onPromptChange,
   onSubmit,
   isBusy,
+  options,
 }: BuilderToolbarProps) {
+  const minBudget = Math.max(options?.minBudget ?? DEFAULT_MIN_BUDGET, options?.floorPrice ?? 0);
+  const maxBudget = options?.maxBudget ?? DEFAULT_MAX_BUDGET;
+  const examples = options?.examples?.length ? options.examples : FALLBACK_EXAMPLES;
+
+  // Enter gửi (Shift+Enter xuống dòng); đang tải thì không gửi (DD 10.4, chống gửi trùng)
+  function submitOnEnter(e: KeyboardEvent<HTMLTextAreaElement>) {
+    if (e.key !== "Enter" || e.shiftKey) return;
+    e.preventDefault();
+    if (!isBusy) onSubmit();
+  }
+
   return (
     <div className="builder-toolbar">
       <div className="toolbar-grid">
@@ -34,62 +57,63 @@ export function BuilderToolbar({
             className="field-input"
             placeholder="Nhập số tiền (VD: 25000000)"
             value={budget}
-            min={5000000}
+            min={minBudget}
+            max={maxBudget}
             step={500000}
+            aria-describedby="inputBudgetHint"
             onChange={(e) =>
               onBudgetChange(e.target.value === "" ? "" : Number(e.target.value))
             }
           />
+          <small id="inputBudgetHint" className="field-hint">
+            Từ {money(minBudget)} đến {money(maxBudget)}
+          </small>
         </div>
         <div className="field-group">
-          <label htmlFor="inputPurpose">Nhu cầu sử dụng chính</label>
-          <input
+          <label htmlFor="inputPurpose">Nhu cầu sử dụng chính *</label>
+          <textarea
             id="inputPurpose"
-            type="text"
-            className="field-input"
-            placeholder="VD: Gaming đồ họa cao, thiết kế 3D, lập trình..."
+            className="field-input field-textarea"
+            placeholder="VD: Chơi game 2K mượt, thỉnh thoảng livestream..."
             value={purpose}
+            maxLength={300}
+            required
+            rows={3}
             onChange={(e) => onPurposeChange(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !isBusy) {
-                onSubmit();
-              }
-            }}
+            onKeyDown={submitOnEnter}
           />
+          <small className="field-hint">{purpose.length}/300 ký tự</small>
         </div>
         <div className="field-group">
-          <label htmlFor="selectRam">Dung lượng RAM mong muốn</label>
-          <select
-            id="selectRam"
-            className="field-select"
-            value={ramGb}
-            onChange={(e) =>
-              onRamGbChange(e.target.value === "" ? "" : Number(e.target.value))
-            }
-          >
-            <option value="">-- Chọn dung lượng RAM --</option>
-            <option value={16}>16 GB (Tiêu chuẩn)</option>
-            <option value={32}>32 GB (Khuyên dùng cho Gaming 2026)</option>
-            <option value={64}>64 GB (Chuyên nghiệp / Render 3D)</option>
-            <option value={128}>128 GB (Máy trạm / Workstation)</option>
-          </select>
+          <label htmlFor="inputUserPrompt">Mong muốn thêm</label>
+          <textarea
+            id="inputUserPrompt"
+            className="field-input field-textarea"
+            placeholder="VD: Thích case trắng, máy chạy êm, ưu tiên Intel..."
+            value={userPrompt}
+            maxLength={500}
+            rows={3}
+            onChange={(e) => onPromptChange(e.target.value)}
+            onKeyDown={submitOnEnter}
+          />
+          <small className="field-hint">{userPrompt.length}/500 ký tự</small>
         </div>
       </div>
 
       <div className="prompt-row">
-        <input
-          type="text"
-          id="inputUserPrompt"
-          className="prompt-input"
-          placeholder="Mô tả thêm mong muốn của bạn (VD: Thích vỏ case đen Montech, tản nhiệt êm, chơi Black Myth Wukong 2K, quạt ARGB...)"
-          value={userPrompt}
-          onChange={(e) => onPromptChange(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !isBusy) {
-              onSubmit();
-            }
-          }}
-        />
+        <div className="example-chips" aria-label="Gợi ý nhu cầu">
+          <span className="example-chips-label">Gợi ý:</span>
+          {examples.map((text) => (
+            <button
+              key={text}
+              type="button"
+              className="example-chip"
+              onClick={() => onPurposeChange(text)}
+            >
+              {text}
+            </button>
+          ))}
+        </div>
         <button
           type="button"
           className="btn-ai-submit"

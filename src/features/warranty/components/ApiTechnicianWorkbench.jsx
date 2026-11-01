@@ -463,7 +463,8 @@ function ApiTicketEditor({ ticket: t, svc, onChanged }) {
         <Panel title="Đổi thiết bị">
           <p className="small muted">
             Dùng khi không sửa được và khách nhận thiết bị khác. Thẻ mới có hạn
-            tính lại từ hôm nay. Hệ thống chưa tự trừ tồn kho.
+            tính lại từ hôm nay. Chọn hàng đang bán thì hệ thống tự trừ 1 tồn
+            kho.
           </p>
           <Field
             label="Serial thiết bị thay thế"
@@ -479,7 +480,11 @@ function ApiTicketEditor({ ticket: t, svc, onChanged }) {
                 onChange={(e) => setSource(e.target.value)}
               >
                 <option value="supplier">Hãng gửi về</option>
-                <option value="stock">Lấy từ hàng đang bán</option>
+                <option value="stock" disabled={!t.replacementInStock}>
+                  {t.replacementInStock
+                    ? "Lấy từ hàng đang bán (trừ 1 tồn kho)"
+                    : "Lấy từ hàng đang bán (đã hết hàng)"}
+                </option>
               </select>
             )}
           </Field>
@@ -501,8 +506,9 @@ function ApiTicketEditor({ ticket: t, svc, onChanged }) {
           <p>
             Thẻ của serial <b className="mono">{t.card.serialNumber}</b> sẽ đóng
             lại và thẻ mới được tạo cho serial{" "}
-            <b className="mono">{serial.trim().toUpperCase()}</b>. Thao tác này
-            không hoàn tác được.
+            <b className="mono">{serial.trim().toUpperCase()}</b>.
+            {source === "stock" && " Tồn kho của phiên bản này sẽ giảm 1."} Thao
+            tác này không hoàn tác được.
           </p>
           <div className="row section">
             <Button tone="secondary" onClick={() => setConfirming(false)}>

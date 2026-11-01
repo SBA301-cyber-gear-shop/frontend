@@ -1043,6 +1043,12 @@ export function ProductEditor({
         <VariantModal
           key={editingVariant?.id || "new"}
           variant={editingVariant}
+          requiredSpecs={(
+            categories.find((c) => c.id === Number(productForm.categoryId))
+              ?.specifications || []
+          )
+            .filter((s) => s.isPrimary)
+            .map((s) => s.specificationName)}
           onSave={handleSaveVariant}
           onClose={closeVariantModal}
         />

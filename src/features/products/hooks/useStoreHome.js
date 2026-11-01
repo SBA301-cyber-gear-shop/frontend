@@ -26,18 +26,18 @@ export function useStoreHome() {
       "Tư vấn cấu hình",
     ],
     [
-      "Mở rộng góc nhìn.",
+      "Đồ họa mượt mà.",
       "Nâng tầm trải nghiệm.",
-      "Khám phá màn hình theo độ phân giải, tấm nền và tần số quét.",
-      "/danh-muc/monitor",
-      "Khám phá màn hình",
+      "Khám phá card đồ họa theo dung lượng VRAM, độ dài và nhu cầu sử dụng.",
+      "/danh-muc/gpu",
+      "Khám phá card đồ họa",
     ],
     [
       "Hiệu năng linh hoạt.",
       "Đồng hành mỗi ngày.",
-      "Laptop cho học tập, làm việc và sáng tạo. Chọn đúng cấu hình cho nhu cầu của bạn.",
-      "/danh-muc/laptop",
-      "Khám phá laptop",
+      "Bộ vi xử lý cho học tập, làm việc và sáng tạo. Chọn đúng cấu hình cho nhu cầu của bạn.",
+      "/danh-muc/cpu",
+      "Khám phá bộ vi xử lý",
     ],
   ];
   const remote = useVisiblePromotions();

@@ -4,5 +4,6 @@ export {
   ROLE_LABELS,
   initialBuildParts,
   initialAiInsight,
+  initialProfile,
   replacementCandidatesByRole,
 } from "./mockData";

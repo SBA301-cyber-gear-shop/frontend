@@ -1,14 +1,39 @@
+import { Badge } from "@/components/ui";
 import { money } from "@/utils";
-import type { BuildPart, ComponentRole } from "../types/pcBuilder.types";
+import type { BuildCapacity, BuildPart, ComponentRole } from "../types/pcBuilder.types";
+
+const MAX_LINE_QUANTITY = 8; // /validate nhận quantity 1–8 (DD 9.2)
+
+/** Nút ± chỉ ở ram, ssd, gpu; cpu chỉ khi bo mạch có 2 socket (DD 10.3). */
+export function quantityLimit(
+  part: BuildPart,
+  parts: BuildPart[],
+  capacity?: BuildCapacity | null,
+): { adjustable: boolean; canAdd: boolean } {
+  const board = parts.find((p) => p.role === "mainboard");
+  const dualSocket = board?.specs?.CPU_Socket_Count === "2";
+  const adjustable = ["ram", "ssd", "gpu"].includes(part.role) || (part.role === "cpu" && dualSocket);
+  if (!adjustable) return { adjustable, canAdd: false };
+  const full =
+    part.quantity >= MAX_LINE_QUANTITY ||
+    (part.role === "cpu" && part.quantity >= 2) ||
+    (part.role === "ram" && !!capacity?.ramSlotsMax && capacity.ramSlotsUsed >= capacity.ramSlotsMax) ||
+    (part.role === "gpu" && !!capacity?.gpuMax && capacity.gpuCount >= capacity.gpuMax);
+  return { adjustable, canAdd: !full };
+}
 
 interface PartsTableProps {
   parts: BuildPart[];
+  capacity?: BuildCapacity | null;
+  verdict?: { label: string; tone: string };
   onReplacePart: (role: ComponentRole) => void;
   onUpdateQuantity: (role: ComponentRole, delta: number) => void;
 }
 
 export function PartsTable({
   parts,
+  capacity,
+  verdict,
   onReplacePart,
   onUpdateQuantity,
 }: PartsTableProps) {
@@ -18,13 +43,18 @@ export function PartsTable({
         <div className="panel-head-title">
           <h2>Cấu hình linh kiện đề xuất</h2>
           <p>
-            <span>{parts.length} nhóm linh kiện</span> · Tất cả đều có sẵn hàng
-            tại showroom
+            <span>{parts.length} nhóm linh kiện</span>
+            {capacity && capacity.ramSlotsMax > 0 && (
+              <span className="capacity-line">
+                {" "}
+                · RAM {capacity.ramSlotsUsed}/{capacity.ramSlotsMax} khe ({capacity.ramGb}/{capacity.ramMaxGb} GB)
+                · M.2 {capacity.m2Used}/{capacity.m2Max}
+                · GPU {capacity.gpuCount}/{capacity.gpuMax}
+              </span>
+            )}
           </p>
         </div>
-        <div className="badge-compat-all">
-          <span>✓ Đạt chuẩn tương thích 100%</span>
-        </div>
+        {verdict && <Badge tone={verdict.tone}>{verdict.label}</Badge>}
       </div>
 
       <div className="table-container">
@@ -41,7 +71,7 @@ export function PartsTable({
           <tbody>
             {parts.map((item) => {
               const lineTotal = item.unitPrice * item.quantity;
-              const isAdjustable = item.role === "ram" || item.role === "ssd";
+              const { adjustable: isAdjustable, canAdd } = quantityLimit(item, parts, capacity);
 
               return (
                 <tr key={item.role}>
@@ -98,6 +128,7 @@ export function PartsTable({
                           type="button"
                           className="qty-btn"
                           aria-label={`Giảm số lượng ${item.role}`}
+                          disabled={item.quantity <= 1}
                           onClick={() => onUpdateQuantity(item.role, -1)}
                         >
                           -
@@ -107,6 +138,8 @@ export function PartsTable({
                           type="button"
                           className="qty-btn"
                           aria-label={`Tăng số lượng ${item.role}`}
+                          disabled={!canAdd}
+                          title={canAdd ? undefined : "Đã đạt giới hạn của bo mạch chủ"}
                           onClick={() => onUpdateQuantity(item.role, 1)}
                         >
                           +
@@ -116,7 +149,7 @@ export function PartsTable({
                       <strong
                         style={{ color: "var(--ink, #152237)", fontSize: 14 }}
                       >
-                        1
+                        {item.quantity}
                       </strong>
                     )}
                   </td>

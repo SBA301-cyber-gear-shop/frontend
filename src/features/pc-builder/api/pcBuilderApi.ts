@@ -1,11 +1,17 @@
+import axios from "axios";
 import { axiosClient, endpoints } from "@/services";
 import { apiCache, type CacheOptions } from "@/services/apiCache";
 import type {
   AiBuildRequestPayload,
   AiBuildResponse,
+  ApiErrorBody,
+  BuildOptionsResponse,
   CompatibleReplacementResponse,
+  CompatibleReplacementsQuery,
   SavedPcBuildSummary,
   SavedPcBuildDetail,
+  ValidateBuildPayload,
+  ValidateBuildResponse,
 } from "../types/pcBuilder.types";
 
 interface ApiResponseWrapper<T> {
@@ -14,105 +20,170 @@ interface ApiResponseWrapper<T> {
   data: T;
 }
 
+interface RequestOptions {
+  signal?: AbortSignal;
+}
+
+/** Lỗi HTTP của PC Builder: giữ `code`, `status`, `retryAfter` (giây, header Retry-After) và `data` của backend. */
+export class PcBuildApiError extends Error {
+  readonly status: number;
+  readonly code?: string;
+  readonly retryAfter: number | null;
+  readonly data?: unknown;
+
+  constructor(
+    message: string,
+    status: number,
+    code?: string,
+    retryAfter: number | null = null,
+    data?: unknown,
+  ) {
+    super(message);
+    this.name = "PcBuildApiError";
+    this.status = status;
+    this.code = code;
+    this.retryAfter = retryAfter;
+    this.data = data;
+  }
+}
+
+/** Lỗi do AbortController hủy: không hiện cho khách, không ghi vào apiError (DD 10.4). */
+export function isAbortError(error: unknown): boolean {
+  return (
+    axios.isCancel(error) ||
+    (error instanceof Error && error.name === "AbortError")
+  );
+}
+
+/** Đổi lỗi axios sang PcBuildApiError; lỗi hủy được ném lại nguyên vẹn. */
+export function toPcBuildApiError(error: unknown): unknown {
+  if (isAbortError(error) || error instanceof PcBuildApiError) return error;
+  if (!axios.isAxiosError(error)) return error;
+  const response = error.response;
+  const body = (response?.data ?? {}) as Partial<ApiErrorBody>;
+  const header = response?.headers?.["retry-after"];
+  const seconds = Number(header);
+  return new PcBuildApiError(
+    error.message || body.message || "Máy chủ không phản hồi",
+    response?.status ?? 0,
+    typeof body.code === "string" ? body.code : undefined,
+    header != null && Number.isFinite(seconds) && seconds >= 0 ? seconds : null,
+    body.data,
+  );
+}
+
+function unwrap<T>(data: ApiResponseWrapper<T> | T | null | undefined): T {
+  if (data == null) throw new Error("Không nhận được dữ liệu từ máy chủ");
+  return typeof data === "object" && "data" in data && data.data != null
+    ? (data as ApiResponseWrapper<T>).data
+    : (data as T);
+}
+
+async function post<T>(url: string, payload: unknown, signal?: AbortSignal): Promise<T> {
+  try {
+    const { data } = await axiosClient.post<ApiResponseWrapper<T> | T>(url, payload, { signal });
+    return unwrap(data);
+  } catch (error) {
+    throw toPcBuildApiError(error);
+  }
+}
+
+function hashKey(value: string): string {
+  let hash = 5381;
+  for (let i = 0; i < value.length; i++) hash = ((hash << 5) + hash + value.charCodeAt(i)) | 0;
+  return (hash >>> 0).toString(36);
+}
+
 export const pcBuilderApi = {
+  /** Bí danh cũ của suggestBuild, giữ cho code và test hiện có. */
+  async suggest(payload: AiBuildRequestPayload, options?: RequestOptions): Promise<AiBuildResponse> {
+    return this.suggestBuild(payload, options);
+  },
+
   /**
    * Đề xuất cấu hình PC bằng AI từ cơ sở dữ liệu kho hàng thực tế
    * Endpoint: POST /api/v1/pc-build/ai-suggest
    */
-  async suggest(payload: AiBuildRequestPayload): Promise<AiBuildResponse> {
-    return this.suggestBuild(payload);
-  },
-
-  async suggestBuild(payload: AiBuildRequestPayload): Promise<AiBuildResponse> {
-    const { data } = await axiosClient.post<
-      ApiResponseWrapper<AiBuildResponse> | AiBuildResponse
-    >(endpoints.pcBuilder.suggest, payload);
-
-    if (data == null) {
-      throw new Error("Không nhận được dữ liệu từ máy chủ");
-    }
-
-    return "data" in data && data.data ? data.data : (data as AiBuildResponse);
+  async suggestBuild(
+    payload: AiBuildRequestPayload,
+    { signal }: RequestOptions = {},
+  ): Promise<AiBuildResponse> {
+    return post<AiBuildResponse>(endpoints.pcBuilder.suggest, payload, signal);
   },
 
   /**
-   * Lấy danh sách linh kiện thay thế tương thích thông minh
-   * Endpoint: GET /api/v1/pc-build/compatible-replacements
+   * Kiểm tra tương thích, ngân sách, tồn kho của cả bộ (giá do server tính). Không cache.
+   * Endpoint: POST /api/v1/pc-build/validate
+   */
+  async validateBuild(
+    payload: ValidateBuildPayload,
+    { signal }: RequestOptions = {},
+  ): Promise<ValidateBuildResponse> {
+    return post<ValidateBuildResponse>(endpoints.pcBuilder.validate, payload, signal);
+  },
+
+  /**
+   * Linh kiện thay thế, mỗi ứng viên được kiểm trên toàn bộ cấu hình hiện tại
+   * Endpoint: POST /api/v1/pc-build/compatible-replacements
    */
   async getCompatibleReplacements(
-    role: string,
-    currentCpuId?: number | string,
-    currentMbId?: number | string,
-    options?: CacheOptions
+    query: CompatibleReplacementsQuery,
+    { signal, ...options }: RequestOptions & CacheOptions = {},
   ): Promise<CompatibleReplacementResponse[]> {
-    const cacheKey = `pc_replacements_${role}_${currentCpuId || "none"}_${currentMbId || "none"}`;
+    const key = "pc_replacements_" + query.role + "_" + hashKey(JSON.stringify(query));
+    const fetcher = async () => {
+      const list = await post<CompatibleReplacementResponse[]>(
+        endpoints.pcBuilder.replacements,
+        query,
+        signal,
+      );
+      return Array.isArray(list) ? list : [];
+    };
+    try {
+      return await apiCache.fetchWithCache(key, fetcher, { ttl: 60_000, storage: "session", ...options });
+    } catch (error) {
+      // Cùng key với một request vừa bị hủy thì apiCache trả lại promise đã hủy đó: tự gọi lại
+      if (isAbortError(error) && !signal?.aborted) return fetcher();
+      throw error;
+    }
+  },
 
+  /**
+   * Giới hạn ngân sách, từ điển metadata, câu gợi ý nhu cầu
+   * Endpoint: GET /api/v1/pc-build/options
+   */
+  async getBuildOptions(options?: CacheOptions): Promise<BuildOptionsResponse> {
     return apiCache.fetchWithCache(
-      cacheKey,
+      "pc_build_options",
       async () => {
-        const params = new URLSearchParams({ role });
-        if (currentCpuId) {
-          params.append("currentCpuId", String(currentCpuId));
+        try {
+          const { data } = await axiosClient.get<
+            ApiResponseWrapper<BuildOptionsResponse> | BuildOptionsResponse
+          >(endpoints.pcBuilder.options);
+          return unwrap(data);
+        } catch (error) {
+          throw toPcBuildApiError(error);
         }
-        if (currentMbId) {
-          params.append("currentMbId", String(currentMbId));
-        }
-
-        const { data } = await axiosClient.get<
-          | ApiResponseWrapper<CompatibleReplacementResponse[]>
-          | CompatibleReplacementResponse[]
-        >(`${endpoints.pcBuilder.replacements}?${params.toString()}`);
-
-        if (data == null) return [];
-
-        return "data" in data && Array.isArray(data.data)
-          ? data.data
-          : Array.isArray(data)
-            ? data
-            : [];
       },
-      { ttl: 180_000, storage: "session", ...options }
+      { ttl: 60_000, storage: "session", ...options },
     );
   },
 
   /**
-   * Lưu cấu hình PC mới từ danh sách linh kiện đã chọn vào tài khoản
+   * Lưu cấu hình PC mới vào tài khoản; giá do server tính lại nên không gửi giá
    * Endpoint: POST /api/v1/pc-build/save
    */
   async saveCustomBuild(payload: {
     buildName?: string;
-    totalPrice: number;
     items: Array<{
       variantId: number | string;
       role: string;
       quantity: number;
-      unitPrice: number;
     }>;
   }): Promise<number> {
-    const { data } = await axiosClient.post<ApiResponseWrapper<number>>(
-      endpoints.pcBuilder.saveCustom,
-      payload,
-    );
+    const id = await post<number>(endpoints.pcBuilder.saveCustom, payload);
     apiCache.invalidate("my_saved_pc_builds");
-    return data.data;
-  },
-
-  /**
-   * Lưu cấu hình PC vào tài khoản khách hàng theo buildId
-   * Endpoint: POST /api/v1/pc-build/{buildId}/save
-   */
-  async saveBuild(buildId: number | string): Promise<string> {
-    const { data } = await axiosClient.post<
-      ApiResponseWrapper<string> | string
-    >(endpoints.pcBuilder.save(buildId));
-
-    apiCache.invalidate("my_saved_pc_builds");
-
-    if (typeof data === "object" && data !== null && "data" in data) {
-      return data.data || data.message || "OK";
-    }
-
-    return String(data || "OK");
+    return id;
   },
 
   /**
