@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { money } from "@/utils";
+import { minFullSetBudget } from "../domain/fullSet";
 import type { PcBuilderApiError } from "../hooks/usePcBuilder";
+import type { PeripheralRange } from "../types/pcBuilder.types";
 
 const DEFAULT_MIN_BUDGET = 8_000_000;
 
@@ -35,6 +37,12 @@ interface AiErrorBoxProps {
   onRetry: () => void;
   onReset: () => void;
   onSetBudget?: (value: number) => void;
+  fullSetRange?: PeripheralRange | null;
+}
+
+/** Mức tối thiểu backend báo chỉ tính thùng máy; ở chế độ trọn bộ phải cộng tiền phụ kiện. */
+export function fullSetMinimum(pcMin: number, range?: PeripheralRange | null): number {
+  return range ? minFullSetBudget(pcMin, range) : pcMin;
 }
 
 export function AiErrorBox({
@@ -45,6 +53,7 @@ export function AiErrorBox({
   onRetry,
   onReset,
   onSetBudget,
+  fullSetRange = null,
 }: AiErrorBoxProps) {
   const code = error?.code;
   const data = (error?.data ?? {}) as ErrorData;
@@ -69,14 +78,16 @@ export function AiErrorBox({
   }, [code]);
 
   const title = (code && TITLES[code]) || "Dịch vụ AI hiện không khả dụng";
+  const minBudget = fullSetMinimum(Math.max(data.minBudget ?? DEFAULT_MIN_BUDGET, data.floorPrice ?? 0), fullSetRange);
   const description =
     code === "NEEDS_UNCLEAR"
       ? data.clarifyingQuestion || message
       : code === "AI_UNAVAILABLE"
         ? "Trợ lý AI đang bận hoặc phản hồi quá lâu. Hồ sơ nhu cầu của bạn vẫn được giữ, vui lòng bấm \"Thử lại\"."
-        : message ||
-          "Hệ thống AI tạm thời không thể đề xuất cấu hình lúc này. Vui lòng kiểm tra lại kết nối mạng hoặc thử lại sau ít phút.";
-  const minBudget = Math.max(data.minBudget ?? DEFAULT_MIN_BUDGET, data.floorPrice ?? 0);
+        : code === "BUDGET_BELOW_FLOOR" && fullSetRange
+          ? `Trọn bộ gồm màn hình, bàn phím, chuột cần tối thiểu ${money(minBudget)}.`
+          : message ||
+            "Hệ thống AI tạm thời không thể đề xuất cấu hình lúc này. Vui lòng kiểm tra lại kết nối mạng hoặc thử lại sau ít phút.";
   const canRetry = !code || !INPUT_ERRORS.includes(code);
 
   return (
@@ -114,7 +125,7 @@ export function AiErrorBox({
             )}
             <p>
               {data.minPriority1Price != null
-                ? `Mức tối thiểu là ${money(data.minPriority1Price)}.`
+                ? `Mức tối thiểu là ${money(fullSetMinimum(data.minPriority1Price, fullSetRange))}.`
                 : "Kho chưa có linh kiện thỏa yêu cầu này."}{" "}
               Hãy tăng ngân sách hoặc bỏ bớt yêu cầu trong hồ sơ bên dưới.
             </p>

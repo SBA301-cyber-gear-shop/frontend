@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { money } from "@/utils";
 import type { SavedPcBuildDetail } from "../types/pcBuilder.types";
 import { ROLE_LABELS } from "../domain";
+import { visibleSpecs } from "../domain/buildLines";
 import { pcBuilderApi } from "../api/pcBuilderApi";
 
 interface SavedBuildDetailModalProps {
@@ -219,9 +220,9 @@ export function SavedBuildDetailModal({
                                   {item.variantName}
                                 </span>
                               )}
-                              {item.specs && Object.keys(item.specs).length > 0 && (
+                              {visibleSpecs(item.specs).length > 0 && (
                                 <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 4 }}>
-                                  {Object.entries(item.specs).slice(0, 3).map(([k, v]) => (
+                                  {visibleSpecs(item.specs).slice(0, 3).map(([k, v]) => (
                                     <span
                                       key={k}
                                       style={{

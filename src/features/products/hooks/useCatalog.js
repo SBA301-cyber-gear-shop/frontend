@@ -19,7 +19,7 @@ export function useCatalog() {
       p.status === "active" &&
       (!selectedCategory ||
         (selectedCategory === "parts"
-          ? !["monitor", "laptop"].includes(p.category)
+          ? !["monitor", "keyboard", "mouse", "laptop"].includes(p.category)
           : p.category === selectedCategory)) &&
       (!term ||
         (p.name + " " + p.brand + " " + p.sku + " " + p.variant)

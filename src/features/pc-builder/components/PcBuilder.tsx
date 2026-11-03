@@ -9,6 +9,7 @@ import { SummaryCard, buildVerdict } from "./SummaryCard";
 import { ReplacePartModal } from "./ReplacePartModal";
 import { SavedBuildsList } from "./SavedBuildsList";
 import { NeedsProfilePanel } from "./NeedsProfilePanel";
+import { withPeripherals } from "../domain";
 
 export function PcBuilder() {
   const [activeTab, setActiveTab] = useState<"builder" | "saved">("builder");
@@ -41,6 +42,18 @@ export function PcBuilder() {
     setProfileDraft,
     validation,
     isRevalidating,
+    buildScope,
+    setBuildScope,
+    activeScope,
+    resultScope,
+    peripheralRange,
+    peripherals,
+    selectedPeripherals,
+    peripheralsStatus,
+    peripheralsError,
+    peripheralTotal,
+    selectPeripheral,
+    retryPeripherals,
     modalCandidates,
     handleAiSuggest,
     handleResuggestWithProfile,
@@ -57,6 +70,8 @@ export function PcBuilder() {
   } = usePcBuilder();
 
   const verdict = buildVerdict(rules, allRulesPassed, isRevalidating);
+  const numericBudget = typeof budget === "number" ? budget : Number(budget) || 0;
+  const isFullSet = resultScope === "full";
   const profilePanel = profile && (
     <NeedsProfilePanel
       profile={profile}
@@ -160,6 +175,11 @@ export function PcBuilder() {
             onSubmit={handleAiSuggest}
             isBusy={isBusy}
             options={options}
+            scope={buildScope}
+            activeScope={activeScope}
+            onScopeChange={setBuildScope}
+            peripheralRange={peripheralRange}
+            scopeChanged={status === "success" && activeScope !== resultScope}
           />
 
           {/* CÁC TRẠNG THÁI HIỂN THỊ */}
@@ -208,6 +228,7 @@ export function PcBuilder() {
                 onRetry={handleRetry}
                 onReset={handleReset}
                 onSetBudget={setBudget}
+                fullSetRange={activeScope === "full" ? peripheralRange : null}
               />
               {/* Giữ hồ sơ để khách bỏ bớt yêu cầu rồi đề xuất lại (NO_FEASIBLE_BUILD) */}
               {profilePanel}
@@ -221,7 +242,11 @@ export function PcBuilder() {
                 <AiInsightPanel
                   insight={aiInsight}
                   reasonCode={aiResult?.reasonCode}
-                  budgetFit={aiResult?.budgetFit}
+                  budgetFit={
+                    isFullSet
+                      ? withPeripherals(aiResult?.budgetFit, numericBudget, grandTotal, peripheralTotal)
+                      : aiResult?.budgetFit
+                  }
                   totalPrice={aiResult?.totalPrice}
                   profile={profile}
                   relaxedItems={aiResult?.relaxedItems}
@@ -240,11 +265,26 @@ export function PcBuilder() {
                   verdict={verdict}
                   onReplacePart={openReplaceModal}
                   onUpdateQuantity={updateQuantity}
+                  peripherals={
+                    isFullSet
+                      ? {
+                          status: peripheralsStatus,
+                          suggestion: peripherals,
+                          selection: selectedPeripherals,
+                          error: peripheralsError,
+                          isBusy,
+                          onSelect: selectPeripheral,
+                          onRetry: retryPeripherals,
+                        }
+                      : undefined
+                  }
                 />
 
                 <SummaryCard
                   budget={budget}
                   grandTotal={grandTotal}
+                  isFullSet={isFullSet}
+                  peripheralTotal={peripheralTotal}
                   rules={rules}
                   allRulesPassed={allRulesPassed}
                   budgetFit={validation?.budgetFit}

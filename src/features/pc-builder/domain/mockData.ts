@@ -16,6 +16,8 @@ export const ROLE_LABELS: Record<ComponentRole, string> = {
   case: "Vỏ máy tính (Case)",
   cooler: "Tản nhiệt CPU (Cooler)",
   monitor: "Màn hình máy tính",
+  keyboard: "Bàn phím",
+  mouse: "Chuột",
 };
 
 export const initialBuildParts: BuildPart[] = [

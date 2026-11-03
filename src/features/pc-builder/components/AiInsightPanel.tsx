@@ -2,12 +2,18 @@ import { money } from "@/utils";
 import type { AiBuildInsight, BudgetFit, RequirementProfile } from "../types/pcBuilder.types";
 import { itemReason } from "./ProfileEditor";
 
-const WARNING_TEXT: Record<string, string> = {
-  REQUIREMENT_RELAXED: "Đã hạ yêu cầu để vừa ngân sách",
-  CONSTRAINT_UNSATISFIABLE: "Yêu cầu vượt khoảng giá trị kho đang có",
-  BRAND_NOT_AVAILABLE: "Thương hiệu bạn muốn chưa có trong kho",
-  PSU_HIGH_WATTAGE: "Bộ máy cần nguồn trên 1600 W",
+const ROLE_NAMES: Record<string, string> = {
+  cpu: "CPU",
+  mainboard: "bo mạch chủ",
+  ram: "RAM",
+  gpu: "card đồ họa",
+  ssd: "SSD",
+  psu: "nguồn",
+  case: "vỏ máy",
+  cooler: "tản nhiệt",
 };
+// Mã chỉ có ý nghĩa nội bộ: không hiện cho khách
+const HIDDEN_WARNINGS = new Set(["OP_NORMALIZED"]);
 
 /** Câu thân thiện cho reasonCode theo bảng DD 6.6; null khi không có gì để nói. */
 export function reasonMessage(
@@ -23,6 +29,8 @@ export function reasonMessage(
       return `Với nhu cầu "${profile?.summary || "của bạn"}", cấu hình ${money(totalPrice)} đã đáp ứng tối đa. Nâng cấp thêm không cải thiện trải nghiệm. Bạn còn dư ${leftover}.`;
     case "CATALOG_CEILING":
       return `Đây là cấu hình mạnh nhất cửa hàng đang có cho nhu cầu này. Còn dư ${leftover}, vui lòng liên hệ để báo giá máy trạm/server.`;
+    case "MAX_PRICE_REACHED":
+      return `Đây là cấu hình đắt nhất ráp được trong kho và ngân sách (${money(totalPrice)}), không phải cấu hình tối ưu cho nhu cầu. Bạn còn dư ${leftover}.`;
     case "REQUIREMENT_RELAXED": {
       const reasons = relaxedItems.map((id) => itemReason(profile, id));
       return `Ngân sách chưa đủ cho: ${reasons.join("; ") || "một số yêu cầu"}. Hệ thống đã đề xuất mức gần nhất.`;
@@ -33,12 +41,26 @@ export function reasonMessage(
   }
 }
 
-/** "CODE:chi tiết" → câu tiếng Việt; mã lạ thì giữ nguyên. */
-function warningText(warning: string) {
+/** "CODE:chi tiết" → câu tiếng Việt; null = không hiện. Mã lạ hiện câu chung, không lộ mã thô cho khách (B7). */
+export function warningText(warning: string): string | null {
   const [code, ...rest] = warning.split(":");
-  const text = WARNING_TEXT[code];
-  if (!text) return warning;
-  return rest.length ? `${text} (${rest.join(":")})` : text;
+  if (HIDDEN_WARNINGS.has(code)) return null;
+  switch (code) {
+    case "REQUIREMENT_RELAXED": {
+      const change = rest.slice(1).join(":").replace("→", " → ");
+      return change ? `Đã hạ yêu cầu để vừa ngân sách (${change})` : "Đã hạ yêu cầu để vừa ngân sách";
+    }
+    case "REQUIRED_ROLE_IMPLIED":
+      return `Đã thêm ${ROLE_NAMES[rest[0]] ?? "linh kiện"} vì nhu cầu của bạn cần`;
+    case "CONSTRAINT_UNSATISFIABLE":
+      return "Yêu cầu vượt khoảng giá trị kho đang có";
+    case "BRAND_NOT_AVAILABLE":
+      return "Thương hiệu bạn muốn chưa có trong kho";
+    case "PSU_HIGH_WATTAGE":
+      return "Bộ máy cần nguồn trên 1600 W";
+    default:
+      return "Hệ thống đã tự điều chỉnh một mục trong hồ sơ nhu cầu";
+  }
 }
 
 interface AiInsightPanelProps {
@@ -61,6 +83,7 @@ export function AiInsightPanel({
   warnings = [],
 }: AiInsightPanelProps) {
   const reason = reasonMessage(reasonCode, budgetFit, totalPrice, profile, relaxedItems);
+  const shownWarnings = warnings.map(warningText).filter((text): text is string => Boolean(text));
 
   return (
     <div className="ai-insight-panel" id="aiInsightPanel">
@@ -104,10 +127,10 @@ export function AiInsightPanel({
           {reason}
         </p>
       )}
-      {warnings.length > 0 && (
+      {shownWarnings.length > 0 && (
         <ul className="ai-warning-list" aria-label="Lưu ý từ hệ thống">
-          {warnings.map((w) => (
-            <li key={w}>{warningText(w)}</li>
+          {shownWarnings.map((text, index) => (
+            <li key={`${index}-${text}`}>{text}</li>
           ))}
         </ul>
       )}

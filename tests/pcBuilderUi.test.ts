@@ -35,6 +35,18 @@ test("reasonCode messages follow DD 6.6", () => {
   expect(reasonMessage(null, null, 0)).toBeNull();
 });
 
+test("MAX_PRICE_REACHED says the build is the most expensive, not the best fit for the needs", () => {
+  const message = reasonMessage("MAX_PRICE_REACHED", fit, 24_000_000);
+  expect(message).toMatch(/đắt nhất ráp được/);
+  expect(message).toMatch(/không phải cấu hình tối ưu/);
+  expect(message).toMatch(/còn dư 6\.000\.000/);
+});
+
+test("editing the profile keeps the MAX_PRICE objective in what is sent back", () => {
+  const draft = toDraftProfile({ ...initialProfile, objective: "MAX_PRICE" }, []);
+  expect(draft.objective).toBe("MAX_PRICE");
+});
+
 test("turning a chip off removes it from the profile sent back, marked USER_EDITED", () => {
   const rows = [
     { item: initialProfile.constraints[0], enabled: false },

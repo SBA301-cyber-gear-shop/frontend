@@ -5,6 +5,7 @@ export const endpoints = {
     replacements: "/api/v1/pc-build/compatible-replacements",
     validate: "/api/v1/pc-build/validate",
     options: "/api/v1/pc-build/options",
+    peripherals: "/api/v1/pc-build/peripherals",
     saveCustom: "/api/v1/pc-build/save",
     myBuilds: "/api/v1/pc-build/my-builds",
     detail: (buildId: number | string) => `/api/v1/pc-build/${buildId}`,

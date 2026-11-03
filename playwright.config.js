@@ -22,5 +22,11 @@ export default defineConfig({
       testMatch: ["api-flow.spec.js", "pickup-flow.spec.js"],
       use: { baseURL: "http://127.0.0.1:4176" },
     },
+    // Cần backend thật ở cổng 8080: npx playwright test --project=live
+    {
+      name: "live",
+      testMatch: "full-set.spec.js",
+      use: { baseURL: "http://127.0.0.1:4176" },
+    },
   ],
 });

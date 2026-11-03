@@ -1746,3 +1746,164 @@
     align-items: flex-start;
   }
 }
+
+/* TRỌN BỘ: PHẠM VI CẤU HÌNH VÀ MÀN, PHÍM, CHUỘT */
+.scope-picker {
+  border: 0;
+  padding: 0;
+  margin: 18px 0 0;
+  min-width: 0;
+}
+
+.scope-picker legend {
+  padding: 0;
+  margin-bottom: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink, #152237);
+}
+
+.scope-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.scope-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1.5px solid #d1d5db;
+  border-radius: 8px;
+  background: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink, #152237);
+  cursor: pointer;
+}
+
+.scope-option.active {
+  border-color: #2563eb;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.scope-option:focus-within {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+
+.scope-changed {
+  display: block;
+  margin-top: 4px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #b45309;
+}
+
+/* Nhóm màn, phím, chuột ở cuối bảng linh kiện (chung bảng, dữ liệu tách khỏi buildParts) */
+.builder-table .peripheral-group-head td {
+  padding: 14px 18px;
+  background: #f8fafc;
+  border-top: 2px solid var(--line, #e2e7ed);
+}
+
+.peripheral-group-head strong {
+  display: block;
+  font-size: 13px;
+  font-weight: 750;
+  color: var(--ink, #152237);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.peripheral-group-head span {
+  display: block;
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--muted, #657185);
+}
+
+.builder-table .peripheral-group-head:hover {
+  background: transparent;
+}
+
+.peripheral-role-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.peripheral-check {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  accent-color: #2563eb;
+}
+
+.peripheral-row.excluded .part-thumb,
+.peripheral-row.excluded .part-name,
+.peripheral-row.excluded .peripheral-specs,
+.peripheral-row.excluded .price-cell {
+  opacity: 0.5;
+}
+
+.peripheral-row.excluded .peripheral-price {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted, #657185);
+}
+
+.peripheral-specs {
+  font-size: 12px;
+  color: var(--muted, #657185);
+  margin-top: 2px;
+}
+
+.peripheral-reason {
+  font-size: 12px;
+  color: #148465;
+  margin-top: 2px;
+}
+
+.peripheral-select {
+  width: 100%;
+  max-width: 420px;
+  min-height: 34px;
+  margin-top: 6px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  padding: 0 8px;
+  background: #fff;
+  font-size: 13px;
+  color: var(--ink, #152237);
+}
+
+.builder-table td.peripheral-note {
+  padding: 12px 18px;
+  font-size: 12px;
+  color: var(--muted, #657185);
+  background: #fafbfc;
+}
+
+.peripheral-error {
+  font-size: 14px;
+  color: #b91c1c;
+}
+
+.peripheral-error p {
+  margin: 0 0 10px;
+}
+
+@media (max-width: 640px) {
+  .scope-option {
+    flex: 1 1 100%;
+  }
+  .peripheral-select {
+    min-width: 200px;
+  }
+}

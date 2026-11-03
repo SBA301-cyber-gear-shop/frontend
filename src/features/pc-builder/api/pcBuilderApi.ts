@@ -8,6 +8,8 @@ import type {
   BuildOptionsResponse,
   CompatibleReplacementResponse,
   CompatibleReplacementsQuery,
+  PeripheralQueryPayload,
+  PeripheralSuggestionResponse,
   SavedPcBuildSummary,
   SavedPcBuildDetail,
   ValidateBuildPayload,
@@ -146,6 +148,17 @@ export const pcBuilderApi = {
       if (isAbortError(error) && !signal?.aborted) return fetcher();
       throw error;
     }
+  },
+
+  /**
+   * Chọn màn hình, bàn phím, chuột cho chế độ Trọn bộ. Không cache: phụ thuộc giá thùng máy hiện tại.
+   * Endpoint: POST /api/v1/pc-build/peripherals
+   */
+  async suggestPeripherals(
+    payload: PeripheralQueryPayload,
+    { signal }: RequestOptions = {},
+  ): Promise<PeripheralSuggestionResponse> {
+    return post<PeripheralSuggestionResponse>(endpoints.pcBuilder.peripherals, payload, signal);
   },
 
   /**

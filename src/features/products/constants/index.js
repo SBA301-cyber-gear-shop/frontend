@@ -10,9 +10,11 @@ const allCategories = [
   { id: "case", name: "Vỏ máy" },
   { id: "cooler", name: "Tản nhiệt" },
   { id: "monitor", name: "Màn hình" },
+  { id: "keyboard", name: "Bàn phím" },
+  { id: "mouse", name: "Chuột" },
   { id: "laptop", name: "Laptop" },
 ];
-// Màn hình và Laptop chỉ có trong dữ liệu demo; dữ liệu thật chỉ có 8 nhóm linh kiện PC.
+// Laptop chỉ có trong dữ liệu demo; bàn phím và chuột chỉ có trong dữ liệu thật.
 export const categories = demoMode
-  ? allCategories
-  : allCategories.filter((c) => !["monitor", "laptop"].includes(c.id));
+  ? allCategories.filter((c) => !["keyboard", "mouse"].includes(c.id))
+  : allCategories.filter((c) => c.id !== "laptop");

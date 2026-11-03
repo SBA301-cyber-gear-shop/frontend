@@ -1,6 +1,7 @@
 import type { KeyboardEvent } from "react";
 import { money } from "@/utils";
-import type { BuildOptionsResponse } from "../types/pcBuilder.types";
+import { minFullSetBudget, reserveFor } from "../domain/fullSet";
+import type { BuildOptionsResponse, BuildScope, PeripheralRange } from "../types/pcBuilder.types";
 
 // Dùng khi /options chưa tải được; backend vẫn kiểm lại (DD 10.3)
 const DEFAULT_MIN_BUDGET = 8_000_000;
@@ -22,6 +23,11 @@ interface BuilderToolbarProps {
   onSubmit: () => void;
   isBusy: boolean;
   options?: BuildOptionsResponse | null;
+  scope?: BuildScope;
+  activeScope?: BuildScope;
+  onScopeChange?: (scope: BuildScope) => void;
+  peripheralRange?: PeripheralRange | null;
+  scopeChanged?: boolean;
 }
 
 export function BuilderToolbar({
@@ -34,8 +40,17 @@ export function BuilderToolbar({
   onSubmit,
   isBusy,
   options,
+  scope = "pc",
+  activeScope = "pc",
+  onScopeChange,
+  peripheralRange,
+  scopeChanged = false,
 }: BuilderToolbarProps) {
-  const minBudget = Math.max(options?.minBudget ?? DEFAULT_MIN_BUDGET, options?.floorPrice ?? 0);
+  const pcMinBudget = Math.max(options?.minBudget ?? DEFAULT_MIN_BUDGET, options?.floorPrice ?? 0);
+  const isFullSet = activeScope === "full" && Boolean(peripheralRange);
+  const minBudget = isFullSet && peripheralRange ? minFullSetBudget(pcMinBudget, peripheralRange) : pcMinBudget;
+  const numericBudget = typeof budget === "number" ? budget : 0;
+  const reserve = isFullSet && peripheralRange ? reserveFor(numericBudget, peripheralRange) : 0;
   const maxBudget = options?.maxBudget ?? DEFAULT_MAX_BUDGET;
   const examples = options?.examples?.length ? options.examples : FALLBACK_EXAMPLES;
 
@@ -99,6 +114,48 @@ export function BuilderToolbar({
           <small className="field-hint">{userPrompt.length}/500 ký tự</small>
         </div>
       </div>
+
+      {peripheralRange && (
+        <fieldset className="scope-picker">
+          <legend>Phạm vi cấu hình</legend>
+          <div className="scope-options">
+            <label className={`scope-option ${scope === "pc" ? "active" : ""}`}>
+              <input
+                type="radio"
+                name="buildScope"
+                value="pc"
+                checked={scope === "pc"}
+                onChange={() => onScopeChange?.("pc")}
+                disabled={isBusy}
+              />
+              <span>Chỉ thùng máy</span>
+            </label>
+            <label className={`scope-option ${scope === "full" ? "active" : ""}`}>
+              <input
+                type="radio"
+                name="buildScope"
+                value="full"
+                checked={scope === "full"}
+                onChange={() => onScopeChange?.("full")}
+                disabled={isBusy}
+              />
+              <span>Trọn bộ + màn, phím, chuột</span>
+            </label>
+          </div>
+          <small className="field-hint" id="scopeHint">
+            {!isFullSet
+              ? "Toàn bộ ngân sách dành cho thùng máy."
+              : numericBudget >= minBudget
+                ? `Dự kiến ${money(numericBudget - reserve)} cho thùng máy và tối đa ${money(reserve)} cho màn, phím, chuột.`
+                : `Trọn bộ cần ngân sách từ ${money(minBudget)}.`}
+          </small>
+          {scopeChanged && (
+            <small className="scope-changed" id="scopeChangedNote" role="status">
+              Bạn đã đổi phạm vi. Bấm "Đề xuất cấu hình với AI" để áp dụng.
+            </small>
+          )}
+        </fieldset>
+      )}
 
       <div className="prompt-row">
         <div className="example-chips" aria-label="Gợi ý nhu cầu">

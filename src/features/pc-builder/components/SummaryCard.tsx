@@ -1,6 +1,10 @@
 import { Badge } from "@/components/ui";
 import { money } from "@/utils";
+import { fullSetFit } from "../domain/fullSet";
+import { compatibilityPassed, isDataNote } from "../domain/buildLines";
 import type { BudgetFit, CompatibilityStatus, RuleCheck } from "../types/pcBuilder.types";
+
+export { compatibilityPassed, isDataNote };
 
 export const CHECK_STATUS: Record<
   CompatibilityStatus,
@@ -32,15 +36,18 @@ interface SummaryCardProps {
   onAddToCart: () => void;
   onSaveBuild: () => void;
   isBusy?: boolean;
+  isFullSet?: boolean;
+  peripheralTotal?: number;
 }
 
 function CheckList({ rules }: { rules: RuleCheck[] }) {
   return (
     <div className="check-list">
-      {rules.map((rule) => {
+      {rules.map((rule, index) => {
         const s = CHECK_STATUS[rule.status] ?? CHECK_STATUS.unknown;
         return (
-          <div key={rule.id} className={`check-item ${rule.status}`}>
+          // Nhiều check có thể cùng mã (mỗi linh kiện một J9a), nên key cần cả chỉ số (B5)
+          <div key={`${rule.id}-${index}`} className={`check-item ${rule.status}`}>
             <div className={`check-icon-badge ${rule.status}`} aria-hidden="true">
               {s.icon}
             </div>
@@ -68,15 +75,24 @@ export function SummaryCard({
   onAddToCart,
   onSaveBuild,
   isBusy = false,
+  isFullSet = false,
+  peripheralTotal = 0,
 }: SummaryCardProps) {
   const numericBudget = typeof budget === "number" ? budget : Number(budget) || 0;
-  // Ưu tiên số của backend; demo mode / chưa có kết quả thì tính từ tổng hiển thị
-  const percent = budgetFit?.percent ?? (numericBudget ? (grandTotal / numericBudget) * 100 : 0);
-  const leftover = budgetFit?.leftover ?? numericBudget - grandTotal;
-  const isOver = budgetFit ? budgetFit.status === "OVER" : numericBudget > 0 && grandTotal > numericBudget;
+  // Trọn bộ: tính trên cả bộ vì budgetFit của backend chỉ biết thùng máy.
+  // Ngược lại ưu tiên số của backend; demo mode / chưa có kết quả thì tính từ tổng hiển thị
+  const wholeSet = fullSetFit(numericBudget, grandTotal, peripheralTotal);
+  const percent = isFullSet ? wholeSet.percent : (budgetFit?.percent ?? (numericBudget ? (grandTotal / numericBudget) * 100 : 0));
+  const leftover = isFullSet ? wholeSet.leftover : (budgetFit?.leftover ?? numericBudget - grandTotal);
+  const isOver = isFullSet
+    ? wholeSet.isOver
+    : budgetFit
+      ? budgetFit.status === "OVER"
+      : numericBudget > 0 && grandTotal > numericBudget;
   const verdict = buildVerdict(rules, allRulesPassed, isRevalidating);
-  const hardwareRules = rules.filter((r) => !r.id.startsWith("P:"));
+  const hardwareRules = rules.filter((r) => !r.id.startsWith("P:") && !isDataNote(r));
   const profileRules = rules.filter((r) => r.id.startsWith("P:"));
+  const dataNotes = rules.filter(isDataNote);
   const passCount = hardwareRules.filter((r) => r.status === "pass").length;
   const fitTone = isOver ? "over" : percent >= 90 ? "in-window" : "under";
 
@@ -90,13 +106,30 @@ export function SummaryCard({
       {/* KHỐI TÍNH TOÁN TIỀN */}
       <div className="cost-block">
         <div className="cost-row">
-          <span>Ngân sách dự chi:</span>
+          <span>{isFullSet ? "Ngân sách trọn bộ:" : "Ngân sách dự chi:"}</span>
           <strong style={{ color: "var(--ink, #152237)" }}>{money(numericBudget)}</strong>
         </div>
-        <div className="cost-row">
-          <span>Tổng chi phí linh kiện:</span>
-          <span className="total-cost-amount">{money(grandTotal)}</span>
-        </div>
+        {isFullSet ? (
+          <>
+            <div className="cost-row" id="costPcTotal">
+              <span>Thùng máy:</span>
+              <strong>{money(grandTotal)}</strong>
+            </div>
+            <div className="cost-row" id="costPeripheralTotal">
+              <span>Màn hình, bàn phím, chuột:</span>
+              <strong>{money(peripheralTotal)}</strong>
+            </div>
+            <div className="cost-row" id="costGrandTotal">
+              <span>Tổng cả bộ:</span>
+              <span className="total-cost-amount">{money(grandTotal + peripheralTotal)}</span>
+            </div>
+          </>
+        ) : (
+          <div className="cost-row">
+            <span>Tổng chi phí linh kiện:</span>
+            <span className="total-cost-amount">{money(grandTotal)}</span>
+          </div>
+        )}
         {numericBudget > 0 && (
           <>
             <div
@@ -142,6 +175,16 @@ export function SummaryCard({
         <p className="check-empty">Chưa có kết quả kiểm tra tương thích.</p>
       ) : (
         <CheckList rules={hardwareRules} />
+      )}
+
+      {dataNotes.length > 0 && (
+        <>
+          <div className="checklist-section-title" id="dataNotesTitle">
+            <span>GHI CHÚ VỀ DỮ LIỆU</span>
+            <span>{dataNotes.length} GHI CHÚ</span>
+          </div>
+          <CheckList rules={dataNotes.map((r) => ({ ...r, status: "unknown" as const }))} />
+        </>
       )}
 
       {profileRules.length > 0 && (

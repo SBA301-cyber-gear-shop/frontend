@@ -1,5 +1,7 @@
 import { Badge } from "@/components/ui";
 import { money } from "@/utils";
+import { visibleSpecs } from "../domain/buildLines";
+import { PeripheralRows, type PeripheralRowsProps } from "./PeripheralPanel";
 import type { BuildCapacity, BuildPart, ComponentRole } from "../types/pcBuilder.types";
 
 const MAX_LINE_QUANTITY = 8; // /validate nhận quantity 1–8 (DD 9.2)
@@ -26,8 +28,10 @@ interface PartsTableProps {
   parts: BuildPart[];
   capacity?: BuildCapacity | null;
   verdict?: { label: string; tone: string };
-  onReplacePart: (role: ComponentRole) => void;
-  onUpdateQuantity: (role: ComponentRole, delta: number) => void;
+  onReplacePart: (role: ComponentRole, index: number) => void;
+  onUpdateQuantity: (role: ComponentRole, delta: number, index: number) => void;
+  // Chế độ Trọn bộ: màn, phím, chuột hiện thành nhóm cuối bảng
+  peripherals?: PeripheralRowsProps;
 }
 
 export function PartsTable({
@@ -36,14 +40,21 @@ export function PartsTable({
   verdict,
   onReplacePart,
   onUpdateQuantity,
+  peripherals,
 }: PartsTableProps) {
+  const peripheralCount =
+    peripherals?.status === "ready" ? Object.values(peripherals.selection).filter(Boolean).length : 0;
+
   return (
     <div className="builder-panel">
       <div className="panel-head">
         <div className="panel-head-title">
           <h2>Cấu hình linh kiện đề xuất</h2>
           <p>
-            <span>{parts.length} nhóm linh kiện</span>
+            <span>
+              {parts.length} nhóm linh kiện
+              {peripheralCount > 0 && ` · ${peripheralCount} phụ kiện đi kèm`}
+            </span>
             {capacity && capacity.ramSlotsMax > 0 && (
               <span className="capacity-line">
                 {" "}
@@ -68,13 +79,13 @@ export function PartsTable({
               <th style={{ width: 140, textAlign: "right" }}>Thành tiền</th>
             </tr>
           </thead>
-          <tbody>
-            {parts.map((item) => {
+          <tbody className="pc-parts">
+            {parts.map((item, index) => {
               const lineTotal = item.unitPrice * item.quantity;
               const { adjustable: isAdjustable, canAdd } = quantityLimit(item, parts, capacity);
 
               return (
-                <tr key={item.role}>
+                <tr key={`${item.role}-${index}`}>
                   <td>
                     <span className="part-role-badge">{item.role}</span>
                   </td>
@@ -90,7 +101,7 @@ export function PartsTable({
                         <span className="part-name">{item.productName}</span>
                         <span className="part-variant">{item.variantName}</span>
                         <div className="part-specs-chips">
-                          {Object.entries(item.specs).map(([k, v]) => (
+                          {visibleSpecs(item.specs).map(([k, v]) => (
                             <span key={k} className="spec-mini-chip">
                               {k}: {v}
                             </span>
@@ -100,7 +111,7 @@ export function PartsTable({
                           <button
                             type="button"
                             className="btn-replace-part"
-                            onClick={() => onReplacePart(item.role)}
+                            onClick={() => onReplacePart(item.role, index)}
                           >
                             <svg
                               width="13"
@@ -129,7 +140,7 @@ export function PartsTable({
                           className="qty-btn"
                           aria-label={`Giảm số lượng ${item.role}`}
                           disabled={item.quantity <= 1}
-                          onClick={() => onUpdateQuantity(item.role, -1)}
+                          onClick={() => onUpdateQuantity(item.role, -1, index)}
                         >
                           -
                         </button>
@@ -140,7 +151,7 @@ export function PartsTable({
                           aria-label={`Tăng số lượng ${item.role}`}
                           disabled={!canAdd}
                           title={canAdd ? undefined : "Đã đạt giới hạn của bo mạch chủ"}
-                          onClick={() => onUpdateQuantity(item.role, 1)}
+                          onClick={() => onUpdateQuantity(item.role, 1, index)}
                         >
                           +
                         </button>
@@ -163,6 +174,7 @@ export function PartsTable({
               );
             })}
           </tbody>
+          {peripherals && <PeripheralRows {...peripherals} />}
         </table>
       </div>
     </div>

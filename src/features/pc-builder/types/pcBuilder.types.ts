@@ -16,7 +16,9 @@ export type ComponentRole =
   | "psu"
   | "case"
   | "cooler"
-  | "monitor";
+  | "monitor"
+  | "keyboard"
+  | "mouse";
 
 /** Bảng PC_Customs – lưu cấu hình PC tự chọn hoặc AI build */
 export interface PcCustom {
@@ -85,6 +87,7 @@ export interface AiBuildRequestPayload {
   purpose?: string; // nhu cầu chính, văn bản tự do
   userPrompt?: string; // mong muốn thêm, văn bản tự do
   profile?: RequirementProfile; // gửi khi khách sửa hồ sơ rồi đề xuất lại
+  fullSetBudget?: number; // chế độ Trọn bộ: ngân sách khách nhập; budget chỉ là phần cho thùng máy
 }
 
 /** Dòng linh kiện được AI đề xuất trả về từ Backend */
@@ -122,7 +125,7 @@ export interface AiBuildResponse {
   isCompatible: boolean;
   checks: CompatibilityCheckResponse[];
   items: SelectedPartResponse[];
-  reasonCode?: string | null; // null | NEEDS_SATURATED | CATALOG_CEILING | REQUIREMENT_RELAXED
+  reasonCode?: string | null; // null | NEEDS_SATURATED | CATALOG_CEILING | REQUIREMENT_RELAXED | MAX_PRICE_REACHED
   budgetFit?: BudgetFit;
   profile?: RequirementProfile;
   relaxedItems?: string[];
@@ -313,6 +316,7 @@ export interface RequirementProfile {
   balancePairs?: { a: ProfileRole; b: ProfileRole; maxGap: number }[];
   brands?: { prefer: string[]; avoid: string[] };
   unmetNeeds?: string[];
+  objective?: "MAX_PRICE";
   droppedItems?: { id: string; reason: string; detail?: string }[];
   confidence?: number;
   clarifyingQuestion?: string;
@@ -327,6 +331,7 @@ export interface BudgetFit {
     | "UNDER_SATURATED"
     | "UNDER_CEILING"
     | "UNDER_RELAXED"
+    | "UNDER_MAX_PRICE"
     | "OVER";
   windowMin: number;
   windowMax: number;
@@ -404,7 +409,61 @@ export interface BuildOptionsResponse {
   dictionary: MetadataDictionary;
   examples: string[];
   tiers: { code: string; min: number; max: number | null }[];
+  peripheralMinTotal?: number | null; // null khi kho thiếu một loại: ẩn lựa chọn Trọn bộ
+  peripheralMaxTotal?: number | null;
 }
+
+// ==========================================
+// 6. TRỌN BỘ: MÀN HÌNH, BÀN PHÍM, CHUỘT
+// ==========================================
+
+/** "pc": chỉ thùng máy; "full": ngân sách đã gồm màn, phím, chuột. */
+export type BuildScope = "pc" | "full";
+export type PeripheralRole = "monitor" | "keyboard" | "mouse";
+export type PeripheralStatus = "idle" | "loading" | "ready" | "error";
+
+export interface PeripheralRange {
+  min: number;
+  max: number;
+}
+
+export interface PeripheralItem {
+  variantId: number;
+  productName: string;
+  variantName?: string;
+  brandName?: string;
+  imageUrl?: string;
+  price: number;
+  stockQuantity?: number;
+  highlights: string[];
+  reason?: string | null;
+}
+
+export interface PeripheralRoleEntry {
+  role: PeripheralRole;
+  label: string;
+  picked: PeripheralItem;
+  options: PeripheralItem[];
+}
+
+/** Body POST /peripherals: giá do server tính nên không gửi giá. */
+export interface PeripheralQueryPayload {
+  budget: number;
+  archetype?: string;
+  items: BuildItemPayload[];
+}
+
+export interface PeripheralSuggestionResponse {
+  pcTotal: number;
+  available: number;
+  spendLimit: number;
+  peripheralTotal: number;
+  grandTotal: number;
+  roles: PeripheralRoleEntry[];
+}
+
+/** Món khách đang chọn theo từng loại; null = đã bỏ tick. */
+export type PeripheralSelection = Partial<Record<PeripheralRole, PeripheralItem | null>>;
 
 /** Body lỗi chuẩn của backend: {timestamp, status, error, message, code?, data?} */
 export interface ApiErrorBody {
