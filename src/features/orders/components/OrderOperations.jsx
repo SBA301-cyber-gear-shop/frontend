@@ -392,7 +392,7 @@ export function OrderOperations({ handover = false }) {
                         <span className="muted">Hành trình gần nhất: </span>
                         <strong>{trackingInfo.logs[0].description}</strong>
                         {trackingInfo.logs[0].time && (
-                          <span className="tiny muted"> ({dateTime(trackingInfo.logs[0].time)})</span>
+                          <span className="tiny muted"> ({trackingInfo.logs[0].time})</span>
                         )}
                       </div>
                     )}
