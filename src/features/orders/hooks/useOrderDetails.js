@@ -65,8 +65,26 @@ export function useOrderDetails() {
       notify(e.message, "danger");
     }
   }
-  const labels = Object.values(ORDER_STATUS).slice(0, 5),
-    index = Object.keys(ORDER_STATUS).indexOf(order?.status);
+  const isShipping = order?.deliveryType === "shipping";
+  const labels = isShipping
+    ? ["Chờ xác nhận", "Đã xác nhận", "Đang chuẩn bị", "Đang giao hàng", "Đã giao hàng"]
+    : ["Chờ xác nhận", "Đã xác nhận", "Đang chuẩn bị", "Sẵn sàng nhận", "Đã nhận hàng"];
+  const index = isShipping
+    ? ({
+        pending: 0,
+        confirmed: 1,
+        preparing: 2,
+        ready_for_pickup: 2,
+        delivering: 3,
+        completed: 4,
+      }[order?.status] ?? -1)
+    : ({
+        pending: 0,
+        confirmed: 1,
+        preparing: 2,
+        ready_for_pickup: 3,
+        completed: 4,
+      }[order?.status] ?? -1);
   async function saveReview() {
     if (!comment.trim()) return notify("Nhập nội dung đánh giá.", "danger");
     if (!demoMode) {

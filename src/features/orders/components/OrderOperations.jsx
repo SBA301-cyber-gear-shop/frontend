@@ -252,8 +252,29 @@ export function OrderOperations({ handover = false }) {
               </p>
               <div className="section">
                 <Steps
-                  labels={Object.values(ORDER_STATUS).slice(0, 5)}
-                  current={Object.keys(ORDER_STATUS).indexOf(selected.status)}
+                  labels={
+                    selected.deliveryType === "shipping"
+                      ? ["Chờ xác nhận", "Đã xác nhận", "Đang chuẩn bị", "Đang giao hàng", "Đã giao hàng"]
+                      : ["Chờ xác nhận", "Đã xác nhận", "Đang chuẩn bị", "Sẵn sàng nhận", "Đã nhận hàng"]
+                  }
+                  current={
+                    selected.deliveryType === "shipping"
+                      ? ({
+                          pending: 0,
+                          confirmed: 1,
+                          preparing: 2,
+                          ready_for_pickup: 2,
+                          delivering: 3,
+                          completed: 4,
+                        }[selected.status] ?? -1)
+                      : ({
+                          pending: 0,
+                          confirmed: 1,
+                          preparing: 2,
+                          ready_for_pickup: 3,
+                          completed: 4,
+                        }[selected.status] ?? -1)
+                  }
                 />
               </div>
             </Panel>
@@ -512,55 +533,100 @@ export function OrderOperations({ handover = false }) {
                 )}
             </Panel>
             <Panel title="Bước tiếp theo" className="summary">
-              {["pending", "confirmed", "preparing"].includes(
-                selected.status,
-              ) && (
-                <Button
-                  className="full"
-                  disabled={busy}
-                  onClick={() => update("advance")}
-                >
-                  {selected.status === "pending"
-                    ? "Xác nhận đơn"
-                    : selected.status === "confirmed"
-                      ? "Bắt đầu chuẩn bị"
-                      : "Đóng gói xong (sẵn sàng giao)"}
-                </Button>
-              )}
-              {handover ? (
-                <Button
-                  className="full"
-                  disabled={
-                    selected.status !== "ready_for_pickup" ||
-                    selected.payment !== "SUCCESS" ||
-                    !checked ||
-                    busy
-                  }
-                  onClick={finish}
-                >
-                  Hoàn tất bàn giao
-                </Button>
+              {selected.deliveryType === "shipping" ? (
+                <>
+                  {["pending", "confirmed", "preparing"].includes(
+                    selected.status,
+                  ) && (
+                    <Button
+                      className="full"
+                      disabled={busy}
+                      onClick={() => update("advance")}
+                    >
+                      {selected.status === "pending"
+                        ? "Xác nhận đơn"
+                        : selected.status === "confirmed"
+                          ? "Bắt đầu chuẩn bị"
+                          : "Đóng gói xong (Chờ shipper)"}
+                    </Button>
+                  )}
+                  {selected.status === "ready_for_pickup" && (
+                    <Button
+                      className="full"
+                      disabled={busy}
+                      onClick={() => update("advance")}
+                    >
+                      🚚 Shipper đã lấy hàng (Bắt đầu giao)
+                    </Button>
+                  )}
+                  {selected.status === "delivering" && (
+                    <Button
+                      className="full"
+                      disabled={busy}
+                      onClick={() => update("advance")}
+                    >
+                      ✅ Xác nhận đã giao thành công
+                    </Button>
+                  )}
+                  {selected.status === "completed" && (
+                    <Notice tone="success">
+                      Đơn hàng giao qua GHN đã hoàn tất thành công.
+                    </Notice>
+                  )}
+                </>
               ) : (
-                <Button
-                  className="full"
-                  disabled={
-                    selected.status !== "ready_for_pickup" ||
-                    selected.payment !== "SUCCESS" ||
-                    busy
-                  }
-                  onClick={() =>
-                    navigate("/van-hanh/ban-giao?id=" + selected.id)
-                  }
-                >
-                  Tiếp tục bàn giao →
-                </Button>
-              )}
-              {selected.status === "completed" && (
-                <Notice tone="success">
-                  {warrantyLines.length
-                    ? "Đã bàn giao và kích hoạt bảo hành."
-                    : "Đã bàn giao đơn hàng."}
-                </Notice>
+                <>
+                  {["pending", "confirmed", "preparing"].includes(
+                    selected.status,
+                  ) && (
+                    <Button
+                      className="full"
+                      disabled={busy}
+                      onClick={() => update("advance")}
+                    >
+                      {selected.status === "pending"
+                        ? "Xác nhận đơn"
+                        : selected.status === "confirmed"
+                          ? "Bắt đầu chuẩn bị"
+                          : "Đóng gói xong (sẵn sàng giao)"}
+                    </Button>
+                  )}
+                  {handover ? (
+                    <Button
+                      className="full"
+                      disabled={
+                        selected.status !== "ready_for_pickup" ||
+                        selected.payment !== "SUCCESS" ||
+                        !checked ||
+                        busy
+                      }
+                      onClick={finish}
+                    >
+                      Hoàn tất bàn giao
+                    </Button>
+                  ) : (
+                    <Button
+                      className="full"
+                      disabled={
+                        selected.status !== "ready_for_pickup" ||
+                        selected.payment !== "SUCCESS" ||
+                        busy
+                      }
+                      onClick={() =>
+                        navigate("/van-hanh/ban-giao?id=" + selected.id)
+                      }
+                    >
+                      Tiếp tục bàn giao →
+                    </Button>
+                  )}
+                  {selected.status === "completed" && (
+                    <Notice tone="success">
+                      {warrantyLines.length
+                        ? "Đã bàn giao và kích hoạt bảo hành."
+                        : "Đã bàn giao đơn hàng."}
+                    </Notice>
+                  )}
+                </>
               )}
               {!demoMode &&
                 !["completed", "canceled"].includes(selected.status) && (

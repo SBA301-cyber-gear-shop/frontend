@@ -102,6 +102,8 @@ export function OrderDetails() {
               ? order.deliveryType === "shipping"
                 ? "Đơn hàng đã được bàn giao cho đơn vị vận chuyển GHN."
                 : "Đơn đã sẵn sàng. Vui lòng đối chiếu thông tin và thanh toán đủ trước khi nhận."
+              : order.status === "delivering"
+                ? "🚚 Kiện hàng đang được Shipper GHN giao đến địa chỉ của bạn. Vui lòng chú ý điện thoại."
               : order.status === "completed"
                 ? "Đơn hàng đã giao thành công. Thông tin bảo hành theo từng thiết bị có trong tài khoản."
                 : order.status === "canceled"
@@ -140,6 +142,26 @@ export function OrderDetails() {
                   <div style={{ fontWeight: 600, fontSize: "16px", color: "var(--primary)" }}>
                     {tracking?.trackingCode || order.trackingCode || "Đang tạo vận đơn..."}
                   </div>
+                  {(tracking?.trackingCode || order.trackingCode) && (
+                    <div style={{ marginTop: "4px" }}>
+                      <a
+                        href={`https://tracking.ghn.vn/?order_code=${tracking?.trackingCode || order.trackingCode}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "4px",
+                          fontSize: "12px",
+                          color: "#0284c7",
+                          textDecoration: "underline",
+                          fontWeight: 500,
+                        }}
+                      >
+                        🔗 Tra cứu trên website GHN ↗
+                      </a>
+                    </div>
+                  )}
                 </div>
                 <div>
                   <span className="small muted">Trạng thái vận chuyển:</span>
