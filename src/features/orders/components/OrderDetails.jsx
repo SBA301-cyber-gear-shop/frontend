@@ -145,7 +145,7 @@ export function OrderDetails() {
                   {(tracking?.trackingCode || order.trackingCode) && (
                     <div style={{ marginTop: "4px" }}>
                       <a
-                        href={`https://tracking.ghn.vn/?order_code=${tracking?.trackingCode || order.trackingCode}`}
+                        href={`https://tracking.ghn.dev/?order_code=${tracking?.trackingCode || order.trackingCode}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         style={{

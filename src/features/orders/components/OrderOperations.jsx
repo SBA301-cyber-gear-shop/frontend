@@ -314,9 +314,28 @@ export function OrderOperations({ handover = false }) {
                   <KV label="Cước phí GHN">{money(selected.shippingFee || 0)}</KV>
                   <KV label="Mã vận đơn">
                     {selected.trackingCode ? (
-                      <span style={{ fontWeight: 700, color: "#0284c7", fontSize: "15px" }}>
-                        {selected.trackingCode}
-                      </span>
+                      <div>
+                        <span style={{ fontWeight: 700, color: "#0284c7", fontSize: "15px" }}>
+                          {selected.trackingCode}
+                        </span>
+                        <div style={{ marginTop: "4px" }}>
+                          <a
+                            href={`https://tracking.ghn.dev/?order_code=${selected.trackingCode}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: "4px",
+                              fontSize: "12px",
+                              color: "#0284c7",
+                              textDecoration: "underline",
+                            }}
+                          >
+                            🔗 Xem trên GHN Sandbox (tracking.ghn.dev) ↗
+                          </a>
+                        </div>
+                      </div>
                     ) : (
                       <span className="muted">Chưa tạo mã</span>
                     )}
