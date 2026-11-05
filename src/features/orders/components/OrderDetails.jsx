@@ -1,5 +1,6 @@
 import { dateTime, money, formatShortOrderCode, formatOrderSuffix } from "@/utils";
 import { useState } from "react";
+import { paymentApi } from "../api/paymentApi";
 import { ORDER_STATUS, PAYMENT_STATUS } from "../constants";
 import { OrderLines } from "@/features/products";
 import {
@@ -132,8 +133,40 @@ export function OrderDetails() {
             </div>
             <p className="small muted section">
               Phương thức:{" "}
-              {order.method === "store" ? "Tại cửa hàng" : "Online · Demo"}
+              {order.method === "store"
+                ? "Tại cửa hàng"
+                : order.method === "vnpay"
+                ? "Cổng VNPAY Sandbox"
+                : "Online · Demo"}
             </p>
+            {order.method === "vnpay" &&
+              !["SUCCESS", "CANCELED"].includes(order.payment) &&
+              order.status !== "canceled" && (
+                <div className="section stack">
+                  <Notice tone="info">
+                    Đơn hàng thanh toán trực tuyến qua VNPAY Sandbox.
+                  </Notice>
+                  <Button
+                    className="full"
+                    onClick={async () => {
+                      try {
+                        const data = await paymentApi.createVnPayUrl(id);
+                        if (data?.paymentUrl) {
+                          window.location.href = data.paymentUrl;
+                        }
+                      } catch (err) {
+                        notify(
+                          err.response?.data?.message ||
+                            "Không thể tạo liên kết thanh toán VNPAY lúc này.",
+                          "danger",
+                        );
+                      }
+                    }}
+                  >
+                    Thanh toán ngay qua VNPAY →
+                  </Button>
+                </div>
+              )}
             {order.method === "online" &&
               !["SUCCESS", "CANCELED"].includes(order.payment) &&
               order.status !== "canceled" && (

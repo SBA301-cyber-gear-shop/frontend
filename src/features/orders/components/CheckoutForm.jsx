@@ -157,7 +157,7 @@ export function CheckoutForm() {
                     [
                       "store",
                       "Thanh toán tại cửa hàng",
-                      "Thu đủ tiền khi bạn đến nhận hàng.",
+                      "Thu đủ tiền khi bạn đến nhận hàng tại quầy.",
                     ],
                     [
                       "online",
@@ -169,7 +169,12 @@ export function CheckoutForm() {
                     [
                       "store",
                       "Thanh toán tại cửa hàng",
-                      "Thu đủ tiền khi bạn đến nhận hàng.",
+                      "Thu đủ tiền khi bạn đến nhận hàng tại quầy TechZone.",
+                    ],
+                    [
+                      "vnpay",
+                      "Cổng thanh toán VNPAY Sandbox",
+                      "Quét mã QR bằng App ngân hàng hoặc thanh toán bằng thẻ ATM nội địa test (NCB).",
                     ],
                   ]
               ).map(([value, label, desc]) => (
@@ -247,7 +252,11 @@ export function CheckoutForm() {
               </KV>
               <p className="small muted section">
                 Nhận tại cửa hàng ·{" "}
-                {method === "store" ? "Thanh toán tại quầy" : "Online mô phỏng"}
+                {method === "store"
+                  ? "Thanh toán tại quầy"
+                  : method === "vnpay"
+                  ? "VNPAY Sandbox (Trực tuyến)"
+                  : "Online mô phỏng"}
               </p>
               {error && (
                 <div className="section stack">
@@ -261,7 +270,9 @@ export function CheckoutForm() {
               )}
               <div className="section">
                 <Notice>
-                  Thanh toán tại cửa hàng khi đến nhận sản phẩm.
+                  {method === "vnpay"
+                    ? "Sau khi xác nhận đặt hàng, hệ thống sẽ chuyển hướng bạn tới cổng VNPAY Sandbox để hoàn tất thanh toán."
+                    : "Thanh toán tại cửa hàng khi đến nhận sản phẩm."}
                 </Notice>
               </div>
               <Button

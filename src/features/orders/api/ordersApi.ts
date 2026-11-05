@@ -17,6 +17,7 @@ function orderView(order) {
     payment: order.paymentStatus,
     createdAt: order.createdAt,
     paidAt: order.paidAt,
+    paymentUrl: order.paymentUrl,
     completedAt: order.status === "completed" ? order.updatedAt : undefined,
     lines: order.items.map((item) => ({
       id: String(item.productVariantId),

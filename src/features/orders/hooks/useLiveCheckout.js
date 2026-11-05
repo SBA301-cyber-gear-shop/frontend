@@ -49,6 +49,7 @@ export function useLiveCheckout() {
   const [name, setName] = useState(user?.name || "");
   const [phone, setPhone] = useState(user?.phone || "");
   const [note, setNote] = useState("");
+  const [method, setMethod] = useState("store");
   const [inputCode, setInputCode] = useState("");
   const [applied, setApplied] = useState("");
   const [discount, setDiscount] = useState(0);
@@ -220,7 +221,7 @@ export function useLiveCheckout() {
         pickupPhone: trimmedPhone,
         note: note.trim(),
         promotionCode: applied || "",
-        method: "store",
+        method: method,
         expectedTotal: total,
         expectedDiscount: discount,
         itemVariantIds: selectedVariantIds || undefined,
@@ -237,6 +238,13 @@ export function useLiveCheckout() {
       sessionStorage.removeItem("techzone-checkout-key-" + user.id);
       sessionStorage.removeItem("techzone_checkout_selected_ids");
       sessionStorage.removeItem("techzone_cart_selected_ids");
+
+      if (order.paymentUrl) {
+        notify("Đang chuyển hướng tới cổng thanh toán VNPAY Sandbox…");
+        window.location.href = order.paymentUrl;
+        return;
+      }
+
       notify("Đã tạo đơn hàng. Vui lòng chờ cửa hàng xác nhận sẵn sàng nhận.");
       navigate("/don-hang/" + order.id + "?created=1");
       void reloadCart();
@@ -287,8 +295,8 @@ export function useLiveCheckout() {
     setInputCode: handleSetInputCode,
     applied,
     setApplied: handleSetApplied,
-    method: "store",
-    setMethod: () => {},
+    method,
+    setMethod,
     error: error || validationError || cartError,
     placing,
     applying,
