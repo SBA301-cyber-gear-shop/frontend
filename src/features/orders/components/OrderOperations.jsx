@@ -1,5 +1,5 @@
 import { dateTime, money, formatShortOrderCode, formatOrderSuffix } from "@/utils";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { OrderSelector } from "./OrderSelector";
 import { ORDER_STATUS, PAYMENT_STATUS } from "../constants";
 import { OrderLines } from "@/features/products";
@@ -16,6 +16,8 @@ import {
 } from "@/components/ui";
 import { Field } from "@/components/form";
 import { useOrderOperations } from "../hooks/useOrderOperations";
+import { useStore } from "@/store";
+import { shippingApi } from "../api/shippingApi";
 
 export function OrderOperations({ handover = false }) {
   const {
@@ -53,8 +55,88 @@ export function OrderOperations({ handover = false }) {
     cancelConfirm,
     setCancelConfirm,
   } = useOrderOperations();
-  
+
+  const { notify } = useStore();
   const [copied, setCopied] = useState(false);
+  const [shippingActionBusy, setShippingActionBusy] = useState(false);
+  const [trackingInfo, setTrackingInfo] = useState(null);
+
+  useEffect(() => {
+    if (selected?.deliveryType === "shipping" && selected?.trackingCode) {
+      shippingApi
+        .getTracking(selected.id)
+        .then((res) => setTrackingInfo(res))
+        .catch(() => setTrackingInfo(null));
+    } else {
+      setTrackingInfo(null);
+    }
+  }, [selected?.id, selected?.trackingCode]);
+
+  const handleCreateShipment = async () => {
+    if (!selected) return;
+    setShippingActionBusy(true);
+    try {
+      const res = await shippingApi.createShipment(selected.id);
+      notify(`Đã tạo vận đơn GHN thành công! Mã: ${res.trackingCode}`, "success");
+      setTrackingInfo(res);
+      refresh();
+    } catch (err) {
+      notify(err.message || "Không thể tạo vận đơn GHN", "danger");
+    } finally {
+      setShippingActionBusy(false);
+    }
+  };
+
+  const handlePrintA5 = async () => {
+    if (!selected) return;
+    setShippingActionBusy(true);
+    try {
+      const res = await shippingApi.getPrintToken(selected.id);
+      if (res.printUrl) {
+        window.open(res.printUrl, "_blank", "noopener,noreferrer");
+      } else {
+        notify("Không lấy được đường dẫn in tem", "warning");
+      }
+    } catch (err) {
+      notify(err.message || "Lỗi tạo link in tem", "danger");
+    } finally {
+      setShippingActionBusy(false);
+    }
+  };
+
+  const handleSyncTracking = async () => {
+    if (!selected) return;
+    setShippingActionBusy(true);
+    try {
+      const res = await shippingApi.getTracking(selected.id);
+      setTrackingInfo(res);
+      notify("Đã đồng bộ thông tin mới nhất từ GHN!", "success");
+      refresh();
+    } catch (err) {
+      notify(err.message || "Lỗi đồng bộ GHN", "danger");
+    } finally {
+      setShippingActionBusy(false);
+    }
+  };
+
+  const handleSwitchStatus = async (targetStatus) => {
+    if (!selected) return;
+    setShippingActionBusy(true);
+    try {
+      const res = await shippingApi.switchStatus(
+        selected.id,
+        targetStatus,
+        "Cập nhật thử nghiệm từ trang quản trị",
+      );
+      setTrackingInfo(res);
+      notify(`[Sandbox] Đã chuyển trạng thái GHN sang: ${targetStatus}`, "success");
+      refresh();
+    } catch (err) {
+      notify(err.message || "Lỗi chuyển trạng thái", "danger");
+    } finally {
+      setShippingActionBusy(false);
+    }
+  };
 
   const handleAutoFillHandover = () => {
     if (!selected) return;
@@ -96,7 +178,7 @@ export function OrderOperations({ handover = false }) {
     <>
       <Heading
         title={handover ? "Bàn giao đơn hàng" : "Xử lý đơn hàng"}
-        sub="Đối chiếu đơn, thu tiền và chuẩn bị bàn giao tại cửa hàng."
+        sub="Đối chiếu đơn, thu tiền và chuẩn bị bàn giao tại cửa hàng hoặc gửi vận chuyển."
         eyebrow="VẬN HÀNH / ĐƠN HÀNG"
       />
       <OrderSelector
@@ -142,20 +224,27 @@ export function OrderOperations({ handover = false }) {
                 </div>
               }
               action={
-                <Badge
-                  tone={
-                    {
-                      pending: "warning",
-                      confirmed: "info",
-                      preparing: "info",
-                      ready_for_pickup: "success",
-                      completed: "success",
-                      canceled: "danger",
-                    }[selected.status] || "info"
-                  }
-                >
-                  {ORDER_STATUS[selected.status]}
-                </Badge>
+                <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+                  {selected.deliveryType === "shipping" ? (
+                    <Badge tone="info">🚚 GHN Express</Badge>
+                  ) : (
+                    <Badge tone="neutral">🏪 Tại quầy</Badge>
+                  )}
+                  <Badge
+                    tone={
+                      {
+                        pending: "warning",
+                        confirmed: "info",
+                        preparing: "info",
+                        ready_for_pickup: "success",
+                        completed: "success",
+                        canceled: "danger",
+                      }[selected.status] || "info"
+                    }
+                  >
+                    {ORDER_STATUS[selected.status]}
+                  </Badge>
+                </div>
               }
             >
               <p className="small muted">
@@ -168,18 +257,150 @@ export function OrderOperations({ handover = false }) {
                 />
               </div>
             </Panel>
+
             <Panel title="Hàng trong đơn">
               <OrderLines lines={selected.lines} products={data.products} />
             </Panel>
+
             <Panel title="Thông tin nhận hàng">
               <div className="two-col">
                 <KV label="Người nhận">{selected.pickupName}</KV>
                 <KV label="Điện thoại">{selected.pickupPhone}</KV>
               </div>
+              {selected.deliveryType === "shipping" && (
+                <div className="section">
+                  <KV label="Địa chỉ giao">{selected.shippingAddress || "Chưa có địa chỉ"}</KV>
+                </div>
+              )}
               <p className="small muted section">
                 {selected.note || "Không có ghi chú."}
               </p>
             </Panel>
+
+            {selected.deliveryType === "shipping" && (
+              <Panel
+                title="Vận chuyển Giao Hàng Nhanh (GHN)"
+                action={
+                  selected.trackingCode ? (
+                    <Badge tone="success">Đã tạo vận đơn</Badge>
+                  ) : (
+                    <Badge tone="warning">Chưa tạo vận đơn</Badge>
+                  )
+                }
+              >
+                <div className="two-col">
+                  <KV label="Hình thức">Giao hàng tận nơi (GHN)</KV>
+                  <KV label="Cước phí GHN">{money(selected.shippingFee || 0)}</KV>
+                  <KV label="Mã vận đơn">
+                    {selected.trackingCode ? (
+                      <span style={{ fontWeight: 700, color: "#0284c7", fontSize: "15px" }}>
+                        {selected.trackingCode}
+                      </span>
+                    ) : (
+                      <span className="muted">Chưa tạo mã</span>
+                    )}
+                  </KV>
+                  <KV label="Trạng thái GHN">
+                    {trackingInfo ? (
+                      <Badge tone="info">{trackingInfo.statusText || trackingInfo.status}</Badge>
+                    ) : selected.trackingCode ? (
+                      <Badge tone="info">Đang vận chuyển</Badge>
+                    ) : (
+                      <span className="muted">Chờ đẩy đơn</span>
+                    )}
+                  </KV>
+                </div>
+
+                {!selected.trackingCode ? (
+                  <div className="section">
+                    <Button
+                      tone="primary"
+                      disabled={busy || shippingActionBusy || selected.status === "canceled"}
+                      onClick={handleCreateShipment}
+                    >
+                      {shippingActionBusy ? "Đang gửi sang GHN..." : "🚀 Đẩy đơn sang GHN & Lấy mã vận đơn"}
+                    </Button>
+                    <p className="tiny muted" style={{ marginTop: "6px" }}>
+                      Hệ thống sẽ gửi thông tin người nhận, địa chỉ và kiện hàng sang GHN để cấp mã vận đơn tự động.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="section stack">
+                    <div className="row" style={{ gap: "8px", flexWrap: "wrap" }}>
+                      <Button
+                        tone="secondary"
+                        disabled={busy || shippingActionBusy}
+                        onClick={handlePrintA5}
+                      >
+                        🖨️ In tem vận đơn (A5)
+                      </Button>
+                      <Button
+                        tone="secondary"
+                        disabled={busy || shippingActionBusy}
+                        onClick={handleSyncTracking}
+                      >
+                        {shippingActionBusy ? "Đang đồng bộ..." : "🔄 Làm mới hành trình"}
+                      </Button>
+                    </div>
+
+                    <div
+                      style={{
+                        marginTop: "10px",
+                        padding: "12px",
+                        background: "rgba(0,0,0,0.02)",
+                        borderRadius: "8px",
+                        border: "1px dashed #cbd5e1",
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontSize: "12px",
+                          fontWeight: 600,
+                          color: "#64748b",
+                          marginBottom: "8px",
+                        }}
+                      >
+                        ⚡ Giả lập Sandbox (Thử nghiệm chuyển trạng thái):
+                      </div>
+                      <div className="row" style={{ gap: "6px", flexWrap: "wrap" }}>
+                        <Button
+                          tone="ghost"
+                          disabled={busy || shippingActionBusy}
+                          onClick={() => handleSwitchStatus("delivering")}
+                        >
+                          🚚 Shipper đang giao
+                        </Button>
+                        <Button
+                          tone="ghost"
+                          disabled={busy || shippingActionBusy}
+                          onClick={() => handleSwitchStatus("delivered")}
+                        >
+                          ✅ Giao thành công
+                        </Button>
+                        <Button
+                          tone="ghost"
+                          disabled={busy || shippingActionBusy}
+                          onClick={() => handleSwitchStatus("cancel")}
+                        >
+                          ❌ Hủy giao
+                        </Button>
+                      </div>
+                    </div>
+
+                    {trackingInfo?.logs?.length > 0 && (
+                      <div style={{ marginTop: "12px", fontSize: "13px" }}>
+                        <span className="muted">Hành trình gần nhất: </span>
+                        <strong>{trackingInfo.logs[0].description}</strong>
+                        {trackingInfo.logs[0].time && (
+                          <span className="tiny muted"> ({dateTime(trackingInfo.logs[0].time)})</span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </Panel>
+            )}
+
             {handover && (
               <Panel
                 title={"Serial từng thiết bị · " + count + " thiết bị"}
@@ -261,6 +482,16 @@ export function OrderOperations({ handover = false }) {
               <KV label={"Giảm giá " + (selected.promotion || "")}>
                 {money(selected.discount)}
               </KV>
+              {selected.shippingFee > 0 && (
+                <KV label="Phí giao hàng (GHN)">{money(selected.shippingFee)}</KV>
+              )}
+              <KV label="Hình thức">
+                {selected.method === "cod"
+                  ? "COD (Thu tiền khi giao)"
+                  : selected.method === "vnpay"
+                    ? "VNPay"
+                    : "Tại quầy"}
+              </KV>
               <KV label="Thành tiền">{money(selected.final)}</KV>
               {selected.payment !== "SUCCESS" &&
                 !["canceled", "completed"].includes(selected.status) && (
@@ -293,7 +524,7 @@ export function OrderOperations({ handover = false }) {
                     ? "Xác nhận đơn"
                     : selected.status === "confirmed"
                       ? "Bắt đầu chuẩn bị"
-                      : "Đánh dấu sẵn sàng nhận"}
+                      : "Đóng gói xong (sẵn sàng giao)"}
                 </Button>
               )}
               {handover ? (
