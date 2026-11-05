@@ -2,6 +2,18 @@ import { useState, useEffect, useCallback } from "react";
 import { useStore } from "@/store";
 import { productApi } from "../api/productApi";
 
+function findCategoryById(cats, id) {
+  if (!Array.isArray(cats) || !id) return null;
+  for (const c of cats) {
+    if (c.id === id) return c;
+    if (c.children && c.children.length > 0) {
+      const found = findCategoryById(c.children, id);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
 export function useSpecificationManagement() {
   const { notify } = useStore();
   const [categories, setCategories] = useState([]);
@@ -12,6 +24,19 @@ export function useSpecificationManagement() {
   const [saving, setSaving] = useState(false);
   const [newName, setNewName] = useState("");
   const [selectedSpecId, setSelectedSpecId] = useState("");
+
+  // Category CRUD states
+  const [categoryModalOpen, setCategoryModalOpen] = useState(false);
+  const [editingCategoryId, setEditingCategoryId] = useState(null);
+  const [categoryForm, setCategoryForm] = useState({
+    name: "",
+    slug: "",
+    parentId: "",
+    description: "",
+  });
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [categoryToDelete, setCategoryToDelete] = useState(null);
+  const [categorySubmitting, setCategorySubmitting] = useState(false);
 
   const loadData = useCallback(async (preferredCatId = null, bypassCache = false) => {
     try {
@@ -26,7 +51,7 @@ export function useSpecificationManagement() {
       const activeId = preferredCatId || (cats && cats.length > 0 ? cats[0].id : null);
       if (activeId) {
         setSelectedCategoryId(activeId);
-        const cat = cats.find((c) => c.id === activeId);
+        const cat = findCategoryById(cats, activeId);
         if (cat && Array.isArray(cat.specifications)) {
           setDraft(
             cat.specifications.map((s) => ({
@@ -41,6 +66,9 @@ export function useSpecificationManagement() {
         } else {
           setDraft([]);
         }
+      } else {
+        setSelectedCategoryId(null);
+        setDraft([]);
       }
     } catch (err) {
       console.error("Failed to load specifications data:", err);
@@ -57,7 +85,7 @@ export function useSpecificationManagement() {
   function choose(catId) {
     const id = Number(catId);
     setSelectedCategoryId(id);
-    const cat = categories.find((c) => c.id === id);
+    const cat = findCategoryById(categories, id);
     if (cat && Array.isArray(cat.specifications)) {
       setDraft(
         cat.specifications.map((s) => ({
@@ -120,7 +148,6 @@ export function useSpecificationManagement() {
     }
 
     try {
-      // Check if it already exists in allSpecs
       let existing = allSpecs.find((s) => s.name.toLowerCase() === trimmed.toLowerCase());
       if (!existing) {
         existing = await productApi.createSpecification({ name: trimmed });
@@ -158,7 +185,6 @@ export function useSpecificationManagement() {
       }));
 
       await productApi.configureCategorySpecifications(selectedCategoryId, payload);
-      // Reload categories with bypass cache
       await loadData(selectedCategoryId, true);
       notify("Đã lưu cấu hình thông số cho danh mục thành công!");
     } catch (err) {
@@ -169,7 +195,95 @@ export function useSpecificationManagement() {
     }
   }
 
-  const selectedCategory = categories.find((c) => c.id === selectedCategoryId) || null;
+  // Category CRUD Handlers
+  function openCreateCategoryModal(defaultParentId = null) {
+    setEditingCategoryId(null);
+    setCategoryForm({
+      name: "",
+      slug: "",
+      parentId: defaultParentId ? String(defaultParentId) : "",
+      description: "",
+    });
+    setCategoryModalOpen(true);
+  }
+
+  function openEditCategoryModal(cat, e) {
+    if (e) e.stopPropagation();
+    setEditingCategoryId(cat.id);
+    setCategoryForm({
+      name: cat.name || "",
+      slug: cat.slug || "",
+      parentId: cat.parentId || "",
+      description: cat.description || "",
+    });
+    setCategoryModalOpen(true);
+  }
+
+  function openDeleteCategoryModal(cat, e) {
+    if (e) e.stopPropagation();
+    setCategoryToDelete(cat);
+    setDeleteConfirmOpen(true);
+  }
+
+  async function handleSaveCategory() {
+    const trimmedName = categoryForm.name.trim();
+    if (!trimmedName) {
+      notify("Vui lòng nhập tên danh mục.", "danger");
+      return;
+    }
+
+    try {
+      setCategorySubmitting(true);
+      const payload = {
+        name: trimmedName,
+        slug: categoryForm.slug.trim() || undefined,
+        parentId: categoryForm.parentId ? Number(categoryForm.parentId) : null,
+        description: categoryForm.description.trim() || undefined,
+      };
+
+      let savedCat;
+      if (editingCategoryId) {
+        savedCat = await productApi.updateCategory(editingCategoryId, payload);
+        notify(`Đã cập nhật danh mục "${savedCat.name}" thành công!`);
+      } else {
+        savedCat = await productApi.createCategory(payload);
+        notify(`Đã tạo mới danh mục "${savedCat.name}" thành công!`);
+      }
+
+      setCategoryModalOpen(false);
+      await loadData(savedCat?.id || selectedCategoryId, true);
+    } catch (err) {
+      console.error("Save category error:", err);
+      notify(
+        err.response?.data?.message || err.message || "Không thể lưu thông tin danh mục.",
+        "danger"
+      );
+    } finally {
+      setCategorySubmitting(false);
+    }
+  }
+
+  async function handleDeleteCategory() {
+    if (!categoryToDelete) return;
+    try {
+      setCategorySubmitting(true);
+      await productApi.deleteCategory(categoryToDelete.id);
+      notify(`Đã xóa danh mục "${categoryToDelete.name}" thành công!`);
+      setDeleteConfirmOpen(false);
+      setCategoryToDelete(null);
+      await loadData(null, true);
+    } catch (err) {
+      console.error("Delete category error:", err);
+      notify(
+        err.response?.data?.message || err.message || "Không thể xóa danh mục.",
+        "danger"
+      );
+    } finally {
+      setCategorySubmitting(false);
+    }
+  }
+
+  const selectedCategory = findCategoryById(categories, selectedCategoryId) || null;
 
   return {
     categories,
@@ -189,5 +303,20 @@ export function useSpecificationManagement() {
     addExistingSpec,
     createNewSpec,
     saveChanges,
+    // Category CRUD exports
+    categoryModalOpen,
+    setCategoryModalOpen,
+    editingCategoryId,
+    categoryForm,
+    setCategoryForm,
+    deleteConfirmOpen,
+    setDeleteConfirmOpen,
+    categoryToDelete,
+    categorySubmitting,
+    openCreateCategoryModal,
+    openEditCategoryModal,
+    openDeleteCategoryModal,
+    handleSaveCategory,
+    handleDeleteCategory,
   };
 }
