@@ -13,7 +13,7 @@ import {
 } from "@/components/ui";
 import { Field } from "@/components/form";
 import { REQUEST_RESOLUTION, REQUEST_STATUS } from "../constants";
-import { cardBadge, day, stepButtons, today } from "../domain/requests";
+import { cardBadge, day, groupRequestsByIntake, stepButtons, today } from "../domain/requests";
 import { useAftersales } from "../hooks/useAftersales";
 import { RequestHistory, Timeline } from "./RequestHistory";
 
@@ -25,17 +25,19 @@ export function ApiTechnicianWorkbench() {
     [detail, setDetail] = useState(null),
     [error, setError] = useState(""),
     [tick, setTick] = useState(0);
-  const activeId = selectedId ?? list?.[0]?.id ?? null;
+  const groups = groupRequestsByIntake(list ?? [], filter);
+  const visible = groups.flat();
+  const activeId = visible.some((row) => row.id === selectedId) ? selectedId : visible[0]?.id ?? null;
   useEffect(() => {
     let alive = true;
     svc
-      .listRequests(filter)
+      .listRequests("")
       .then((rows) => alive && setList(rows))
       .catch((err) => alive && setError(err.message));
     return () => {
       alive = false;
     };
-  }, [svc, filter, tick]);
+  }, [svc, tick]);
   useEffect(() => {
     if (activeId == null) return;
     let alive = true;
@@ -63,7 +65,7 @@ export function ApiTechnicianWorkbench() {
       {error && <Notice tone="danger">{error}</Notice>}
       <div className="two-col">
         <Panel
-          title="Danh sách yêu cầu"
+          title="Lần tiếp nhận"
           action={
             <button className="text-button" onClick={reload}>
               Làm mới
@@ -88,42 +90,41 @@ export function ApiTechnicianWorkbench() {
             ))}
           </select>
           <div className="section">
-            {byOrder(list ?? []).map(([orderCode, rows]) => (
-              <details className="intake-group" key={orderCode}>
-                <summary>
-                  Đơn {orderCode} · {rows.length} phiếu
+            {filter && <p className="small muted">Hiển thị cả bộ máy nếu có linh kiện khớp trạng thái đã chọn.</p>}
+            {groups.map((rows) => (
+              <details className="tech-intake" key={rows[0].intakeId ?? `request-${rows[0].id}`}>
+                <summary className="tech-intake-heading">
+                  <span className="tech-intake-summary">
+                  <b>{rows[0].intakeCode || rows[0].requestCode}</b>
+                  <span className="small muted">Đơn {rows[0].orderCode || "chưa rõ"} · {rows[0].contactName || "Chưa có tên liên hệ"}</span>
+                  <span className="small muted">Nhận {dateTime(rows[0].createdAt)} · {rows.filter((r) => ["ready_for_return", "returned", "canceled"].includes(r.status)).length}/{rows.length} linh kiện đã xử lý</span>
+                  </span>
+                  <span className="tech-intake-toggle" aria-hidden="true" />
                 </summary>
                 {rows.map((t) => (
                   <button
-                    className={
-                      "selection request-row " +
-                      (t.id === activeId ? "selected" : "")
-                    }
+                    type="button"
+                    className={"selection tech-part " + (t.id === activeId ? "selected" : "")}
                     key={t.id}
+                    aria-pressed={t.id === activeId}
                     onClick={() => {
                       setError("");
                       setSelectedId(t.id);
                     }}
                   >
-                    <div>
-                      <b>{t.requestCode}</b>
-                      {t.intakeCode && (
-                        <p className="small muted">
-                          Lần tiếp nhận {t.intakeCode}
-                        </p>
-                      )}
-                      <p className="small muted">
-                        {t.productName} · {t.serialNumber}
-                      </p>
-                      <p className="small muted">{t.issueDescription}</p>
-                      <Badge tone="info">{REQUEST_STATUS[t.status]}</Badge>
-                    </div>
+                    <span className="tech-part-identity"><b>{t.productName || "Chưa rõ linh kiện"}</b><span className="small muted">{t.serialNumber || "Chưa có serial"} · {t.requestCode}</span></span>
+                    <span className="tech-part-state">
+                      <Badge tone={t.underWarrantyAtIntake === false ? "warning" : "success"}>
+                        {t.underWarrantyAtIntake === false ? "Ngoài bảo hành lúc nhận" : t.warrantyRemainingDays == null ? "Còn bảo hành lúc nhận" : `Còn ${t.warrantyRemainingDays} ngày (${day(t.warrantyRemainingAsOf)})`}
+                      </Badge>
+                      <Badge tone="info">{REQUEST_STATUS[t.status] || t.status}</Badge>
+                    </span>
                   </button>
                 ))}
               </details>
             ))}
-            {list && !list.length && (
-              <p className="small muted">Không có phiếu nào.</p>
+            {list && !groups.length && (
+              <p className="small muted">Không có lần tiếp nhận phù hợp.</p>
             )}
           </div>
         </Panel>
@@ -144,16 +145,6 @@ export function ApiTechnicianWorkbench() {
     </>
   );
 }
-// Gom phiếu theo đơn hàng; Map giữ thứ tự gặp đầu tiên nên đơn có phiếu mới nhất đứng trước.
-function byOrder(rows) {
-  const groups = new Map();
-  for (const t of rows) {
-    const key = t.orderCode || "không rõ";
-    if (!groups.has(key)) groups.set(key, []);
-    groups.get(key).push(t);
-  }
-  return [...groups];
-}
 function ApiTicketEditor({ ticket: t, svc, onChanged }) {
   const { notify } = useStore(),
     [note, setNote] = useState(""),
@@ -166,6 +157,10 @@ function ApiTicketEditor({ ticket: t, svc, onChanged }) {
     [serial, setSerial] = useState(""),
     [source, setSource] = useState("supplier"),
     [confirming, setConfirming] = useState(false),
+    [selectedParts, setSelectedParts] = useState([]),
+    [noFaultNote, setNoFaultNote] = useState(""),
+    [noFaultPublicNote, setNoFaultPublicNote] = useState(""),
+    [confirmingNoFault, setConfirmingNoFault] = useState(false),
     [busy, setBusy] = useState(false);
   const orderCode = t.card.orderCode,
     cardId = t.card.id,
@@ -189,14 +184,15 @@ function ApiTicketEditor({ ticket: t, svc, onChanged }) {
   const siblings = orderCards.filter(
     (c) => c.id !== cardId && c.status === "active",
   );
-  // Thêm được linh kiện còn hạn, chưa có phiếu đang mở; BE kiểm tra lại hiệu lực theo ngày tiếp nhận.
+  // Chỉ thêm thiết bị đã được khách mang tới và chưa có phiếu đang mở.
   const addable = orderCards.filter(
-    (c) => c.status === "active" && c.valid && !c.openRequest,
+    (c) => c.status === "active" && !c.openRequest,
   );
   const rest =
     intake?.requests.filter(
       (r) => r.status === "received" || r.status === "inspecting",
     ) ?? [];
+  const chosenParts = rest.filter((r) => selectedParts.includes(r.id));
   async function run(action, message) {
     // Khóa form trong lúc gửi: phiếu được nạp lại khi có kết quả, chữ gõ dở lúc đó sẽ mất.
     setBusy(true);
@@ -230,16 +226,39 @@ function ApiTicketEditor({ ticket: t, svc, onChanged }) {
         <KV label="Thẻ bảo hành">
           {cardBadge(t.card)[1]}, đến {day(t.card.endDate)}
         </KV>
+        {t.underWarrantyAtIntake === false && (
+          <Notice tone="warning">Linh kiện ngoài bảo hành tại thời điểm tiếp nhận. Chỉ ghi nhận kết quả kiểm tra; không tự động sửa bảo hành.</Notice>
+        )}
+        {t.card.openRequest?.warrantyRemainingDays != null && (
+          <KV label="Thời hạn bảo hành còn lại">
+            {t.card.openRequest.warrantyRemainingDays} ngày · ngày tính {day(t.card.openRequest.warrantyRemainingAsOf)}
+          </KV>
+        )}
+        {t.card.replacedBySerialNumber && (
+          <KV label="Thiết bị thay thế">
+            {t.card.replacedBySerialNumber} · hạn {day(t.card.replacedByEndDate)}
+          </KV>
+        )}
         <KV label="Tiếp nhận">{dateTime(t.createdAt)}</KV>
         <KV label="Ngày hẹn trả">{day(t.expectedReturnDate)}</KV>
         <KV label="Người mang máy">
           {t.contactName || "Chưa ghi nhận"} · {t.contactPhone || ""}
         </KV>
         <KV label="Kỹ thuật viên">{t.assignedTechnicianName || "Chưa có"}</KV>
-        <h3 className="section">Lỗi khách báo</h3>
-        <p>{t.issueDescription}</p>
-        <KV label="Ngoại quan">{t.conditionNote || "Chưa ghi nhận"}</KV>
-        <KV label="Phụ kiện">{t.accessoriesNote || "Chưa ghi nhận"}</KV>
+        <section className="tech-intake-notes section" aria-label="Thông tin khách bàn giao">
+          <div>
+            <h3>Lỗi khách báo</h3>
+            <p>{t.issueDescription || "Chưa ghi nhận"}</p>
+          </div>
+          <div>
+            <h3>Ngoại quan</h3>
+            <p>{t.conditionNote || "Chưa ghi nhận"}</p>
+          </div>
+          <details>
+            <summary>Phụ kiện nhận giữ</summary>
+            <p>{t.accessoriesNote || "Chưa ghi nhận"}</p>
+          </details>
+        </section>
         {(stepButtons(t).length > 0 || t.canAddNote) && (
           <>
             <div className="section">
@@ -322,50 +341,60 @@ function ApiTicketEditor({ ticket: t, svc, onChanged }) {
           </>
         )}
       </Panel>
-      {intake && (
+      {intake && rest.length > 0 && (
         <Panel
-          title={"Cùng lần tiếp nhận " + intake.intakeCode}
+          title="Kết luận linh kiện không tìm thấy lỗi"
           action={<Badge tone="info">{REQUEST_STATUS[intake.status]}</Badge>}
         >
-          {intake.requests.map((r) => (
-            <div className="ticket-preview part-row" key={r.id}>
-              <b className="mono">{r.requestCode}</b>
-              <span className="row gap8">
-                <Badge tone="info">{REQUEST_STATUS[r.status]}</Badge>
-                {r.resolution && (
-                  <Badge>{REQUEST_RESOLUTION[r.resolution]}</Badge>
-                )}
-              </span>
-              <span className="small part-name">
-                {r.productName} · {r.serialNumber}
-                {r.id === t.id ? " (phiếu đang mở)" : ""}
-              </span>
-            </div>
-          ))}
-          {rest.length > 0 && (
-            <>
-              <p className="small muted section">
-                Sau khi đã tìm ra linh kiện lỗi: kết luận không tìm thấy lỗi cho{" "}
-                {rest.length} linh kiện còn chờ hoặc đang kiểm tra (
-                {rest.map((r) => r.serialNumber).join(", ")}). Ghi lý do ở ô ghi
-                chú nội bộ phía trên.
-              </p>
-              <Button
-                tone="secondary"
-                onClick={() =>
-                  run(
-                    () =>
-                      svc.noFaultRest(intake.id, {
-                        internalNote: note,
-                        publicNote,
-                      }),
-                    "Đã kết luận các linh kiện còn lại.",
-                  )
-                }
-              >
-                Các linh kiện còn lại không lỗi
-              </Button>
-            </>
+          <p className="small muted">Chỉ chọn những linh kiện đã kiểm tra và không phát hiện lỗi. Các linh kiện không chọn giữ nguyên trạng thái.</p>
+          <div className="no-fault-parts">
+            {rest.map((r) => (
+              <label className="no-fault-part" key={r.id}>
+                <input type="checkbox" checked={selectedParts.includes(r.id)} onChange={(e) =>
+                  setSelectedParts((ids) => e.target.checked ? [...ids, r.id] : ids.filter((id) => id !== r.id))
+                } />
+                <span><b>{r.productName}</b> · {r.serialNumber} · {r.requestCode}<br />
+                  <span className="small muted">{REQUEST_STATUS[r.status]}{r.underWarrantyAtIntake === false ? " · Ngoài bảo hành" : ""}</span>
+                </span>
+              </label>
+            ))}
+          </div>
+          <Field label="Ghi chú kiểm tra chung (bắt buộc)">
+            {(id) => <textarea id={id} className="input full" rows="2" value={noFaultNote} onChange={(e) => setNoFaultNote(e.target.value)} />}
+          </Field>
+          <Field label="Thông tin chung cho khách (không bắt buộc)">
+            {(id) => <textarea id={id} className="input full" rows="2" value={noFaultPublicNote} onChange={(e) => setNoFaultPublicNote(e.target.value)} />}
+          </Field>
+          <Button className="section" tone="secondary" disabled={!chosenParts.length || !noFaultNote.trim()} onClick={() => setConfirmingNoFault(true)}>
+            Xem lại {chosenParts.length} linh kiện đã chọn
+          </Button>
+          {confirmingNoFault && (
+            <Modal title="Xác nhận kết quả kiểm tra" onClose={() => setConfirmingNoFault(false)}>
+              <p>Chỉ các linh kiện sau sẽ chuyển sang <b>Chờ trả — Không tìm thấy lỗi</b>:</p>
+              <ul>{chosenParts.map((r) => <li key={r.id}>{r.productName} · {r.serialNumber} · {r.requestCode}</li>)}</ul>
+              <p className="small muted">Linh kiện không được chọn giữ nguyên trạng thái. Ghi chú: {noFaultNote}</p>
+              <div className="row section">
+                <Button tone="secondary" onClick={() => setConfirmingNoFault(false)}>Quay lại</Button>
+                <Button onClick={() => {
+                  setConfirmingNoFault(false);
+                  run(() => svc.noFaultRest(intake.id, {
+                    components: chosenParts.map((r) => ({ id: r.id, version: r.version })),
+                    internalNote: noFaultNote,
+                    publicNote: noFaultPublicNote,
+                  }).then((updated) => {
+                    setIntake(updated);
+                    setSelectedParts([]);
+                    setNoFaultNote("");
+                    setNoFaultPublicNote("");
+                    return null;
+                  }).catch(async (err) => {
+                    setSelectedParts([]);
+                    try { setIntake(await svc.getIntake(intake.id)); } catch { /* Lỗi gốc được thông báo bên dưới. */ }
+                    throw err;
+                  }), "Đã kết luận các linh kiện được chọn.");
+                }}>Xác nhận kết quả</Button>
+              </div>
+            </Modal>
           )}
         </Panel>
       )}
@@ -373,8 +402,8 @@ function ApiTicketEditor({ ticket: t, svc, onChanged }) {
         <Panel title="Thêm linh kiện cùng bộ máy">
           <p className="small muted">
             Dùng khi kiểm tra thấy thêm linh kiện khác trong bộ máy khách mang
-            tới cũng lỗi. Chỉ chọn được linh kiện cùng đơn hàng, còn bảo hành.
-            Lý do ghi ở ô ghi chú nội bộ phía trên.
+            tới cũng lỗi. Chỉ chọn linh kiện cùng đơn mà khách đã mang tới;
+            linh kiện hết hạn được ghi nhận ngoài bảo hành. Lý do ghi ở ô ghi chú nội bộ phía trên.
           </p>
           <Field label="Linh kiện cần thêm">
             {(id) => (
@@ -387,7 +416,7 @@ function ApiTicketEditor({ ticket: t, svc, onChanged }) {
                 <option value="">Chọn linh kiện</option>
                 {addable.map((c) => (
                   <option key={c.id} value={c.id}>
-                    {c.serialNumber} · {c.productName}
+                    {c.serialNumber} · {c.productName}{!c.valid ? " · ngoài bảo hành hoặc chưa có hiệu lực" : ""}
                   </option>
                 ))}
               </select>
@@ -462,8 +491,8 @@ function ApiTicketEditor({ ticket: t, svc, onChanged }) {
       {t.canReplaceDevice && (
         <Panel title="Đổi thiết bị">
           <p className="small muted">
-            Dùng khi không sửa được và khách nhận thiết bị khác. Thẻ mới có hạn
-            tính lại từ hôm nay. Chọn hàng đang bán thì hệ thống tự trừ 1 tồn
+            Dùng khi không sửa được và khách nhận thiết bị khác. Thẻ mới giữ thời hạn
+            bảo hành còn lại, cộng thời gian xử lý đến ngày đổi. Chọn hàng đang bán thì hệ thống tự trừ 1 tồn
             kho.
           </p>
           <Field

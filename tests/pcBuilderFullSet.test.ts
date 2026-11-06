@@ -78,12 +78,18 @@ test("fullSetFit: tính trên cả bộ", () => {
   expect(fullSetFit(0, 1, 1)).toEqual({ percent: 0, leftover: -2, isOver: true });
 });
 
-test("withPeripherals: lời nhận xét nói đúng số của cả bộ, giữ nguyên các trường khác", () => {
+test("withPeripherals: tính ngưỡng và trạng thái theo tổng cả bộ", () => {
   const fit: BudgetFit = { ratio: 0.95, percent: 95, status: "IN_WINDOW", windowMin: 21_600_000, windowMax: 24_000_000, leftover: 1_000_000 };
   const shown = withPeripherals(fit, 30_000_000, 23_000_000, 5_070_000);
   expect(shown?.leftover).toBe(1_930_000);
   expect(shown?.percent).toBeCloseTo(93.57, 2);
   expect(shown?.status).toBe("IN_WINDOW");
+  expect(shown?.windowMin).toBe(27_000_000);
+  expect(shown?.windowMax).toBe(30_000_000);
+  expect(withPeripherals(fit, 30_000_000, 20_000_000, 5_000_000)).toMatchObject({
+    windowMin: 27_000_000, windowMax: 30_000_000, leftover: 5_000_000, status: "UNDER_WINDOW",
+  });
+  expect(withPeripherals({ ...fit, status: "UNDER_SATURATED" }, 30_000_000, 22_000_000, 5_000_000)?.status).toBe("IN_WINDOW");
   expect(withPeripherals(null, 30_000_000, 23_000_000, 5_070_000)).toBeNull();
   expect(withPeripherals(undefined, 30_000_000, 23_000_000, 5_070_000)).toBeNull();
 });

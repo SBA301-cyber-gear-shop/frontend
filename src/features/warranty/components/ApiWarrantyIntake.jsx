@@ -14,7 +14,7 @@ import {
 } from "@/components/ui";
 import { Field } from "@/components/form";
 import { REQUEST_RESOLUTION, REQUEST_STATUS } from "../constants";
-import { cardBadge, day, today } from "../domain/requests";
+import { cardBadge, day, today, warrantyRemainingText } from "../domain/requests";
 import { useAftersales } from "../hooks/useAftersales";
 import { RequestDetail, RequestHistory } from "./RequestHistory";
 
@@ -27,7 +27,7 @@ const EMPTY_INTAKE = {
 };
 // Linh kiện tạo được phiếu: thẻ còn hoạt động, còn hạn, chưa có phiếu đang mở.
 const selectable = (c) => c.status === "active" && c.valid && !c.openRequest;
-// Linh kiện hết hạn khách vẫn để lại cùng bộ máy: ghi nhận kèm, không tạo phiếu.
+// Linh kiện hết hạn được tiếp nhận để kiểm tra ngoài bảo hành.
 const extraable = (c) => c.status === "active" && !c.valid && !c.openRequest;
 
 // Nhóm kết quả tra cứu theo đơn hàng; trong mỗi đơn, linh kiện cùng cấu hình PC gom thành "Bộ PC", còn lại là "Mua lẻ".
@@ -179,6 +179,15 @@ function OrderIntake({
           Lịch sử bảo hành ({historyCount})
         </button>
       </div>
+      {receipts.length > 0 && (
+        <div className="intake-open-requests">
+          {receipts.map((receipt) => (
+            <button type="button" className="text-button" key={receipt.id} onClick={() => onOpenIntake(receipt.id)}>
+              Xem phiếu {receipt.intakeCode}
+            </button>
+          ))}
+        </div>
+      )}
       {open && (
         <div className="intake-order">
           <div>
@@ -216,7 +225,7 @@ function OrderIntake({
                             onChange={() => toggle(setExtra, extra, c)}
                           />
                           <b>{c.productName}</b>
-                          <span className="small muted">(nhận kèm)</span>
+                          <span className="small muted">(ngoài bảo hành)</span>
                         </label>
                       ) : (
                         <b>{c.productName}</b>
@@ -228,6 +237,7 @@ function OrderIntake({
                     </div>
                     <div className="intake-part-status">
                       <Badge tone={cardBadge(c)[0]}>{cardBadge(c)[1]}</Badge>
+                      <span>Hạn {day(c.endDate)} · {warrantyRemainingText(c)}</span>
                       {c.openRequest && (
                         <button
                           type="button"
@@ -247,39 +257,11 @@ function OrderIntake({
           </div>
           {/* Form luôn hiện cạnh danh sách và dính trên màn hình khi cuộn. */}
           <aside className="intake-form">
-            {/* Mỗi lần tạo phiếu thành công ở đơn này có một biên nhận riêng, in riêng từng cái. */}
-            {receipts.map((receipt) => (
-              <div className="receipt intake-receipt" key={receipt.id}>
-                <div className="between panel-title">
-                  <h3>Biên nhận {receipt.intakeCode}</h3>
-                </div>
-                <KV label="Khách hàng">{receipt.customerName}</KV>
-                <KV label="Người mang máy">
-                  {receipt.contactName} · {receipt.contactPhone}
-                </KV>
-                <KV label="Đơn mua">{receipt.orderCode}</KV>
-                <KV label="Tiếp nhận lúc">{dateTime(receipt.createdAt)}</KV>
-                <KV label="Ngày hẹn trả">{day(receipt.expectedReturnDate)}</KV>
-                <h4 className="section">Thiết bị nhận</h4>
-                {receipt.requests.map((r) => (
-                  <p className="small" key={r.id}>
-                    <b className="mono">{r.requestCode}</b> · {r.productName} ·{" "}
-                    <span className="mono">{r.serialNumber}</span>
-                  </p>
-                ))}
-                <p className="section">{receipt.issueDescription}</p>
-                <KV label="Ngoại quan">{receipt.conditionNote}</KV>
-                <KV label="Phụ kiện">{receipt.accessoriesNote}</KV>
-                <div className="row wrap-row section">
-                  <Button onClick={printReceipt}>In biên nhận</Button>
-                </div>
-              </div>
-            ))}
             <div className="between panel-title">
               <h3>Tiếp nhận linh kiện</h3>
               <span className="small muted">
                 Đã chọn {selected.size}
-                {extra.size > 0 ? " · nhận kèm " + extra.size : ""}
+                {extra.size > 0 ? " · ngoài bảo hành " + extra.size : ""}
               </span>
             </div>
             <form onSubmit={submit}>
@@ -361,13 +343,12 @@ function OrderIntake({
                 />
                 Đã đối chiếu serial và nhận thiết bị từ khách.
               </label>
-              <Button type="submit" disabled={!verified || !selected.size}>
+              <Button type="submit" disabled={!verified || !(selected.size + extra.size)}>
                 Tạo phiếu tiếp nhận
               </Button>
-              {!selected.size && (
+              {!(selected.size + extra.size) && (
                 <p className="small muted section">
-                  Tick linh kiện còn bảo hành ở danh sách bên trái để tạo phiếu
-                  cho đơn này.
+                  Chọn ít nhất một linh kiện trong danh sách bên trái để tiếp nhận.
                 </p>
               )}
             </form>
@@ -454,23 +435,13 @@ export function ApiWarrantyIntake() {
               : [],
           ),
         );
-      // Mở sẵn phiếu: tra đúng mã phiếu thì mở phiếu đó, không thì mở khi các thẻ khớp chỉ có một phiếu đang mở.
+      // Chỉ tự mở khi tra đúng mã phiếu hoặc vừa tạo/cập nhật phiếu.
       const code = q.trim().toUpperCase();
       const matchedCards = found.filter((c) => c.matched);
       const byCode = matchedCards
         .flatMap((c) => c.requests)
         .find((r) => r.intakeCode === code || r.requestCode === code);
-      const open = [
-        ...new Set(
-          matchedCards
-            .map((c) => c.openRequest?.intakeId)
-            .filter((v) => v != null),
-        ),
-      ];
-      const target =
-        keepIntakeId ??
-        byCode?.intakeId ??
-        (open.length === 1 ? open[0] : null);
+      const target = keepIntakeId ?? byCode?.intakeId;
       if (target != null) await openIntake(target);
       else setIntake(null);
     } catch (err) {
@@ -490,8 +461,8 @@ export function ApiWarrantyIntake() {
   }
   const create = (payload) =>
     write(async () => {
-      if (!payload.warrantyCardIds.length)
-        throw new Error("Chọn ít nhất một linh kiện còn bảo hành.");
+      if (!payload.warrantyCardIds.length && !payload.outOfWarrantyCardIds.length)
+        throw new Error("Chọn ít nhất một linh kiện để tiếp nhận.");
       const created = await svc.createIntake(payload);
       notify("Đã tạo phiếu tiếp nhận.");
       // Tải lại kết quả cũng tải biên nhận của lần tiếp nhận vừa tạo.
@@ -588,12 +559,8 @@ export function ApiWarrantyIntake() {
             />
           ))}
           {intake && (
-            <Panel
-              title={"Phiếu tiếp nhận " + intake.intakeCode}
-              action={
-                <Badge tone="info">{REQUEST_STATUS[intake.status]}</Badge>
-              }
-            >
+            <Modal className="intake-drawer" title={"Phiếu tiếp nhận " + intake.intakeCode} onClose={() => { latest.current++; setIntake(null); }}>
+              <Badge tone="info">{REQUEST_STATUS[intake.status]}</Badge>
               <KV label="Đơn mua">{intake.orderCode}</KV>
               <KV label="Người mang máy">
                 {intake.contactName} · {intake.contactPhone}
@@ -601,61 +568,89 @@ export function ApiWarrantyIntake() {
               <KV label="Tiếp nhận lúc">{dateTime(intake.createdAt)}</KV>
               <KV label="Ngày hẹn trả">{day(intake.expectedReturnDate)}</KV>
               <p className="section">{intake.issueDescription}</p>
+              <details className="intake-receipt-toggle section">
+                <summary>Xem và in biên nhận</summary>
+                <div className="receipt intake-receipt">
+                  <h3>Biên nhận {intake.intakeCode}</h3>
+                  <KV label="Khách hàng">{intake.customerName}</KV>
+                  <KV label="Người mang máy">{intake.contactName} · {intake.contactPhone}</KV>
+                  <KV label="Đơn mua">{intake.orderCode}</KV>
+                  <KV label="Tiếp nhận lúc">{dateTime(intake.createdAt)}</KV>
+                  <KV label="Ngày hẹn trả">{day(intake.expectedReturnDate)}</KV>
+                  <h4 className="section">Thiết bị nhận</h4>
+                  {intake.requests.map((r) => (
+                    <p className="small" key={r.id}>
+                      <b className="mono">{r.requestCode}</b> · {r.productName} · <span className="mono">{r.serialNumber}</span>
+                      {" · "}Thẻ #{r.warrantyCardId} · Bảo hành: {day(r.warrantyStartDate)} – {day(r.warrantyEndDate)} (hạn hiện tại hoặc dự kiến sau sửa)
+                      {r.warrantyRemainingDays != null && ` · Còn ${r.warrantyRemainingDays} ngày tính tại ${day(r.warrantyRemainingAsOf)}`}
+                      {r.replacementSerialNumber && ` · Đổi sang ${r.replacementSerialNumber}, hạn mới ${day(r.replacementWarrantyEndDate)}`}
+                      {r.replacementWarrantyRemainingDays != null && ` · Còn ${r.replacementWarrantyRemainingDays} ngày tính từ hôm nay`}
+                    </p>
+                  ))}
+                  <p className="section">{intake.issueDescription}</p>
+                  <KV label="Ngoại quan">{intake.conditionNote}</KV>
+                  <KV label="Phụ kiện">{intake.accessoriesNote}</KV>
+                  <div className="row wrap-row section"><Button onClick={printReceipt}>In biên nhận</Button></div>
+                </div>
+              </details>
               {intake.requests.map((r) => (
-                <div className="ticket-preview row wrap-row between" key={r.id}>
+                <div className="ticket-preview intake-request-row" key={r.id}>
                   <b className="mono">{r.requestCode}</b>
-                  <span className="small">
+                  <span className="small intake-request-product">
                     {r.productName} · {r.serialNumber}
                   </span>
-                  <Badge tone="info">{REQUEST_STATUS[r.status]}</Badge>
-                  {r.resolution && (
-                    <Badge>{REQUEST_RESOLUTION[r.resolution]}</Badge>
-                  )}
-                  {r.status === "ready_for_return" && (
+                  <div className="intake-request-status">
+                    <Badge tone="info">{REQUEST_STATUS[r.status]}</Badge>
+                    {r.underWarrantyAtIntake === false && <Badge tone="warning">Ngoài bảo hành</Badge>}
+                    {r.resolution && <Badge>{REQUEST_RESOLUTION[r.resolution]}</Badge>}
+                  </div>
+                  <div className="intake-request-actions">
+                    {r.status === "ready_for_return" && (
+                      <button
+                        type="button"
+                        className="text-button"
+                        onClick={() =>
+                          act(
+                            () =>
+                              svc.transition(r.id, {
+                                toStatus: "inspecting",
+                                internalNote: note,
+                                publicNote,
+                              }),
+                            "Đã chuyển linh kiện về kiểm tra lại.",
+                          )
+                        }
+                      >
+                        Khách báo còn lỗi
+                      </button>
+                    )}
+                    {r.status === "received" && (
+                      <button
+                        type="button"
+                        className="text-button"
+                        onClick={() =>
+                          act(
+                            () =>
+                              svc.transition(r.id, {
+                                toStatus: "canceled",
+                                internalNote: note,
+                                publicNote,
+                              }),
+                            "Đã hủy phiếu của linh kiện.",
+                          )
+                        }
+                      >
+                        Hủy linh kiện
+                      </button>
+                    )}
                     <button
                       type="button"
                       className="text-button"
-                      onClick={() =>
-                        act(
-                          () =>
-                            svc.transition(r.id, {
-                              toStatus: "inspecting",
-                              internalNote: note,
-                              publicNote,
-                            }),
-                          "Đã chuyển linh kiện về kiểm tra lại.",
-                        )
-                      }
+                      onClick={() => view(r.id)}
                     >
-                      Khách báo còn lỗi
+                      Xem chi tiết
                     </button>
-                  )}
-                  {r.status === "received" && (
-                    <button
-                      type="button"
-                      className="text-button"
-                      onClick={() =>
-                        act(
-                          () =>
-                            svc.transition(r.id, {
-                              toStatus: "canceled",
-                              internalNote: note,
-                              publicNote,
-                            }),
-                          "Đã hủy phiếu của linh kiện.",
-                        )
-                      }
-                    >
-                      Hủy linh kiện
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    className="text-button"
-                    onClick={() => view(r.id)}
-                  >
-                    Xem chi tiết
-                  </button>
+                  </div>
                 </div>
               ))}
               {partActions && (
@@ -718,13 +713,11 @@ export function ApiWarrantyIntake() {
                   )}
                 </div>
               )}
-            </Panel>
-          )}
-          {intake?.requests.some((r) => r.status === "returned") && (
-            <Notice tone="neutral">
+              {intake.requests.some((r) => r.status === "returned") && <Notice tone="neutral">
               Lần tiếp nhận đã trả máy cho khách. Xem lịch sử từng linh kiện ở
               nút "Xem chi tiết".
-            </Notice>
+              </Notice>}
+            </Modal>
           )}
         </fieldset>
       ) : (
