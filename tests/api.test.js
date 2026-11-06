@@ -21,6 +21,7 @@ import {
 import { cartApi } from "../src/features/cart/api/cartApi";
 import { catalogApi } from "../src/features/products/api/catalogApi";
 import { checkoutApi } from "../src/features/orders/api/checkoutApi";
+import { ordersApi } from "../src/features/orders/api/ordersApi";
 
 // Exercise Axios serialization/parsing and HTTP failures against a local server.
 // No developer backend or external API is contacted.
@@ -68,6 +69,18 @@ beforeEach(() => {
   });
   requests.length = 0;
   reply = { status: 200, body: { data: auth } };
+});
+
+test("staff xem thẻ của từng thiết bị trong cùng dòng đơn", async () => {
+  reply.body = { data: [
+    { id: 501, orderItemId: 101, serialNumber: "RAM-A001" },
+    { id: 502, orderItemId: 101, serialNumber: "RAM-A002" },
+  ] };
+  const cards = await ordersApi.warrantyCards("TZ-TEST");
+  expect(requests.at(-1).url).toBe("/backend/api/warranty-cards?q=TZ-TEST");
+  expect(cards.map((card) => [card.orderItemId, card.id, card.serialNumber])).toEqual([
+    [101, 501, "RAM-A001"], [101, 502, "RAM-A002"],
+  ]);
 });
 
 test("cart adapter preserves cartItemId separately from variantId", async () => {

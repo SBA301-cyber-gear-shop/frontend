@@ -1,8 +1,9 @@
 import { dateTime, money, formatShortOrderCode, formatOrderSuffix } from "@/utils";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { OrderSelector } from "./OrderSelector";
 import { ORDER_STATUS, PAYMENT_STATUS } from "../constants";
 import { OrderLines } from "@/features/products";
+import { warrantyRemainingText } from "@/features/warranty";
 import {
   Badge,
   Button,
@@ -16,6 +17,7 @@ import {
 } from "@/components/ui";
 import { Field } from "@/components/form";
 import { useOrderOperations } from "../hooks/useOrderOperations";
+import { ordersApi } from "../api/ordersApi";
 
 export function OrderOperations({ handover = false }) {
   const {
@@ -55,6 +57,19 @@ export function OrderOperations({ handover = false }) {
   } = useOrderOperations();
   
   const [copied, setCopied] = useState(false);
+  const [warranties, setWarranties] = useState({ order: null, cards: [], error: null, loading: false });
+  const selectedCode = selected?.id;
+  const selectedStatus = selected?.status;
+  useEffect(() => {
+    if (demoMode || !selectedCode || selectedStatus !== "completed") return;
+    const controller = new AbortController();
+    setWarranties({ order: selectedCode, cards: [], error: null, loading: true });
+    ordersApi.warrantyCards(selectedCode, controller.signal).then(
+      (cards) => { if (!controller.signal.aborted) setWarranties({ order: selectedCode, cards, error: null, loading: false }); },
+      () => { if (!controller.signal.aborted) setWarranties({ order: selectedCode, cards: [], error: "Không tải được thẻ bảo hành.", loading: false }); },
+    );
+    return () => controller.abort();
+  }, [demoMode, selectedCode, selectedStatus]);
 
   const handleAutoFillHandover = () => {
     if (!selected) return;
@@ -170,6 +185,22 @@ export function OrderOperations({ handover = false }) {
             </Panel>
             <Panel title="Hàng trong đơn">
               <OrderLines lines={selected.lines} products={data.products} />
+              {!demoMode && selected.lines.map((line) => (
+                <div key={line.orderItemId} className="section small">
+                  <b>{line.name}</b> · Dòng đơn #{line.orderItemId} · Phiên bản #{line.id}
+                  {selected.status !== "completed" ? (
+                    <p>Chưa bàn giao; chưa có thẻ bảo hành.</p>
+                  ) : warranties.order === selected.id && warranties.error ? (
+                    <p role="alert">{warranties.error}</p>
+                  ) : warranties.order !== selected.id || warranties.loading ? (
+                    <p>Đang tải thẻ bảo hành…</p>
+                  ) : !warranties.cards.some((card) => card.orderItemId === line.orderItemId) ? (
+                    <p>Không có thẻ bảo hành cho dòng hàng này.</p>
+                  ) : warranties.order === selected.id && warranties.cards.filter((card) => card.orderItemId === line.orderItemId).map((card) => (
+                    <p key={card.id}>Thẻ #{card.id} · Serial {card.serialNumber} · Hạn {dateTime(card.endDate)} · {warrantyRemainingText(card)}{card.replacedBySerialNumber ? ` · Đổi sang ${card.replacedBySerialNumber}` : ""}</p>
+                  ))}
+                </div>
+              ))}
             </Panel>
             <Panel title="Thông tin nhận hàng">
               <div className="two-col">

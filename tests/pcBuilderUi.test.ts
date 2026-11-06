@@ -1,6 +1,8 @@
 import { expect, test } from "vitest";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { buildVerdict } from "../src/features/pc-builder/components/SummaryCard";
-import { reasonMessage } from "../src/features/pc-builder/components/AiInsightPanel";
+import { AiInsightPanel, reasonMessage } from "../src/features/pc-builder/components/AiInsightPanel";
 import { quantityLimit } from "../src/features/pc-builder/components/PartsTable";
 import { itemReason, toDraftProfile } from "../src/features/pc-builder/components/ProfileEditor";
 import { initialBuildParts, initialProfile } from "../src/features/pc-builder/domain";
@@ -33,6 +35,15 @@ test("reasonCode messages follow DD 6.6", () => {
   );
   expect(reasonMessage(null, { ...fit, percent: 99.4, status: "IN_WINDOW" }, 0)).toMatch(/đạt 99,4% ngân sách/);
   expect(reasonMessage(null, null, 0)).toBeNull();
+});
+
+test("cảnh báo khi cấu hình dưới 90% và không cảnh báo tại đúng ngưỡng", () => {
+  const render = (budgetFit: BudgetFit) => renderToStaticMarkup(createElement(AiInsightPanel, {
+    insight: { title: "", reasoning: "", highlight: "" },
+    budgetFit,
+  }));
+  expect(render(fit)).toMatch(/chưa đạt mức tối thiểu 90% ngân sách \(27\.000\.000/);
+  expect(render({ ...fit, leftover: 3_000_000, status: "IN_WINDOW" })).not.toContain("chưa đạt mức tối thiểu");
 });
 
 test("MAX_PRICE_REACHED says the build is the most expensive, not the best fit for the needs", () => {

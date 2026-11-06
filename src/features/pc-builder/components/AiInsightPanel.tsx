@@ -84,6 +84,7 @@ export function AiInsightPanel({
 }: AiInsightPanelProps) {
   const reason = reasonMessage(reasonCode, budgetFit, totalPrice, profile, relaxedItems);
   const shownWarnings = warnings.map(warningText).filter((text): text is string => Boolean(text));
+  const belowBudgetWindow = budgetFit && budgetFit.windowMax - budgetFit.leftover < budgetFit.windowMin;
 
   return (
     <div className="ai-insight-panel" id="aiInsightPanel">
@@ -125,6 +126,11 @@ export function AiInsightPanel({
       {reason && (
         <p className={`ai-reason-note ${reasonCode ? "has-code" : ""}`} id="aiReasonNote">
           {reason}
+        </p>
+      )}
+      {belowBudgetWindow && (
+        <p className="ai-reason-note has-code" role="alert">
+          Cấu hình chưa đạt mức tối thiểu 90% ngân sách ({money(budgetFit.windowMin)}). Hệ thống hiển thị cấu hình đã tìm được gần mục tiêu.
         </p>
       )}
       {shownWarnings.length > 0 && (
