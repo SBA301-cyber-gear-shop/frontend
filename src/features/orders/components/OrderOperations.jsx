@@ -79,7 +79,11 @@ export function OrderOperations({ handover = false }) {
       const res = await shippingApi.createShipment(selected.id);
       notify(`Đã tạo vận đơn GHN thành công! Mã: ${res.trackingCode}`, "success");
       setTrackingInfo(res);
-      refresh();
+      if (selected.status === "preparing") {
+        await update("advance");
+      } else {
+        refresh();
+      }
     } catch (err) {
       notify(err.message || "Không thể tạo vận đơn GHN", "danger");
     } finally {
@@ -332,7 +336,7 @@ export function OrderOperations({ handover = false }) {
                               textDecoration: "underline",
                             }}
                           >
-                            🔗 Xem trên GHN Sandbox (tracking.ghn.dev) ↗
+                            🔗 Tra cứu trên GHN Sandbox (Nhập SĐT để xem) ↗
                           </a>
                         </div>
                       </div>
@@ -353,16 +357,11 @@ export function OrderOperations({ handover = false }) {
 
                 {!selected.trackingCode ? (
                   <div className="section">
-                    <Button
-                      tone="primary"
-                      disabled={busy || shippingActionBusy || selected.status === "canceled"}
-                      onClick={handleCreateShipment}
-                    >
-                      {shippingActionBusy ? "Đang gửi sang GHN..." : "🚀 Đẩy đơn sang GHN & Lấy mã vận đơn"}
-                    </Button>
-                    <p className="tiny muted" style={{ marginTop: "6px" }}>
-                      Hệ thống sẽ gửi thông tin người nhận, địa chỉ và kiện hàng sang GHN để cấp mã vận đơn tự động.
-                    </p>
+                    <Notice tone="info">
+                      {selected.status === "preparing"
+                        ? "Đơn đang đóng gói. Bấm '📦 Đóng gói xong & Tạo vận đơn GHN' ở panel Bước tiếp theo để tự động cấp mã vận đơn."
+                        : "Vận đơn GHN sẽ được tự động tạo khi nhân viên đóng gói xong hàng."}
+                    </Notice>
                   </div>
                 ) : (
                   <div className="section stack">
@@ -554,29 +553,52 @@ export function OrderOperations({ handover = false }) {
             <Panel title="Bước tiếp theo" className="summary">
               {selected.deliveryType === "shipping" ? (
                 <>
-                  {["pending", "confirmed", "preparing"].includes(
-                    selected.status,
-                  ) && (
+                  {["pending", "confirmed"].includes(selected.status) && (
                     <Button
                       className="full"
-                      disabled={busy}
+                      disabled={busy || shippingActionBusy}
                       onClick={() => update("advance")}
                     >
                       {selected.status === "pending"
                         ? "Xác nhận đơn"
-                        : selected.status === "confirmed"
-                          ? "Bắt đầu chuẩn bị"
-                          : "Đóng gói xong (Chờ shipper)"}
+                        : "Bắt đầu chuẩn bị"}
+                    </Button>
+                  )}
+                  {selected.status === "preparing" && (
+                    <Button
+                      tone="primary"
+                      className="full"
+                      disabled={busy || shippingActionBusy}
+                      onClick={handleCreateShipment}
+                    >
+                      {shippingActionBusy
+                        ? "Đang kết nối GHN..."
+                        : "📦 Đóng gói xong & Tạo vận đơn GHN"}
                     </Button>
                   )}
                   {selected.status === "ready_for_pickup" && (
-                    <Button
-                      className="full"
-                      disabled={busy}
-                      onClick={() => update("advance")}
-                    >
-                      🚚 Shipper đã lấy hàng (Bắt đầu giao)
-                    </Button>
+                    <>
+                      {!selected.trackingCode ? (
+                        <Button
+                          tone="primary"
+                          className="full"
+                          disabled={busy || shippingActionBusy}
+                          onClick={handleCreateShipment}
+                        >
+                          {shippingActionBusy
+                            ? "Đang kết nối GHN..."
+                            : "🚀 Tạo vận đơn GHN"}
+                        </Button>
+                      ) : (
+                        <Button
+                          className="full"
+                          disabled={busy || shippingActionBusy}
+                          onClick={() => update("advance")}
+                        >
+                          🚚 Shipper đã lấy hàng (Bắt đầu giao)
+                        </Button>
+                      )}
+                    </>
                   )}
                   {selected.status === "delivering" && (
                     <Button

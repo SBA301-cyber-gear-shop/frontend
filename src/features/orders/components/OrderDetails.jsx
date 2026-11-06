@@ -158,7 +158,7 @@ export function OrderDetails() {
                           fontWeight: 500,
                         }}
                       >
-                        🔗 Tra cứu trên website GHN ↗
+                        🔗 Tra cứu trên GHN Test (Nhập SĐT khi mở web GHN) ↗
                       </a>
                     </div>
                   )}
