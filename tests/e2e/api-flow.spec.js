@@ -1,5 +1,40 @@
 import { test, expect } from "@playwright/test";
 
+test("staff opens an intake in a drawer and prints its receipt on demand", async ({ page }) => {
+  const request = { id: 51, requestCode: "BH-TEST-01", intakeId: 5, intakeCode: "BH-TEST", status: "received", productName: "RAM kiểm thử", serialNumber: "RAM-TEST", warrantyCardId: 1 };
+  const intake = { id: 5, intakeCode: "BH-TEST", orderCode: "ORDER-TEST", customerName: "Khách A", contactName: "Khách A", contactPhone: "0900000000", createdAt: "2026-11-06T09:00:00", expectedReturnDate: "2026-11-08", status: "received", issueDescription: "Lỗi RAM", requests: [request], canCancel: true, canReturn: false };
+  const card = { id: 1, orderId: 10, orderCode: "ORDER-TEST", customerName: "Khách A", productName: "RAM kiểm thử", serialNumber: "RAM-TEST", status: "active", valid: true, endDate: "2027-01-01", openRequest: request, requests: [request] };
+  await page.addInitScript(() => {
+    sessionStorage.setItem("techzone-token", "test-token");
+    sessionStorage.setItem("techzone-session", JSON.stringify({ id: 2, name: "Staff", role: "Staff" }));
+    window.print = () => {};
+  });
+  await page.route("**/api/**", (route) => {
+    const path = new URL(route.request().url()).pathname;
+    if (!path.startsWith("/api/")) return route.continue();
+    if (path === "/api/warranty-cards") return route.fulfill({ json: { data: [card] } });
+    if (path === "/api/service-intakes/5") return route.fulfill({ json: { data: intake } });
+    return route.fulfill({ json: { data: [] } });
+  });
+  await page.goto("/van-hanh/bao-hanh");
+  await page.getByLabel("Tra cứu serial hoặc số điện thoại").fill("ORDER-TEST");
+  await page.getByRole("button", { name: "Tra cứu", exact: true }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await page.getByRole("button", { name: "Xem phiếu BH-TEST", exact: true }).click();
+  const drawer = page.getByRole("dialog", { name: "Phiếu tiếp nhận BH-TEST" });
+  await expect(drawer).toBeVisible();
+  await expect(drawer.getByText("Lỗi RAM").first()).toBeVisible();
+  await expect(drawer.getByRole("button", { name: "In biên nhận" })).toBeHidden();
+  await drawer.getByText("Xem và in biên nhận").click();
+  await expect(drawer.getByRole("button", { name: "In biên nhận" })).toBeVisible();
+  await drawer.getByRole("button", { name: "In biên nhận" }).click();
+  await expect(drawer.locator(".receipt.print-target")).toHaveCount(1);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(drawer).toBeInViewport();
+  await drawer.getByRole("button", { name: "Đóng" }).click();
+  await expect(drawer).toHaveCount(0);
+});
+
 const product = {
   id: "101",
   productId: "10",

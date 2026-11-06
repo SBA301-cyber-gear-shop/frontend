@@ -180,7 +180,7 @@ export function ApiCustomerWarranty() {
           title={"Yêu cầu " + selected.intakeCode}
           onClose={() => setSelected(null)}
         >
-          <div className="info-grid">
+          <div className="info-grid customer-intake-summary">
             <KV label="Trạng thái">{CUSTOMER_STATUS[selected.status]}</KV>
             <KV label="Ngày gửi bảo hành">{dateTime(selected.createdAt)}</KV>
             <KV label="Hẹn nhận máy">
@@ -196,26 +196,32 @@ export function ApiCustomerWarranty() {
           <p className="small">
             <b>Lỗi bạn đã báo:</b> {selected.issueDescription}
           </p>
-          <h3>Kết quả từng linh kiện</h3>
-          {/* Lưới gọn để cả bộ máy nhiều linh kiện vẫn vừa một màn hình; lời nhắn dài xem khi rê chuột. */}
+          <h3 className="section">Kết quả từng linh kiện</h3>
           <div className="parts-grid">
             {selected.components.map((c) => {
-              const result =
-                (c.resolution
-                  ? CUSTOMER_RESOLUTION[c.resolution]
-                  : CUSTOMER_STATUS[c.status]) +
-                (c.publicNote ? " · " + c.publicNote : "");
+              const result = c.resolution
+                ? CUSTOMER_RESOLUTION[c.resolution]
+                : CUSTOMER_STATUS[c.status];
               return (
-                <p
-                  className="small"
-                  key={c.id}
-                  title={c.productName + " " + c.serialNumber + ": " + result}
-                >
-                  <b>{c.productName}</b>
-                  <span>
-                    <span className="mono">{c.serialNumber}</span> · {result}
-                  </span>
-                </p>
+                <article className="customer-part" key={c.id}>
+                  <h4>{c.productName}</h4>
+                  <p className="small muted">Serial: <span className="mono">{c.serialNumber}</span></p>
+                  <div className="customer-part-badges">
+                    <Badge tone="info">{result || "Đang cập nhật"}</Badge>
+                    {c.underWarrantyAtIntake === false && <Badge tone="warning">Ngoài bảo hành lúc nhận</Badge>}
+                  </div>
+                  {c.publicNote && <p className="small customer-part-note">{c.publicNote}</p>}
+                  {c.warrantyEndDate && <p className="small">Hạn bảo hành: {day(c.warrantyEndDate)}</p>}
+                  {c.warrantyRemainingDays != null && (
+                    <p className="small muted">Còn {c.warrantyRemainingDays} ngày tính tại {day(c.warrantyRemainingAsOf)}</p>
+                  )}
+                  {c.replacementSerialNumber && (
+                    <p className="small">Đổi sang {c.replacementSerialNumber} · hạn {day(c.replacementWarrantyEndDate)}</p>
+                  )}
+                  {c.replacementWarrantyRemainingDays != null && (
+                    <p className="small muted">Thẻ thay thế còn {c.replacementWarrantyRemainingDays} ngày tính từ hôm nay</p>
+                  )}
+                </article>
               );
             })}
           </div>

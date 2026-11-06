@@ -41,6 +41,10 @@ function orderView(order) {
 
 const codePath = (base, code) => `${base}/${encodeURIComponent(code)}`;
 export const ordersApi = {
+  async warrantyCards(code: string, signal?: AbortSignal) {
+    const { data } = await axiosClient.get(endpoints.aftersales.cards, { params: { q: code }, signal });
+    return data.data ?? data;
+  },
   async place(payload, idempotencyKey: string) {
     const { data } = await axiosClient.post(endpoints.orders, payload, {
       headers: { "Idempotency-Key": idempotencyKey },

@@ -43,7 +43,17 @@ export function withPeripherals(
 ): BudgetFit | null {
   if (!fit) return null;
   const { percent, leftover } = fullSetFit(budget, pcTotal, peripheralTotal);
-  return { ...fit, percent, leftover };
+  const windowMin = Math.ceil(budget * 0.9);
+  const total = budget - leftover;
+  return {
+    ...fit,
+    ratio: budget > 0 ? total / budget : 0,
+    percent,
+    leftover,
+    windowMin,
+    windowMax: budget,
+    status: total > budget ? "OVER" : total >= windowMin ? "IN_WINDOW" : "UNDER_WINDOW",
+  };
 }
 
 export function selectionFromSuggestion(suggestion: PeripheralSuggestionResponse): PeripheralSelection {
