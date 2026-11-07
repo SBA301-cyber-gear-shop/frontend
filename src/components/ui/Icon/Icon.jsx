@@ -196,6 +196,8 @@ export function Icon({ name = "grid", ...props }) {
         <line x1="12" y1="16" x2="12.01" y2="16" />
       </>
     ),
+    chevronLeft: <polyline points="15 18 9 12 15 6" />,
+    chevronRight: <polyline points="9 18 15 12 9 6" />,
   };
   return (
     <svg

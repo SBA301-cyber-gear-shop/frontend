@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useSession } from "@/features/auth";
 import { Icon } from "@/components/ui";
@@ -73,6 +73,162 @@ function renderInline(str) {
     .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
     .replace(/`(.*?)`/g, "<code>$1</code>")
     .replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" style="color: var(--red, #d91f31); text-decoration: underline; font-weight: 500;">$1</a>');
+}
+
+function ProductCardsCarousel({ products, navigate }) {
+  const scrollRef = useRef(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+
+  const checkScroll = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const maxScroll = el.scrollWidth - el.clientWidth;
+    setCanScrollLeft(el.scrollLeft > 6);
+    setCanScrollRight(el.scrollLeft < maxScroll - 6);
+  }, []);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+
+    checkScroll();
+
+    // Wheel event handler with { passive: false } to translate vertical scroll to horizontal scroll
+    const onWheel = (e) => {
+      if (e.deltaY === 0) return;
+
+      const maxScroll = el.scrollWidth - el.clientWidth;
+      if (maxScroll <= 0) return;
+
+      const scrollingLeft = e.deltaY < 0;
+      const scrollingRight = e.deltaY > 0;
+      const canLeft = el.scrollLeft > 0;
+      const canRight = el.scrollLeft < maxScroll - 1;
+
+      // Only intercept if we can scroll horizontally in that direction
+      if ((scrollingLeft && canLeft) || (scrollingRight && canRight)) {
+        e.preventDefault();
+        e.stopPropagation();
+        el.scrollLeft += e.deltaY * 1.15;
+        checkScroll();
+      }
+    };
+
+    el.addEventListener("wheel", onWheel, { passive: false });
+    window.addEventListener("resize", checkScroll);
+
+    return () => {
+      el.removeEventListener("wheel", onWheel);
+      window.removeEventListener("resize", checkScroll);
+    };
+  }, [checkScroll, products]);
+
+  const scrollByAmount = (amount) => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollBy({ left: amount, behavior: "smooth" });
+      setTimeout(checkScroll, 250);
+    }
+  };
+
+  if (!products || products.length === 0) return null;
+
+  return (
+    <div className="cyberbot-products-list">
+      <div className="cyberbot-products-header">
+        <div className="cyberbot-products-header-title">
+          <Icon name="chip" />
+          <span>LINH KIỆN CÓ SẴN TẠI TECHZONE:</span>
+        </div>
+        <div className="cyberbot-products-nav-btns">
+          <button
+            type="button"
+            className="cyberbot-nav-arrow"
+            onClick={() => scrollByAmount(-220)}
+            disabled={!canScrollLeft}
+            aria-label="Cuộn sang trái"
+            title="Cuộn sang trái"
+          >
+            <Icon name="chevronLeft" />
+          </button>
+          <button
+            type="button"
+            className="cyberbot-nav-arrow"
+            onClick={() => scrollByAmount(220)}
+            disabled={!canScrollRight}
+            aria-label="Cuộn sang phải"
+            title="Cuộn sang phải"
+          >
+            <Icon name="chevronRight" />
+          </button>
+        </div>
+      </div>
+      <div
+        className="cyberbot-products-scroll"
+        ref={scrollRef}
+        onScroll={checkScroll}
+      >
+        {products.map((prod) => (
+          <div
+            key={`${prod.id}-${prod.variantId || ""}`}
+            className="cyberbot-product-card"
+            onClick={() => navigate(prod.route || `/san-pham/${prod.id}`)}
+          >
+            <div className="cyberbot-product-thumb">
+              {prod.imageUrl ? (
+                <img
+                  src={prod.imageUrl}
+                  alt={prod.name}
+                  className="cyberbot-product-img"
+                  loading="lazy"
+                />
+              ) : (
+                <div className="cyberbot-fallback-icon">
+                  <Icon name="chip" />
+                </div>
+              )}
+              <span
+                className={`cyberbot-stock-badge ${
+                  prod.stock > 0 ? "in-stock" : "out-stock"
+                }`}
+              >
+                {prod.stock > 0 ? `Còn ${prod.stock}` : "Hết hàng"}
+              </span>
+            </div>
+            <div className="cyberbot-product-body">
+              <span className="cyberbot-product-cat">{prod.category || "Linh kiện"}</span>
+              <h5 className="cyberbot-product-title" title={prod.name}>
+                {prod.name}
+              </h5>
+              {prod.variantName && (
+                <div className="cyberbot-product-variant-name">{prod.variantName}</div>
+              )}
+              <div className="cyberbot-product-price-row">
+                <span className="cyberbot-product-cur-price">
+                  {prod.price ? Number(prod.price).toLocaleString("vi-VN") + "₫" : "Liên hệ"}
+                </span>
+                {prod.originalPrice && prod.originalPrice > (prod.price || 0) && (
+                  <span className="cyberbot-product-old-price">
+                    {Number(prod.originalPrice).toLocaleString("vi-VN")}₫
+                  </span>
+                )}
+              </div>
+              <button
+                type="button"
+                className="cyberbot-product-btn"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  navigate(prod.route || `/san-pham/${prod.id}`);
+                }}
+              >
+                Xem chi tiết →
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 export function CustomerAIChatbox() {
@@ -405,75 +561,8 @@ export function CustomerAIChatbox() {
                 <div className="cyberbot-msg-bubble">
                   {formatMarkdown(msg.text)}
 
-                  {/* Product Cards UI */}
-                  {msg.products && msg.products.length > 0 && (
-                    <div className="cyberbot-products-list">
-                      <div className="cyberbot-products-header">
-                        <Icon name="chip" />
-                        <span>LINH KIỆN CÓ SẴN TẠI TECHZONE:</span>
-                      </div>
-                      <div className="cyberbot-products-scroll">
-                        {msg.products.map((prod) => (
-                          <div
-                            key={`${prod.id}-${prod.variantId || ""}`}
-                            className="cyberbot-product-card"
-                            onClick={() => navigate(prod.route || `/san-pham/${prod.id}`)}
-                          >
-                            <div className="cyberbot-product-thumb">
-                              {prod.imageUrl ? (
-                                <img
-                                  src={prod.imageUrl}
-                                  alt={prod.name}
-                                  className="cyberbot-product-img"
-                                  loading="lazy"
-                                />
-                              ) : (
-                                <div className="cyberbot-fallback-icon">
-                                  <Icon name="chip" />
-                                </div>
-                              )}
-                              <span
-                                className={`cyberbot-stock-badge ${
-                                  prod.stock > 0 ? "in-stock" : "out-stock"
-                                }`}
-                              >
-                                {prod.stock > 0 ? `Còn ${prod.stock}` : "Hết hàng"}
-                              </span>
-                            </div>
-                            <div className="cyberbot-product-body">
-                              <span className="cyberbot-product-cat">{prod.category || "Linh kiện"}</span>
-                              <h5 className="cyberbot-product-title" title={prod.name}>
-                                {prod.name}
-                              </h5>
-                              {prod.variantName && (
-                                <div className="cyberbot-product-variant-name">{prod.variantName}</div>
-                              )}
-                              <div className="cyberbot-product-price-row">
-                                <span className="cyberbot-product-cur-price">
-                                  {prod.price ? Number(prod.price).toLocaleString("vi-VN") + "₫" : "Liên hệ"}
-                                </span>
-                                {prod.originalPrice && prod.originalPrice > (prod.price || 0) && (
-                                  <span className="cyberbot-product-old-price">
-                                    {Number(prod.originalPrice).toLocaleString("vi-VN")}₫
-                                  </span>
-                                )}
-                              </div>
-                              <button
-                                type="button"
-                                className="cyberbot-product-btn"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  navigate(prod.route || `/san-pham/${prod.id}`);
-                                }}
-                              >
-                                Xem chi tiết →
-                              </button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
+                  {/* Product Cards Carousel UI with Mouse Wheel Horizontal Scroll & Arrows */}
+                  <ProductCardsCarousel products={msg.products} navigate={navigate} />
 
                   {/* Quick Action Buttons */}
                   {msg.quickActions && msg.quickActions.length > 0 && (

@@ -378,19 +378,65 @@
 .cyberbot-products-header {
   display: flex;
   align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.cyberbot-products-header-title {
+  display: flex;
+  align-items: center;
   gap: 6px;
   font-size: 11px;
   font-weight: 700;
   color: #64748b;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  margin-bottom: 8px;
 }
 
-.cyberbot-products-header svg {
+.cyberbot-products-header-title svg {
   width: 14px;
   height: 14px;
   color: #d91f31;
+}
+
+.cyberbot-products-nav-btns {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.cyberbot-nav-arrow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  color: #475569;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.cyberbot-nav-arrow:hover:not(:disabled) {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  color: #d91f31;
+  transform: scale(1.05);
+}
+
+.cyberbot-nav-arrow:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+  border-color: #f1f5f9;
+}
+
+.cyberbot-nav-arrow svg {
+  width: 13px;
+  height: 13px;
 }
 
 .cyberbot-products-scroll {
@@ -400,16 +446,27 @@
   padding-bottom: 8px;
   min-width: 0;
   max-width: 100%;
-  scroll-snap-type: x mandatory;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 .cyberbot-products-scroll::-webkit-scrollbar {
-  height: 5px;
+  height: 6px;
+}
+
+.cyberbot-products-scroll::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 4px;
 }
 
 .cyberbot-products-scroll::-webkit-scrollbar-thumb {
   background: #cbd5e1;
   border-radius: 4px;
+  transition: background 0.2s ease;
+}
+
+.cyberbot-products-scroll::-webkit-scrollbar-thumb:hover {
+  background: #d91f31;
 }
 
 .cyberbot-product-card {
