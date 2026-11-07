@@ -9,6 +9,7 @@ import {
   Button,
   Empty,
   Heading,
+  Icon,
   KV,
   Modal,
   Notice,
@@ -103,7 +104,7 @@ export function OrderDetails() {
                 ? "Đơn hàng đã được bàn giao cho đơn vị vận chuyển GHN."
                 : "Đơn đã sẵn sàng. Vui lòng đối chiếu thông tin và thanh toán đủ trước khi nhận."
               : order.status === "delivering"
-                ? "🚚 Kiện hàng đang được Shipper GHN giao đến địa chỉ của bạn. Vui lòng chú ý điện thoại."
+                ? "Kiện hàng đang được nhân viên giao hàng GHN giao đến địa chỉ của bạn. Vui lòng chú ý điện thoại."
               : order.status === "completed"
                 ? "Đơn hàng đã giao thành công. Thông tin bảo hành theo từng thiết bị có trong tài khoản."
                 : order.status === "canceled"
@@ -116,14 +117,19 @@ export function OrderDetails() {
           {/* KHỐI HÀNH TRÌNH VẬN CHUYỂN GHN TRỰC TIẾP TRÊN WEB */}
           {order.deliveryType === "shipping" && (
             <Panel
-              title="🚚 Hành trình vận chuyển (GHN Express)"
+              title="Hành trình vận chuyển (GHN Express)"
               action={
                 <Button
                   tone="ghost"
                   disabled={trackingLoading}
                   onClick={fetchTracking}
                 >
-                  {trackingLoading ? "Đang đồng bộ…" : "🔄 Làm mới hành trình"}
+                  {trackingLoading ? "Đang đồng bộ…" : (
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                      <Icon name="refresh" />
+                      Làm mới hành trình
+                    </span>
+                  )}
                 </Button>
               }
             >
@@ -151,14 +157,14 @@ export function OrderDetails() {
                         style={{
                           display: "inline-flex",
                           alignItems: "center",
-                          gap: "4px",
+                          gap: "6px",
                           fontSize: "12px",
                           color: "#0284c7",
                           textDecoration: "underline",
                           fontWeight: 500,
                         }}
                       >
-                        🔗 Tra cứu trên GHN Test (Nhập SĐT khi mở web GHN) ↗
+                        <Icon name="search" /> Tra cứu trực tuyến trên GHN ↗
                       </a>
                     </div>
                   )}
@@ -215,8 +221,8 @@ export function OrderDetails() {
                             <span className="small muted">{logItem.time}</span>
                           </div>
                           {logItem.location && (
-                            <p className="tiny muted" style={{ marginTop: "2px" }}>
-                              📍 {logItem.location}
+                            <p className="tiny muted" style={{ marginTop: "2px", display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                              <Icon name="pin" /> {logItem.location}
                             </p>
                           )}
                         </div>
@@ -241,9 +247,15 @@ export function OrderDetails() {
             </div>
             <div className="section">
               <KV label="Hình thức">
-                {order.deliveryType === "shipping"
-                  ? "🚚 Giao hàng tận nơi qua GHN Express"
-                  : "🏪 Nhận tại quầy TechZone Flagship Store"}
+                {order.deliveryType === "shipping" ? (
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                    <Icon name="truck" /> Giao hàng tận nơi qua GHN Express
+                  </span>
+                ) : (
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                    <Icon name="store" /> Nhận tại quầy TechZone Flagship Store
+                  </span>
+                )}
               </KV>
               {order.shippingAddress && (
                 <KV label="Địa chỉ giao hàng">{order.shippingAddress}</KV>
@@ -303,7 +315,7 @@ export function OrderDetails() {
                 : order.method === "cod"
                 ? "Tiền mặt khi nhận hàng (COD)"
                 : order.method === "vnpay"
-                ? "Cổng VNPAY Sandbox"
+                ? "Cổng thanh toán VNPAY"
                 : "Online · Demo"}
             </p>
             {order.method === "vnpay" &&
@@ -311,7 +323,7 @@ export function OrderDetails() {
               order.status !== "canceled" && (
                 <div className="section stack">
                   <Notice tone="info">
-                    Đơn hàng thanh toán trực tuyến qua VNPAY Sandbox.
+                    Đơn hàng thanh toán trực tuyến qua cổng VNPAY.
                   </Notice>
                   <Button
                     className="full"

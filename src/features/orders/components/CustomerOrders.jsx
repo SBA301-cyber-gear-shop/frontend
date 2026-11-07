@@ -7,6 +7,7 @@ import {
   Button,
   Empty,
   Heading,
+  Icon,
   Panel,
   Notice,
 } from "@/components/ui";
@@ -92,9 +93,12 @@ export function CustomerOrders() {
                 />
                 <div>
                   <b>{o.lines[0]?.name}</b>
-                  <p className="small muted">
-                    {o.lines.reduce((s, l) => s + l.quantity, 0)} sản phẩm ·{" "}
-                    {o.deliveryType === "shipping" ? "🚚 Giao hàng GHN" : "🏪 Nhận tại cửa hàng"}
+                  <p className="small muted" style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                    <span>{o.lines.reduce((s, l) => s + l.quantity, 0)} sản phẩm ·</span>
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                      <Icon name={o.deliveryType === "shipping" ? "truck" : "store"} />
+                      {o.deliveryType === "shipping" ? "Giao hàng GHN" : "Nhận tại cửa hàng"}
+                    </span>
                   </p>
                 </div>
               </div>

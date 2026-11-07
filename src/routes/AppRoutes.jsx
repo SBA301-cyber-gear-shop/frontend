@@ -26,6 +26,7 @@ const Login = lazy(() => import("@/pages/Login"));
 const Register = lazy(() => import("@/pages/Register"));
 const Handover = lazy(() => import("@/pages/Handover"));
 const PaymentResult = lazy(() => import("@/pages/PaymentResult"));
+const StaffLiveSupport = lazy(() => import("@/pages/StaffLiveSupport"));
 export function AppRoutes() {
   return (
     <Suspense
@@ -92,6 +93,7 @@ export function AppRoutes() {
             <Route path="/van-hanh/don-hang" element={<StaffOrders />} />
             <Route path="/van-hanh/ban-giao" element={<Handover />} />
             <Route path="/van-hanh/bao-hanh" element={<Intake />} />
+            <Route path="/van-hanh/ho-tro-truc-tuyen" element={<StaffLiveSupport />} />
           </Route>
           <Route
             path="/ky-thuat"
