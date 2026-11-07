@@ -188,38 +188,16 @@ test("shopping, authentication, checkout, staff payment and per-unit handover", 
   await expect(page.getByText("TEST-RAM-A", { exact: true })).toBeVisible();
   await expect(page.getByText("TEST-RAM-B", { exact: true })).toBeVisible();
 });
-test("builder demo shows the mock build and profile, and rechecks RAM edits", async ({
+test("builder demo explains that AI Build PC needs the backend and keeps the button off", async ({
   page,
 }) => {
   await page.goto("/build-pc");
-  await page.locator("#inputBudget").fill("50000000");
-  // Chip gợi ý chỉ điền chữ vào ô nhu cầu
-  await page
-    .getByRole("button", { name: "Chơi game 2K, thỉnh thoảng stream" })
-    .click();
-  await expect(page.locator("#inputPurpose")).toHaveValue(
-    "Chơi game 2K, thỉnh thoảng stream",
-  );
-  await page
-    .getByRole("button", { name: "Đề xuất cấu hình với AI", exact: true })
-    .click();
-  await expect(page.locator(".needs-profile-panel")).toContainText(
-    "VRAM ≥ 8 GB",
-  );
-  const buy = page.getByRole("button", {
-    name: "Thêm vào giỏ & Đặt hàng",
-    exact: true,
-  });
-  await expect(buy).toBeEnabled();
-  const plus = page.getByRole("button", { name: "Tăng số lượng ram" });
-  // Kit 1 thanh, bo 4 khe: 5 kit thì quá số khe
-  for (let i = 0; i < 3; i++) await plus.click();
+  await expect(page.getByText("Bản demo chạy không có backend")).toBeVisible();
+  await page.locator("#inputBudget").fill("25000000");
+  await page.locator("#inputNeed").fill("Văn phòng, Excel, họp online");
   await expect(
-    page.locator(".summary-card").getByText("KHÔNG TƯƠNG THÍCH"),
-  ).toBeVisible();
-  await expect(buy).toBeDisabled();
-  await page.getByRole("button", { name: "Giảm số lượng ram" }).click();
-  await expect(buy).toBeEnabled();
+    page.getByRole("button", { name: "Đề xuất cấu hình với AI", exact: true }),
+  ).toBeDisabled();
 });
 test("admin product and specification updates persist", async ({ page }) => {
   await session(page, admin);
