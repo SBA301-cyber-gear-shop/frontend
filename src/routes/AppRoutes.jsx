@@ -25,6 +25,7 @@ const Exceptions = lazy(() => import("@/pages/Exceptions"));
 const Login = lazy(() => import("@/pages/Login"));
 const Register = lazy(() => import("@/pages/Register"));
 const Handover = lazy(() => import("@/pages/Handover"));
+const PaymentResult = lazy(() => import("@/pages/PaymentResult"));
 export function AppRoutes() {
   return (
     <Suspense
@@ -58,6 +59,14 @@ export function AppRoutes() {
             element={
               <PrivateRoute roles={["Customer"]}>
                 <Checkout />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/thanh-toan/ket-qua"
+            element={
+              <PrivateRoute roles={["Customer"]}>
+                <PaymentResult />
               </PrivateRoute>
             }
           />

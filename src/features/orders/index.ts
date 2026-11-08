@@ -2,6 +2,7 @@ export { CheckoutForm } from "./components/CheckoutForm";
 export { CustomerOrders } from "./components/CustomerOrders";
 export { OrderDetails } from "./components/OrderDetails";
 export { OrderOperations } from "./components/OrderOperations";
+export { PaymentResult } from "./components/PaymentResult";
 export { placeOrder } from "./domain";
 export { transitionOrder } from "./domain";
 export { ORDER_STATUS } from "./constants";
