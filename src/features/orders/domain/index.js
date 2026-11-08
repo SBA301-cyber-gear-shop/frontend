@@ -68,7 +68,7 @@ export function placeOrder(
   }
   return { state: next, order };
 }
-export function transitionOrder(state, id, action, serials = []) {
+export function transitionOrder(state, id, action, serials = [], cancelReason = "") {
   const next = structuredClone(state),
     order = next.orders.find((o) => o.id === id);
   if (!order) throw new Error("Không tìm thấy đơn.");
@@ -92,6 +92,8 @@ export function transitionOrder(state, id, action, serials = []) {
       .filter((u) => u.orderId === id)
       .forEach((u) => (u.status = "USED"));
   } else if (action === "cancel") {
+    if (!cancelReason.trim() || cancelReason.length > 500)
+      throw new Error("Nhập lý do hủy đơn từ 1 đến 500 ký tự.");
     if (!["pending", "confirmed"].includes(order.status))
       throw new Error("Đơn không còn được hủy trực tiếp.");
     if (order.payment === "SUCCESS")
@@ -99,6 +101,7 @@ export function transitionOrder(state, id, action, serials = []) {
         "Đơn đã trả tiền cần quy trình hoàn tiền; demo chưa hỗ trợ.",
       );
     order.status = "canceled";
+    order.cancelReason = cancelReason.trim();
     order.payment = "CANCELED";
     for (const l of order.lines)
       next.products.find((p) => p.id === l.id).stock += l.quantity;

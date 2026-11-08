@@ -26,6 +26,18 @@ export const endpoints = {
   orders: "/api/orders",
   orderOperations: "/api/operations/orders",
   warranties: "/api/me/warranties",
+  support: {
+    chat: "/api/ai/customer-support",
+    poll: "/api/ai/customer-support/messages",
+    staff: {
+      sessions: "/api/staff/live-chat/sessions",
+      session: (id: string) => `/api/staff/live-chat/sessions/${id}`,
+      messages: (id: string) => `/api/staff/live-chat/sessions/${id}/messages`,
+      assign: (id: string) => `/api/staff/live-chat/sessions/${id}/assign`,
+      send: (id: string) => `/api/staff/live-chat/sessions/${id}/messages`,
+      close: (id: string) => `/api/staff/live-chat/sessions/${id}/close`,
+    },
+  },
   aftersales: {
     cards: "/api/warranty-cards",
     requests: "/api/service-requests",

@@ -72,8 +72,10 @@ export function useLivePromotionManagement() {
         ],
       }));
       notify("Đã lưu chương trình khuyến mãi.");
+      return true;
     } catch (error) {
       notify(error.message, "danger");
+      return false;
     } finally {
       pending.current = false;
       setBusy(false);

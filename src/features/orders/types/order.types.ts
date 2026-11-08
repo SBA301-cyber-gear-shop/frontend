@@ -85,6 +85,7 @@ export interface Order {
   pickupName: string;
   pickupPhone: string;
   note: string;
+  cancelReason?: string;
   method: string; // phương thức nhận hàng
   status: OrderStatus;
   payment: PaymentStatus;
