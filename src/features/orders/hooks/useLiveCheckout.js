@@ -3,6 +3,7 @@ import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { useStore } from "@/store";
 import { checkoutApi } from "../api/checkoutApi";
 import { ordersApi } from "../api/ordersApi";
+import { shippingApi } from "../api/shippingApi";
 
 export function useLiveCheckout() {
   const { data, user, cartLoading, cartError, cartBusy, reloadCart, notify } =
@@ -49,6 +50,72 @@ export function useLiveCheckout() {
   const [name, setName] = useState(user?.name || "");
   const [phone, setPhone] = useState(user?.phone || "");
   const [note, setNote] = useState("");
+  const [method, setMethod] = useState("store");
+  const [deliveryType, setDeliveryType] = useState("store"); // "store" | "shipping"
+  const [provinces, setProvinces] = useState([]);
+  const [districts, setDistricts] = useState([]);
+  const [wards, setWards] = useState([]);
+  const [provinceId, setProvinceId] = useState("");
+  const [districtId, setDistrictId] = useState("");
+  const [wardCode, setWardCode] = useState("");
+  const [addressDetail, setAddressDetail] = useState(user?.address || "");
+  const [shippingFee, setShippingFee] = useState(0);
+  const [calculatingFee, setCalculatingFee] = useState(false);
+
+  useEffect(() => {
+    shippingApi.getProvinces().then(setProvinces).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (!provinceId) {
+      setDistricts([]);
+      setDistrictId("");
+      setWards([]);
+      setWardCode("");
+      return;
+    }
+    shippingApi.getDistricts(Number(provinceId)).then(setDistricts).catch(() => {});
+    setDistrictId("");
+    setWards([]);
+    setWardCode("");
+  }, [provinceId]);
+
+  useEffect(() => {
+    if (!districtId) {
+      setWards([]);
+      setWardCode("");
+      return;
+    }
+    shippingApi.getWards(Number(districtId)).then(setWards).catch(() => {});
+    setWardCode("");
+  }, [districtId]);
+
+  useEffect(() => {
+    if (!districtId || !wardCode || deliveryType !== "shipping") {
+      setShippingFee(0);
+      return;
+    }
+    setCalculatingFee(true);
+    shippingApi
+      .calculateFee(Number(districtId), wardCode, 1000)
+      .then((res) => {
+        setShippingFee(res.totalFee || 21000);
+      })
+      .catch(() => {
+        setShippingFee(25000);
+      })
+      .finally(() => setCalculatingFee(false));
+  }, [districtId, wardCode, deliveryType]);
+
+  const handleDeliveryTypeChange = (type) => {
+    setDeliveryType(type);
+    setError("");
+    if (type === "shipping" && method === "store") {
+      setMethod("cod");
+    } else if (type === "store" && method === "cod") {
+      setMethod("store");
+    }
+  };
   const [inputCode, setInputCode] = useState("");
   const [applied, setApplied] = useState("");
   const [discount, setDiscount] = useState(0);
@@ -213,6 +280,18 @@ export function useLiveCheckout() {
       return;
     }
 
+    let fullShippingAddress = "";
+    if (deliveryType === "shipping") {
+      if (!provinceId || !districtId || !wardCode || !addressDetail.trim()) {
+        setError("Vui lòng chọn Tỉnh/Thành, Quận/Huyện, Phường/Xã và nhập số nhà/tên đường cụ thể.");
+        return;
+      }
+      const provName = provinces.find((p) => p.id === Number(provinceId))?.name || "";
+      const distName = districts.find((d) => d.id === Number(districtId))?.name || "";
+      const wardName = wards.find((w) => w.code === wardCode)?.name || "";
+      fullShippingAddress = `${addressDetail.trim()}, ${wardName}, ${distName}, ${provName}`;
+    }
+
     const submission = pendingAttempt || {
       key: checkoutKey,
       payload: {
@@ -220,10 +299,16 @@ export function useLiveCheckout() {
         pickupPhone: trimmedPhone,
         note: note.trim(),
         promotionCode: applied || "",
-        method: "store",
+        method: method,
         expectedTotal: total,
         expectedDiscount: discount,
         itemVariantIds: selectedVariantIds || undefined,
+        deliveryType,
+        shippingFee: deliveryType === "shipping" ? shippingFee : 0,
+        shippingAddress: fullShippingAddress || undefined,
+        toProvinceId: deliveryType === "shipping" && provinceId ? Number(provinceId) : undefined,
+        toDistrictId: deliveryType === "shipping" && districtId ? Number(districtId) : undefined,
+        toWardCode: deliveryType === "shipping" && wardCode ? wardCode : undefined,
       },
     };
 
@@ -237,6 +322,13 @@ export function useLiveCheckout() {
       sessionStorage.removeItem("techzone-checkout-key-" + user.id);
       sessionStorage.removeItem("techzone_checkout_selected_ids");
       sessionStorage.removeItem("techzone_cart_selected_ids");
+
+      if (order.paymentUrl) {
+        notify("Đang chuyển hướng tới cổng thanh toán trực tuyến VNPAY…");
+        window.location.href = order.paymentUrl;
+        return;
+      }
+
       notify("Đã tạo đơn hàng. Vui lòng chờ cửa hàng xác nhận sẵn sàng nhận.");
       navigate("/don-hang/" + order.id + "?created=1");
       void reloadCart();
@@ -287,8 +379,23 @@ export function useLiveCheckout() {
     setInputCode: handleSetInputCode,
     applied,
     setApplied: handleSetApplied,
-    method: "store",
-    setMethod: () => {},
+    method,
+    setMethod,
+    deliveryType,
+    setDeliveryType: handleDeliveryTypeChange,
+    provinces,
+    districts,
+    wards,
+    provinceId,
+    setProvinceId,
+    districtId,
+    setDistrictId,
+    wardCode,
+    setWardCode,
+    addressDetail,
+    setAddressDetail,
+    shippingFee,
+    calculatingFee,
     error: error || validationError || cartError,
     placing,
     applying,

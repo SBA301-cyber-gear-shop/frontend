@@ -7,7 +7,8 @@
 export type DiscountType = "percentage" | "fixed_amount";
 
 /** Trạng thái áp dụng voucher – map cột Promotion_Usages.status */
-export type PromotionUsageStatus = "APPLIED" | "USED" | "REVOKED";
+export type PromotionUsageStatus =
+  "APPLIED" | "RESERVED" | "USED" | "REVOKED" | "CANCELED";
 
 /** Bảng Promotions – mã giảm giá / khuyến mãi */
 export interface Promotion {

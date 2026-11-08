@@ -9,6 +9,7 @@ function orderView(order) {
     pickupName: order.pickupName,
     pickupPhone: order.pickupPhone,
     note: order.note || "",
+    cancelReason: order.cancelReason || "",
     total: order.totalAmount,
     discount: order.discountAmount,
     final: order.finalAmount,
@@ -17,6 +18,12 @@ function orderView(order) {
     payment: order.paymentStatus,
     createdAt: order.createdAt,
     paidAt: order.paidAt,
+    paymentUrl: order.paymentUrl,
+    deliveryType: order.deliveryType || "store",
+    shippingFee: order.shippingFee || 0,
+    shippingAddress: order.shippingAddress || "",
+    trackingCode: order.trackingCode || null,
+    carrier: order.carrier || "GHN",
     completedAt: order.status === "completed" ? order.updatedAt : undefined,
     lines: order.items.map((item) => ({
       id: String(item.productVariantId),
@@ -83,9 +90,10 @@ export const ordersApi = {
     );
     return orderView(data);
   },
-  async cancel(code: string, operations = false) {
+  async cancel(code: string, reason = "", operations = false) {
     const { data } = await axiosClient.post(
       `${codePath(operations ? endpoints.orderOperations : endpoints.orders, code)}/cancel`,
+      operations ? { reason } : undefined,
     );
     return orderView(data);
   },
