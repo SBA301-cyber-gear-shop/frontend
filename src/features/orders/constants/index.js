@@ -3,7 +3,8 @@ export const ORDER_STATUS = {
   confirmed: "Đã xác nhận",
   preparing: "Đang chuẩn bị",
   ready_for_pickup: "Sẵn sàng nhận",
-  completed: "Đã nhận hàng",
+  delivering: "Đang giao hàng",
+  completed: "Đã giao hàng",
   canceled: "Đã hủy",
 };
 export const PAYMENT_STATUS = {
