@@ -106,7 +106,9 @@ test("order creation reserves stock once, snapshots price and cancel restores on
   assert.equal(s.products[0].stock, 24);
   state.products[0].price = 1;
   assert.equal(order.lines[0].unitPrice, 1200000);
-  const canceled = transitionOrder(state, "new-order", "cancel");
+  assert.throws(() => transitionOrder(state, "new-order", "cancel"));
+  const canceled = transitionOrder(state, "new-order", "cancel", [], "Đặt nhầm sản phẩm");
+  assert.equal(canceled.orders.find((item) => item.id === "new-order").cancelReason, "Đặt nhầm sản phẩm");
   assert.equal(canceled.products[0].stock, 24);
   assert.throws(() => transitionOrder(canceled, "new-order", "cancel"));
 });

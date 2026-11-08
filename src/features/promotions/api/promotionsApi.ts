@@ -11,14 +11,27 @@ const view = (promotion) => ({
 });
 
 export const promotionsApi = {
+  async history(
+    id: number,
+    params: { page: number; size: number; status: string; search: string },
+    signal?: AbortSignal,
+  ) {
+    const { data } = await axiosClient.get(
+      `/api/admin/promotions/${id}/usages`,
+      { params, signal },
+    );
+    return data;
+  },
   async list(signal?: AbortSignal, options?: CacheOptions) {
     return apiCache.fetchWithCache(
       "admin_promotions",
       async () => {
-        const { data } = await axiosClient.get("/api/admin/promotions", { signal });
+        const { data } = await axiosClient.get("/api/admin/promotions", {
+          signal,
+        });
         return data.map(view);
       },
-      { ttl: 120_000, storage: "session", ...options }
+      { ttl: 120_000, storage: "session", ...options },
     );
   },
 
@@ -29,7 +42,7 @@ export const promotionsApi = {
         const { data } = await axiosClient.get("/api/promotions", { signal });
         return data.map(view);
       },
-      { ttl: 180_000, storage: "session", ...options }
+      { ttl: 180_000, storage: "session", ...options },
     );
   },
 

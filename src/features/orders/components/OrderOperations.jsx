@@ -7,10 +7,8 @@ import { warrantyRemainingText } from "@/features/warranty";
 import {
   Badge,
   Button,
-  Empty,
   Heading,
   KV,
-  Modal,
   Notice,
   Panel,
   Steps,
@@ -20,6 +18,8 @@ import { useOrderOperations } from "../hooks/useOrderOperations";
 import { useStore } from "@/store";
 import { shippingApi } from "../api/shippingApi";
 import { ordersApi } from "../api/ordersApi";
+import { CashCollectionModal } from "./CashCollectionModal";
+import { CancelOrderModal } from "./CancelOrderModal";
 
 export function OrderOperations({ handover = false }) {
   const {
@@ -334,7 +334,6 @@ export function OrderOperations({ handover = false }) {
                 {selected.note || "Không có ghi chú."}
               </p>
             </Panel>
-
             {selected.deliveryType === "shipping" && (
               <Panel
                 title="Vận chuyển Giao Hàng Nhanh (GHN)"
@@ -473,6 +472,11 @@ export function OrderOperations({ handover = false }) {
               </Panel>
             )}
 
+            {selected.status === "canceled" && (
+              <Panel title="Lý do hủy đơn">
+                <p style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{selected.cancelReason || "Đơn cũ chưa ghi nhận lý do hủy."}</p>
+              </Panel>
+            )}
             {handover && (
               <Panel
                 title={"Serial từng thiết bị · " + count + " thiết bị"}
@@ -721,53 +725,21 @@ export function OrderOperations({ handover = false }) {
         </div>
       )}
       {confirm && selected && (
-        <Modal
-          title="Xác nhận đã nhận đủ tiền?"
+        <CashCollectionModal
+          key={selected.id}
+          order={selected}
+          demoMode={demoMode}
+          busy={busy}
+          receivedAmount={receivedAmount}
+          setReceivedAmount={setReceivedAmount}
+          reference={reference}
+          setReference={setReference}
           onClose={() => setConfirm(false)}
-        >
-          <p>
-            Đơn {selected.id} · {money(selected.final)}. Thao tác cập nhật khoản
-            thu {demoMode ? "trong dữ liệu demo" : "thực tế tại cửa hàng"}.
-          </p>
-          {!demoMode && (
-            <div className="stack section">
-              <Field
-                label="Số tiền thực tế đã nhận (VND)"
-                type="number"
-                min="0"
-                value={receivedAmount}
-                onChange={(event) => setReceivedAmount(event.target.value)}
-              />
-              <Field
-                label="Mã chứng từ thu tiền (nếu có)"
-                maxLength={255}
-                value={reference}
-                onChange={(event) => setReference(event.target.value)}
-              />
-            </div>
-          )}
-          <div className="row section">
-            <Button tone="secondary" onClick={() => setConfirm(false)}>
-              Quay lại
-            </Button>
-            <Button disabled={busy} onClick={() => update("pay")}>
-              Đã thu đủ tiền
-            </Button>
-          </div>
-        </Modal>
+          onConfirm={() => update("pay")}
+        />
       )}
       {cancelConfirm && selected && (
-        <Modal title="Hủy đơn hàng?" onClose={() => setCancelConfirm(false)}>
-          <p>Hủy đơn {selected.id} và hoàn lại số lượng đã giữ vào kho.</p>
-          <div className="row section">
-            <Button tone="secondary" onClick={() => setCancelConfirm(false)}>
-              Giữ đơn
-            </Button>
-            <Button disabled={busy} onClick={() => update("cancel")}>
-              Xác nhận hủy
-            </Button>
-          </div>
-        </Modal>
+        <CancelOrderModal key={selected.id} orderId={selected.id} busy={busy} onClose={() => setCancelConfirm(false)} onConfirm={(reason) => update("cancel", reason)} />
       )}
     </>
   );

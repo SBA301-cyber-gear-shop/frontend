@@ -1,5 +1,11 @@
-import { dateTime, money, formatShortOrderCode, formatOrderSuffix } from "@/utils";
-import { useState, useEffect } from "react";
+import {
+  dateTime,
+  money,
+  formatShortOrderCode,
+  formatOrderSuffix,
+} from "@/utils";
+import { useEffect, useRef, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { paymentApi } from "../api/paymentApi";
 import { shippingApi } from "../api/shippingApi";
 import { ORDER_STATUS, PAYMENT_STATUS } from "../constants";
@@ -15,10 +21,13 @@ import {
   Panel,
   Steps,
 } from "@/components/ui";
-import { Field } from "@/components/form";
 import { useOrderDetails } from "../hooks/useOrderDetails";
+import { ReviewComposer, ReviewViewer } from "@/features/reviews";
 
 export function OrderDetails() {
+  const { hash } = useLocation();
+  const reviewSection = useRef(null);
+  const [viewReview, setViewReview] = useState(null);
   const {
     id,
     params,
@@ -29,21 +38,17 @@ export function OrderDetails() {
     setConfirm,
     review,
     setReview,
-    rating,
-    setRating,
-    comment,
-    setComment,
     order,
     act,
     labels,
     index,
-    saveReview,
     loading,
     error,
     refresh,
+    reloadCatalog,
     busy,
+    demoMode,
   } = useOrderDetails();
-
   const [tracking, setTracking] = useState(null);
   const [trackingLoading, setTrackingLoading] = useState(false);
 
@@ -64,6 +69,12 @@ export function OrderDetails() {
     fetchTracking();
   }, [id, order?.deliveryType]);
 
+  useEffect(() => {
+    if (hash === "#order-reviews" && order?.status === "completed") {
+      reviewSection.current?.scrollIntoView({ block: "start" });
+      reviewSection.current?.focus({ preventScroll: true });
+    }
+  }, [hash, order?.status, id]);
   if (loading) return <Notice>Đang tải đơn hàng…</Notice>;
   if (error)
     return (
@@ -255,26 +266,29 @@ export function OrderDetails() {
           </Panel>
 
           {order.status === "completed" && (
-            <Panel title="Đánh giá sản phẩm">
-              {order.lines.map((l) => (
-                <div className="between section" key={l.id}>
-                  <span>{l.name}</span>
-                  <Button
-                    tone="secondary"
-                    onClick={() => {
-                      const r = data.reviews.find(
-                        (r) => r.orderId === id && r.productId === l.id,
-                      );
-                      setRating(r?.rating || 5);
-                      setComment(r?.comment || "");
-                      setReview(l.id);
-                    }}
-                  >
-                    Đánh giá
-                  </Button>
-                </div>
-              ))}
-            </Panel>
+            <section
+              id="order-reviews"
+              ref={reviewSection}
+              tabIndex={-1}
+              aria-label="Đánh giá sản phẩm đã nhận"
+              style={{ scrollMarginTop: 24 }}
+            >
+              <Panel title="Đánh giá sản phẩm">
+                {order.lines.map((l) => (
+                  <div className="between section" key={l.id}>
+                    <span>{l.name}</span>
+                    {l.review || (demoMode && data.reviews.some((entry) => entry.orderId === order.id && entry.productId === l.id)) ? <div className="row wrap-row"><Badge tone="success">Đã đánh giá</Badge><Button tone="secondary" onClick={() => setViewReview(l.id)}>Xem đánh giá</Button></div> : <Button
+                      tone="secondary"
+                      onClick={() => {
+                        setReview(l.id);
+                      }}
+                    >
+                      Đánh giá
+                    </Button>}
+                  </div>
+                ))}
+              </Panel>
+            </section>
           )}
         </div>
 
@@ -359,7 +373,11 @@ export function OrderDetails() {
             sang đơn khác theo chính sách mỗi khách dùng một lần.
           </p>
           <div className="row section">
-            <Button tone="secondary" onClick={() => setConfirm(false)}>
+            <Button
+              tone="secondary"
+              disabled={busy}
+              onClick={() => setConfirm(false)}
+            >
               Giữ đơn
             </Button>
             <Button disabled={busy} onClick={() => act("cancel")}>
@@ -369,38 +387,9 @@ export function OrderDetails() {
         </Modal>
       )}
       {review && (
-        <Modal title="Đánh giá sản phẩm" onClose={() => setReview(null)}>
-          <Field label="Số sao">
-            {(id) => (
-              <select
-                id={id}
-                className="input"
-                value={rating}
-                onChange={(e) => setRating(Number(e.target.value))}
-              >
-                {[5, 4, 3, 2, 1].map((v) => (
-                  <option key={v} value={v}>
-                    {v} sao
-                  </option>
-                ))}
-              </select>
-            )}
-          </Field>
-          <Field label="Nhận xét">
-            {(id) => (
-              <textarea
-                id={id}
-                className="input"
-                value={comment}
-                onChange={(e) => setComment(e.target.value)}
-              />
-            )}
-          </Field>
-          <Button disabled={busy} onClick={saveReview}>
-            Lưu đánh giá
-          </Button>
-        </Modal>
+        <ReviewComposer key={review} order={{ ...order, lines: order.lines.filter((line) => line.id === review) }} demoMode={demoMode} onClose={() => setReview(null)} onSaved={() => { refresh(); void reloadCatalog(); notify("Đã lưu đánh giá."); }} />
       )}
+      {viewReview && <ReviewViewer key={viewReview} order={{ ...order, lines: order.lines.filter((line) => line.id === viewReview) }} demoMode={demoMode} onClose={() => setViewReview(null)} />}
     </>
   );
 }
