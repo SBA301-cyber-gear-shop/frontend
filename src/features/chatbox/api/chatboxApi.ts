@@ -10,6 +10,8 @@ export interface ProductSummary {
   id: number;
   variantId?: number;
   name: string;
+  brand?: string;
+  description?: string;
   variantName?: string;
   category?: string;
   price?: number;
@@ -47,6 +49,7 @@ export interface ChatHistoryItem {
 export interface AiChatPayload {
   message: string;
   conversationId?: string;
+  currentPath?: string;
   mode?: "ai" | "staff";
   history?: ChatHistoryItem[];
 }

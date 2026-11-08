@@ -235,17 +235,32 @@ export function CustomerAIChatbox() {
   const { user } = useSession();
   const navigate = useNavigate();
 
-  const [isOpen, setIsOpen] = useState(false);
-  const [messages, setMessages] = useState([
-    {
-      id: "init",
-      sender: "bot",
-      text: user
-        ? `Xin chào **${user.fullName || "bạn"}**! Mình là **CyberBot** - Trợ lý AI chính thức của TechZone.\n\nMình có thể hỗ trợ bạn:\n* **Tra cứu đơn hàng gần nhất & shipper GHN**\n* **Kiểm tra thời hạn bảo hành linh kiện & số Serial**\n* **Tư vấn cấu hình PC tối ưu ngân sách từ kho thực tế**\n\nBạn cần hỗ trợ điều gì hôm nay?`
-        : `Xin chào bạn! Mình là **CyberBot** - Trợ lý AI chính thức của TechZone.\n\nMình có thể hỗ trợ bạn tra cứu linh kiện có sẵn trong kho, giải đáp bảo hành và giao nhận hàng toàn quốc. Bạn cần tìm hiểu gì hôm nay?`,
-      quickActions: [],
-    },
-  ]);
+  const [isOpen, setIsOpen] = useState(() => {
+    return sessionStorage.getItem("cyberbot_open") === "true";
+  });
+  const [messages, setMessages] = useState(() => {
+    try {
+      const saved = sessionStorage.getItem("cyberbot_messages");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      }
+    } catch (e) {
+      console.warn("Lỗi đọc lịch sử chat từ sessionStorage:", e);
+    }
+    return [
+      {
+        id: "init",
+        sender: "bot",
+        text: user
+          ? `Xin chào **${user.fullName || "bạn"}**! Mình là **CyberBot** - Trợ lý AI chính thức của TechZone.\n\nMình có thể hỗ trợ bạn:\n* **Tra cứu đơn hàng gần nhất & shipper GHN**\n* **Kiểm tra thời hạn bảo hành linh kiện & số Serial**\n* **Tư vấn cấu hình PC tối ưu ngân sách từ kho thực tế**\n\nBạn cần hỗ trợ điều gì hôm nay?`
+          : `Xin chào bạn! Mình là **CyberBot** - Trợ lý AI chính thức của TechZone.\n\nMình có thể hỗ trợ bạn tra cứu linh kiện có sẵn trong kho, giải đáp bảo hành và giao nhận hàng toàn quốc. Bạn cần tìm hiểu gì hôm nay?`,
+        quickActions: [],
+      },
+    ];
+  });
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [conversationId, setConversationId] = useState(() => {
@@ -255,10 +270,39 @@ export function CustomerAIChatbox() {
   const [chatMode, setChatMode] = useState(() => {
     return sessionStorage.getItem("cyberbot_mode") || "ai";
   });
-  const [activeStaff, setActiveStaff] = useState(null);
+  const [activeStaff, setActiveStaff] = useState(() => {
+    try {
+      const saved = sessionStorage.getItem("cyberbot_staff");
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
 
   const messagesEndRef = useRef(null);
   const lastStaffMsgIdRef = useRef(0);
+
+  useEffect(() => {
+    sessionStorage.setItem("cyberbot_open", isOpen ? "true" : "false");
+  }, [isOpen]);
+
+  useEffect(() => {
+    try {
+      if (messages && messages.length > 0) {
+        sessionStorage.setItem("cyberbot_messages", JSON.stringify(messages));
+      }
+    } catch (e) {
+      console.warn("Lỗi lưu lịch sử chat vào sessionStorage:", e);
+    }
+  }, [messages]);
+
+  useEffect(() => {
+    if (activeStaff) {
+      sessionStorage.setItem("cyberbot_staff", JSON.stringify(activeStaff));
+    } else {
+      sessionStorage.removeItem("cyberbot_staff");
+    }
+  }, [activeStaff]);
 
   useEffect(() => {
     if (conversationId) {
@@ -377,6 +421,7 @@ export function CustomerAIChatbox() {
       const data = await chatboxApi.sendMessage({
         message: query,
         conversationId: conversationId || undefined,
+        currentPath: window.location.pathname,
         history: historyPayload,
         mode: chatMode,
       });
@@ -503,6 +548,8 @@ export function CustomerAIChatbox() {
                   setChatMode("ai");
                   setActiveStaff(null);
                   sessionStorage.removeItem("cyberbot_conv_id");
+                  sessionStorage.removeItem("cyberbot_messages");
+                  sessionStorage.removeItem("cyberbot_staff");
                   sessionStorage.setItem("cyberbot_mode", "ai");
                   setConversationId("");
                   setMessages([
