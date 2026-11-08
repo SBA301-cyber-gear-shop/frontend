@@ -71,7 +71,7 @@ export function ProductDetails({ addCart }) {
           </p>
           <div className="row section">
             <div className="price">{money(p.price)}</div>
-            <span className="old-price">{money(p.originalPrice)}</span>
+            {Number(p.originalPrice) > Number(p.price) && <span className="old-price">{money(p.originalPrice)}</span>}
           </div>
           <p className="small green-text section">
             {p.stock > 0 ? "● Còn " + p.stock + " sản phẩm" : "Hết hàng"} · Nhận
