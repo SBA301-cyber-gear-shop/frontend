@@ -55,9 +55,29 @@ function useDemoPromotionManagement() {
         };
       });
       notify("Đã lưu khuyến mãi và banner.");
+      return true;
     } catch (err) {
       notify(err.message, "danger");
+      return false;
     }
   }
-  return { p, set, used, reserved, save, demoMode: true };
+  return {
+    p,
+    set,
+    used,
+    reserved,
+    save,
+    demoMode: true,
+    promotions: data.promotions.map((promotion) => ({
+      ...promotion,
+      used: data.usages.filter(
+        (usage) => usage.code === promotion.code && usage.status === "USED",
+      ).length,
+      reserved: data.usages.filter(
+        (usage) => usage.code === promotion.code && usage.status === "RESERVED",
+      ).length,
+    })),
+    select: (id) =>
+      setP({ ...data.promotions.find((promotion) => promotion.id === id) }),
+  };
 }

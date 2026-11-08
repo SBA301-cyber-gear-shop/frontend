@@ -9,6 +9,7 @@ function orderView(order) {
     pickupName: order.pickupName,
     pickupPhone: order.pickupPhone,
     note: order.note || "",
+    cancelReason: order.cancelReason || "",
     total: order.totalAmount,
     discount: order.discountAmount,
     final: order.finalAmount,
@@ -83,9 +84,10 @@ export const ordersApi = {
     );
     return orderView(data);
   },
-  async cancel(code: string, operations = false) {
+  async cancel(code: string, reason = "", operations = false) {
     const { data } = await axiosClient.post(
       `${codePath(operations ? endpoints.orderOperations : endpoints.orders, code)}/cancel`,
+      operations ? { reason } : undefined,
     );
     return orderView(data);
   },

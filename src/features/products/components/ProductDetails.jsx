@@ -13,6 +13,7 @@ import {
 import { Quantity } from "@/components/form";
 import { useProductDetails } from "../hooks/useProductDetails";
 import { ProductFeedback } from "./ProductFeedback";
+import { ReviewMediaGallery } from "@/features/reviews";
 
 export function ProductDetails({ addCart }) {
   const {
@@ -199,6 +200,7 @@ export function ProductDetails({ addCart }) {
                 <span className="rating">{"★".repeat(r.rating)}</span>
                 <p>{r.comment}</p>
                 <small className="muted">Đã mua hàng · {r.name}</small>
+                <ReviewMediaGallery reviewId={r.id} media={r.media} />
               </div>
             ))
           ) : (

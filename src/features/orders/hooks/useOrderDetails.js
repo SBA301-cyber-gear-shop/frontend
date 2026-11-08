@@ -58,7 +58,7 @@ export function useOrderDetails() {
       return;
     }
     try {
-      commit((d) => transitionOrder(d, id, action));
+      commit((d) => transitionOrder(d, id, action, [], "Khách hàng yêu cầu hủy đơn"));
       setConfirm(false);
       notify("Đã cập nhật đơn demo.");
     } catch (e) {
@@ -130,6 +130,7 @@ export function useOrderDetails() {
     loading: remote.loading,
     error: remote.error,
     refresh: remote.refresh,
+    reloadCatalog,
     busy,
     demoMode,
   };

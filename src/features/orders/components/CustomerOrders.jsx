@@ -1,4 +1,7 @@
 import { Link } from "react-router-dom";
+import { useState } from "react";
+import { useStore } from "@/store";
+import { ReviewComposer, ReviewViewer } from "@/features/reviews";
 import { dateTime, money, formatShortOrderCode } from "@/utils";
 import { ORDER_STATUS, PAYMENT_STATUS } from "../constants";
 import {
@@ -13,6 +16,9 @@ import {
 import { useCustomerOrders } from "../hooks/useCustomerOrders";
 
 export function CustomerOrders() {
+  const [reviewOrder, setReviewOrder] = useState(null);
+  const [viewOrder, setViewOrder] = useState(null);
+  const { demoMode, notify, reloadCatalog } = useStore();
   const {
     data,
     filter,
@@ -24,6 +30,7 @@ export function CustomerOrders() {
     error,
     refresh,
   } = useCustomerOrders();
+  const hasReview = (order, line) => Boolean(line.review || (demoMode && data.reviews.some((entry) => entry.orderId === order.id && entry.productId === line.id)));
   if (loading) return <Notice>Đang tải đơn hàng…</Notice>;
   if (error)
     return (
@@ -66,7 +73,11 @@ export function CustomerOrders() {
             <Panel key={o.id}>
               <div className="between">
                 <div>
-                  <Link className="red" to={"/don-hang/" + o.id} title={"Mã đầy đủ: " + o.id}>
+                  <Link
+                    className="red"
+                    to={"/don-hang/" + o.id}
+                    title={"Mã đầy đủ: " + o.id}
+                  >
                     <b>{formatShortOrderCode(o.id)}</b>
                   </Link>
                   <p className="small muted">{dateTime(o.createdAt)}</p>
@@ -102,8 +113,15 @@ export function CustomerOrders() {
                 <Badge tone={o.payment === "SUCCESS" ? "success" : "warning"}>
                   {PAYMENT_STATUS[o.payment]}
                 </Badge>
-                <div className="row">
+                <div className="row wrap-row">
                   <strong className="price">{money(o.final)}</strong>
+                  {o.status === "completed" && o.lines.some((line) => !hasReview(o, line)) && (
+                    <Button onClick={() => setReviewOrder({ ...o, lines: o.lines.filter((line) => !hasReview(o, line)) })}>
+                      Đánh giá
+                    </Button>
+                  )}
+                  {o.status === "completed" && o.lines.length > 0 && o.lines.every((line) => hasReview(o, line)) && <Badge tone="success">Đã đánh giá</Badge>}
+                  {o.status === "completed" && o.lines.some((line) => hasReview(o, line)) && <Button tone="secondary" onClick={() => setViewOrder({ ...o, lines: o.lines.filter((line) => hasReview(o, line)) })}>Xem đánh giá</Button>}
                   <Button to={"/don-hang/" + o.id} tone="secondary">
                     Xem chi tiết →
                   </Button>
@@ -118,6 +136,8 @@ export function CustomerOrders() {
           />
         )}
       </div>
+      {reviewOrder && <ReviewComposer key={reviewOrder.id} order={reviewOrder} demoMode={demoMode} onClose={() => setReviewOrder(null)} onSaved={() => { refresh(); void reloadCatalog(); notify("Đã lưu đánh giá."); }} />}
+      {viewOrder && <ReviewViewer key={viewOrder.id} order={viewOrder} demoMode={demoMode} onClose={() => setViewOrder(null)} />}
     </>
   );
 }

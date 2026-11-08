@@ -1,4 +1,97 @@
 import { test, expect } from "@playwright/test";
+import { Buffer } from "node:buffer";
+
+test("completed orders open a star review dialog with three photos and one video", async ({ page }) => {
+  await page.addInitScript(() => {
+    sessionStorage.setItem("techzone-token", "review-customer-test");
+    sessionStorage.setItem("techzone-session", JSON.stringify({ id: 42, name: "Khách test", role: "Customer" }));
+  });
+  const orders = ["pending", "confirmed", "preparing", "ready_for_pickup", "completed", "canceled"].map((status, index) => ({
+    id: index+1, orderCode: `TZ-REVIEW-${status}`, userId: 42, status,
+    pickupName: "Khách test", pickupPhone: "0900000128", note: "", totalAmount: 1299000,
+    discountAmount: 0, finalAmount: 1299000, paymentStatus: "SUCCESS", methodType: "cash",
+    createdAt: "2026-11-08T10:00:00", items: [{ id: index+101, productVariantId: 101,
+      productName: "Laptop kiểm thử", quantity: 1, unitPrice: 1299000, warrantyPeriodMonths: 12 }],
+  }));
+  orders.push({ ...orders[4], id: 20, orderCode: "TZ-REVIEW-already", items: [{ ...orders[4].items[0], id: 120, rating: 5, reviewComment: "Đã nhận xét" }] });
+  let submitted;
+  const savedMedia = [{ id: 1, mediaType: "image", url: "/api/review-media/1" }, { id: 2, mediaType: "video", url: "/api/review-media/2" }];
+  await page.route("**/api/**", (route) => {
+    const path = new URL(route.request().url()).pathname;
+    if (!path.startsWith("/api/")) return route.continue();
+    if (path === "/api/orders") return route.fulfill({ json: orders });
+    if (path === "/api/order-items/105/review") {
+      if (route.request().method() === "PUT") { submitted = route.request().postData(); orders[4].items[0].rating = 4; orders[4].items[0].reviewComment = "Máy chạy tốt, đóng gói cẩn thận."; return route.fulfill({ status: 204 }); }
+      return route.fulfill({ json: submitted ? { rating: 4, comment: orders[4].items[0].reviewComment, media: savedMedia, reviewed: true } : { rating: 5, comment: "", media: [], reviewed: false } });
+    }
+    if (path === "/api/products") return route.fulfill({ json: [product] });
+    if (path === "/api/products/101/reviews") return route.fulfill({ json: [{ id: "77", productId: "101", name: "Khách test", rating: 4, comment: "Máy chạy tốt, đóng gói cẩn thận." }] });
+    if (path === "/api/reviews/77/media") return route.fulfill({ json: savedMedia });
+    if (path === "/api/review-media/1") return route.fulfill({ contentType: "image/png", body: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a6kUAAAAASUVORK5CYII=", "base64") });
+    if (path === "/api/review-media/2") return route.fulfill({ contentType: "video/mp4", body: Buffer.from([0,0,0,12,102,116,121,112,105,115,111,109]) });
+    if (path.startsWith("/api/orders/TZ-REVIEW-")) return route.fulfill({ json: orders.find((order) => path === `/api/orders/${order.orderCode}`) });
+    if (path === "/api/orders/cart") return route.fulfill({ json: { data: { items: [], totalAmount: 0 } } });
+    return route.fulfill({ json: [] });
+  });
+  await page.goto("/don-hang");
+  const shortcut = page.getByRole("button", { name: "Đánh giá", exact: true });
+  await expect(shortcut).toHaveCount(1);
+  await shortcut.click();
+  const dialog = page.getByRole("dialog", { name: "Đánh giá sản phẩm", exact: true });
+  await expect(dialog).toBeVisible();
+  await expect(page).toHaveURL(/\/don-hang$/);
+  await dialog.getByRole("radio", { name: "4 sao", exact: true }).check();
+  await dialog.getByRole("textbox", { name: "Nhận xét", exact: true }).fill("Máy chạy tốt, đóng gói cẩn thận.");
+  const photo = (name) => ({ name, mimeType: "image/png", buffer: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a6kUAAAAASUVORK5CYII=", "base64") });
+  await dialog.getByLabel("Thêm ảnh đánh giá", { exact: true }).setInputFiles([photo("a.png"),photo("b.png"),photo("c.png"),photo("d.png")]);
+  await expect(dialog).toContainText("Mỗi sản phẩm được đính kèm tối đa 3 ảnh và 1 video.");
+  await expect(dialog.locator(".review-media-preview")).toHaveCount(0);
+  await dialog.getByLabel("Thêm ảnh đánh giá", { exact: true }).setInputFiles([photo("a.png"),photo("b.png"),photo("c.png")]);
+  await dialog.getByLabel("Thêm video đánh giá", { exact: true }).setInputFiles({ name: "clip.mp4", mimeType: "video/mp4", buffer: Buffer.from([0,0,0,12,102,116,121,112,105,115,111,109]) });
+  await expect(dialog.locator(".review-media-preview")).toHaveCount(4);
+  await expect(dialog.getByLabel("Thêm ảnh đánh giá", { exact: true })).toBeDisabled();
+  await expect(dialog.getByLabel("Thêm video đánh giá", { exact: true })).toBeDisabled();
+  await dialog.getByRole("button", { name: "Xóa tệp c.png", exact: true }).click();
+  await expect(dialog.locator(".review-media-preview")).toHaveCount(3);
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBeTruthy();
+  await page.screenshot({ path: "test-results/review-modal-mobile.png", fullPage: true });
+  await dialog.getByRole("button", { name: "Lưu đánh giá", exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  expect(submitted).toContain('"rating":4');
+  expect(submitted).toContain('filename="a.png"');
+  expect(submitted).toContain('filename="clip.mp4"');
+  await expect(shortcut).toHaveCount(0);
+  await page.reload();
+  await expect(shortcut).toHaveCount(0);
+  await expect(page.getByText("Đã đánh giá", { exact: true })).toHaveCount(2);
+  await page.getByRole("button", { name: "Xem đánh giá", exact: true }).first().click();
+  const viewer = page.getByRole("dialog", { name: "Đánh giá đã gửi", exact: true });
+  await expect(viewer.getByRole("img", { name: "4 trên 5 sao", exact: true })).toBeVisible();
+  await expect(viewer).toContainText("Máy chạy tốt, đóng gói cẩn thận.");
+  await expect(viewer.getByRole("img", { name: "Ảnh đánh giá 1", exact: true })).toBeVisible();
+  await expect.poll(() => viewer.getByRole("img", { name: "Ảnh đánh giá 1", exact: true }).evaluate((element) => element.naturalWidth)).toBeGreaterThan(0);
+  await expect(viewer.getByLabel("Video đánh giá", { exact: true })).toHaveAttribute("controls", "");
+  await expect(viewer.getByRole("textbox")).toHaveCount(0);
+  await expect(viewer.locator('input[type="file"],input[type="radio"]')).toHaveCount(0);
+  await expect(viewer.getByRole("button", { name: "Lưu đánh giá", exact: true })).toHaveCount(0);
+  await page.screenshot({ path: "test-results/review-viewer-mobile.png", fullPage: true });
+  await viewer.getByRole("button", { name: "Đóng", exact: true }).last().click();
+  await page.goto("/don-hang/TZ-REVIEW-completed");
+  await expect(page.getByText("Đã đánh giá", { exact: true })).toBeVisible();
+  await expect(shortcut).toHaveCount(0);
+  await page.getByRole("button", { name: "Xem đánh giá", exact: true }).click();
+  await expect(viewer.getByRole("img", { name: "Ảnh đánh giá 1", exact: true })).toBeVisible();
+  await viewer.getByRole("button", { name: "Đóng", exact: true }).last().click();
+  await page.goto("/san-pham/101");
+  await page.getByRole("button", { name: "Đánh giá (1)", exact: true }).click();
+  await expect(page.getByRole("img", { name: "Ảnh đánh giá 1", exact: true })).toBeVisible();
+  await expect(page.getByLabel("Video đánh giá", { exact: true })).toHaveAttribute("controls", "");
+  await page.screenshot({ path: "test-results/product-review-media-mobile.png", fullPage: true });
+  await page.goto("/don-hang/TZ-REVIEW-ready_for_pickup#order-reviews");
+  await expect(page.getByRole("button", { name: "Đánh giá", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("region", { name: "Đánh giá sản phẩm đã nhận", exact: true })).toHaveCount(0);
+});
 
 test("staff opens an intake in a drawer and prints its receipt on demand", async ({ page }) => {
   const request = { id: 51, requestCode: "BH-TEST-01", intakeId: 5, intakeCode: "BH-TEST", status: "received", productName: "RAM kiểm thử", serialNumber: "RAM-TEST", warrantyCardId: 1 };
@@ -1132,8 +1225,10 @@ test("customer cancels a zero-total order using its snapshot even after the prod
   );
   await page.route("**/api/orders/TZ-ZERO/cancel", (route) => {
     expect(route.request().method()).toBe("POST");
+    expect(route.request().postData()).toBeNull();
     cancelCalls++;
     order.status = "canceled";
+    order.cancelReason = "Khách hàng yêu cầu hủy đơn";
     order.paymentStatus = "CANCELED";
     return route.fulfill({ json: order });
   });
@@ -1143,10 +1238,48 @@ test("customer cancels a zero-total order using its snapshot even after the prod
     page.getByRole("heading", { name: "Tên sản phẩm lúc mua" }),
   ).toBeVisible();
   await page.getByRole("button", { name: "Hủy đơn hàng", exact: true }).click();
+  await expect(page.getByRole("textbox", { name: "Lý do hủy đơn", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Xác nhận hủy", exact: true })).toBeEnabled();
   await page.getByRole("button", { name: "Xác nhận hủy", exact: true }).click();
   await expect(
     page.getByText("Đơn đã được hủy.", { exact: false }),
   ).toBeVisible();
+  expect(cancelCalls).toBe(1);
+  await expect(page.getByRole("heading", { name: "Lý do hủy đơn", exact: true })).toHaveCount(0);
+});
+
+test("staff cancellation requires a reason and shows it after reloading the order", async ({ page }) => {
+  await backend(page);
+  await page.addInitScript(() => {
+    sessionStorage.setItem("techzone-token", "staff-token");
+    sessionStorage.setItem("techzone-session", JSON.stringify({ id: 2, name: "Staff", role: "Staff" }));
+  });
+  const order = {
+    id: 71, orderCode: "TZ-CANCEL-STAFF", userId: 42, status: "pending",
+    pickupName: "Khách kiểm thử", pickupPhone: "0900000128", note: "Nhận buổi chiều",
+    totalAmount: 1299000, discountAmount: 0, finalAmount: 1299000,
+    paymentStatus: "PENDING", methodType: "cash", createdAt: "2026-11-08T10:00:00", items: [],
+  };
+  let cancelCalls = 0;
+  await page.route("**/api/operations/orders?*", (route) => route.fulfill({ json: [order] }));
+  await page.route("**/api/operations/orders/TZ-CANCEL-STAFF/cancel", (route) => {
+    expect(route.request().postDataJSON()).toEqual({ reason: "Khách yêu cầu đổi cấu hình" });
+    cancelCalls++;
+    order.status = "canceled";
+    order.paymentStatus = "CANCELED";
+    order.cancelReason = route.request().postDataJSON().reason;
+    return route.fulfill({ json: order });
+  });
+  await page.goto("/van-hanh/don-hang?id=TZ-CANCEL-STAFF");
+  await page.getByRole("button", { name: "Hủy đơn hàng", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Xác nhận hủy", exact: true })).toBeDisabled();
+  await page.getByRole("textbox", { name: "Lý do hủy đơn", exact: true }).fill("Khách yêu cầu đổi cấu hình");
+  await page.screenshot({ path: "test-results/staff-cancel-order-reason.png", fullPage: true });
+  await page.getByRole("button", { name: "Xác nhận hủy", exact: true }).click();
+  await expect(page.getByRole("dialog")).not.toBeVisible();
+  await expect(page.getByText("Khách yêu cầu đổi cấu hình", { exact: true })).toBeVisible();
+  await page.reload();
+  await expect(page.getByText("Khách yêu cầu đổi cấu hình", { exact: true })).toBeVisible();
   expect(cancelCalls).toBe(1);
 });
 

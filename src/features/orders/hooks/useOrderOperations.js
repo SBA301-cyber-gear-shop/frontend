@@ -66,7 +66,7 @@ export function useOrderOperations() {
     setParams({ id: selected.id });
     setter(true);
   };
-  const update = async (action) => {
+  const update = async (action, reason = "") => {
     if (!demoMode) {
       if (pending.current || !selected) return;
       setParams({ id: selected.id });
@@ -87,13 +87,17 @@ export function useOrderOperations() {
           const value = amounts[selected.id] || "";
           if (!String(value).trim() || !Number.isFinite(Number(value)))
             throw new Error("Nhập số tiền thực tế đã nhận.");
+          if (!Number.isSafeInteger(Number(value)) || Number(value) < 0)
+            throw new Error("Số tiền VND phải là số nguyên không âm hợp lệ.");
+          if (Number(value) < selected.final)
+            throw new Error("Chưa nhận đủ tiền của đơn hàng.");
           result = await ordersApi.collect(
             selected.id,
             Number(value),
             references[selected.id] || "",
           );
         } else if (action === "cancel")
-          result = await ordersApi.cancel(selected.id, true);
+          result = await ordersApi.cancel(selected.id, reason, true);
         if (result) remote.replaceOrder(result);
         setConfirm(false);
         setCancelConfirm(false);
@@ -108,7 +112,7 @@ export function useOrderOperations() {
       return;
     }
     try {
-      commit((d) => transitionOrder(d, selected.id, action));
+      commit((d) => transitionOrder(d, selected.id, action, [], reason));
       notify("Đã cập nhật trạng thái demo.");
       setConfirm(false);
     } catch (e) {
