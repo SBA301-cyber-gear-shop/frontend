@@ -3,6 +3,7 @@ import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useSession } from "@/features/auth";
 import { useCart } from "@/features/cart";
 import { CatalogConnection } from "@/features/products";
+import { CustomerAIChatbox } from "@/features/chatbox";
 import { demoMode, money } from "@/utils";
 
 import { Logo, Icon } from "@/components/ui";
@@ -109,6 +110,7 @@ export function MainLayout() {
           © 2026 TechZone Pro{demoMode ? " · Demo" : ""}
         </span>
       </footer>
+      <CustomerAIChatbox />
     </>
   );
 }

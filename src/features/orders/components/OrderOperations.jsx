@@ -8,6 +8,7 @@ import {
   Badge,
   Button,
   Heading,
+  Icon,
   KV,
   Notice,
   Panel,
@@ -236,7 +237,7 @@ export function OrderOperations({ handover = false }) {
                         setTimeout(() => setCopied(false), 2000);
                       }}
                     >
-                      {copied ? "✓ Đã chép" : "📋"}
+                      {copied ? "✓ Đã chép" : <Icon name="copy" />}
                     </button>
                   </span>
                   <span className="order-ref-suffix">
@@ -247,9 +248,9 @@ export function OrderOperations({ handover = false }) {
               action={
                 <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
                   {selected.deliveryType === "shipping" ? (
-                    <Badge tone="info">🚚 GHN Express</Badge>
+                    <Badge tone="info"><Icon name="truck" style={{ verticalAlign: "-2px", marginRight: "4px" }} /> GHN Express</Badge>
                   ) : (
-                    <Badge tone="neutral">🏪 Tại quầy</Badge>
+                    <Badge tone="neutral"><Icon name="store" style={{ verticalAlign: "-2px", marginRight: "4px" }} /> Tại quầy</Badge>
                   )}
                   <Badge
                     tone={
@@ -368,7 +369,7 @@ export function OrderOperations({ handover = false }) {
                               textDecoration: "underline",
                             }}
                           >
-                            🔗 Tra cứu trên GHN Sandbox (Nhập SĐT để xem) ↗
+                            Tra cứu trên GHN Express ↗
                           </a>
                         </div>
                       </div>
@@ -391,7 +392,7 @@ export function OrderOperations({ handover = false }) {
                   <div className="section">
                     <Notice tone="info">
                       {selected.status === "preparing"
-                        ? "Đơn đang đóng gói. Bấm '📦 Đóng gói xong & Tạo vận đơn GHN' ở panel Bước tiếp theo để tự động cấp mã vận đơn."
+                        ? "Đơn đang đóng gói. Bấm 'Đóng gói xong & Tạo vận đơn GHN' ở panel Bước tiếp theo để tự động cấp mã vận đơn."
                         : "Vận đơn GHN sẽ được tự động tạo khi nhân viên đóng gói xong hàng."}
                     </Notice>
                   </div>
@@ -403,14 +404,14 @@ export function OrderOperations({ handover = false }) {
                         disabled={busy || shippingActionBusy}
                         onClick={handlePrintA5}
                       >
-                        🖨️ In tem vận đơn (A5)
+                        In tem vận đơn (A5)
                       </Button>
                       <Button
                         tone="secondary"
                         disabled={busy || shippingActionBusy}
                         onClick={handleSyncTracking}
                       >
-                        {shippingActionBusy ? "Đang đồng bộ..." : "🔄 Làm mới hành trình"}
+                        {shippingActionBusy ? "Đang đồng bộ..." : "Làm mới hành trình"}
                       </Button>
                     </div>
 
@@ -439,7 +440,7 @@ export function OrderOperations({ handover = false }) {
                           disabled={busy || shippingActionBusy}
                           onClick={() => handleSwitchStatus("delivering")}
                         >
-                          🚚 Shipper đang giao
+                          Shipper đang giao
                         </Button>
                         <Button
                           tone="ghost"
@@ -610,7 +611,7 @@ export function OrderOperations({ handover = false }) {
                     >
                       {shippingActionBusy
                         ? "Đang kết nối GHN..."
-                        : "📦 Đóng gói xong & Tạo vận đơn GHN"}
+                        : "Đóng gói xong & Tạo vận đơn GHN"}
                     </Button>
                   )}
                   {selected.status === "ready_for_pickup" && (
@@ -624,7 +625,7 @@ export function OrderOperations({ handover = false }) {
                         >
                           {shippingActionBusy
                             ? "Đang kết nối GHN..."
-                            : "🚀 Tạo vận đơn GHN"}
+                            : "Tạo vận đơn GHN"}
                         </Button>
                       ) : (
                         <Button
@@ -632,7 +633,7 @@ export function OrderOperations({ handover = false }) {
                           disabled={busy || shippingActionBusy}
                           onClick={() => update("advance")}
                         >
-                          🚚 Shipper đã lấy hàng (Bắt đầu giao)
+                          Shipper đã lấy hàng (Bắt đầu giao)
                         </Button>
                       )}
                     </>

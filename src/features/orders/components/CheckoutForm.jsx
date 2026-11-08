@@ -3,6 +3,7 @@ import {
   Button,
   Empty,
   Heading,
+  Icon,
   KV,
   Notice,
   Panel,
@@ -135,8 +136,8 @@ export function CheckoutForm() {
           ],
           [
             "vnpay",
-            "Cổng thanh toán VNPAY Sandbox",
-            "Quét mã QR bằng App ngân hàng hoặc thẻ ATM NCB test (Tiền COD = 0đ).",
+            "Cổng thanh toán VNPAY",
+            "Quét mã VNPAY-QR hoặc thanh toán qua thẻ ATM / Internet Banking (Tiền COD = 0đ).",
           ],
         ]
       : [
@@ -147,7 +148,7 @@ export function CheckoutForm() {
           ],
           [
             "vnpay",
-            "Cổng thanh toán VNPAY Sandbox",
+            "Cổng thanh toán VNPAY",
             "Thanh toán trước qua VNPAY, chỉ cần đến đối chiếu và nhận hàng.",
           ],
         ];
@@ -181,11 +182,16 @@ export function CheckoutForm() {
                     checked={deliveryType === "store"}
                     onChange={() => setDeliveryType("store")}
                   />
-                  <div>
-                    <b>🏪 Nhận tại cửa hàng</b>
-                    <p className="small muted">
-                      Đến trực tiếp cửa hàng TechZone (Miễn phí).
-                    </p>
+                  <div style={{ display: "flex", alignItems: "flex-start", gap: "10px" }}>
+                    <div style={{ marginTop: "2px", color: deliveryType === "store" ? "var(--red)" : "var(--muted)" }}>
+                      <Icon name="store" />
+                    </div>
+                    <div>
+                      <b>Nhận tại cửa hàng</b>
+                      <p className="small muted">
+                        Đến trực tiếp cửa hàng TechZone (Miễn phí).
+                      </p>
+                    </div>
                   </div>
                 </label>
 
@@ -203,11 +209,16 @@ export function CheckoutForm() {
                     checked={deliveryType === "shipping"}
                     onChange={() => setDeliveryType("shipping")}
                   />
-                  <div>
-                    <b>🚚 Giao hàng tận nơi (GHN Express)</b>
-                    <p className="small muted">
-                      Giao nhanh toàn quốc, theo dõi hành trình trực tiếp.
-                    </p>
+                  <div style={{ display: "flex", alignItems: "flex-start", gap: "10px" }}>
+                    <div style={{ marginTop: "2px", color: deliveryType === "shipping" ? "var(--red)" : "var(--muted)" }}>
+                      <Icon name="truck" />
+                    </div>
+                    <div>
+                      <b>Giao hàng tận nơi (GHN Express)</b>
+                      <p className="small muted">
+                        Giao nhanh toàn quốc, theo dõi hành trình trực tiếp.
+                      </p>
+                    </div>
                   </div>
                 </label>
               </div>
@@ -353,9 +364,14 @@ export function CheckoutForm() {
                     checked={method === value}
                     onChange={() => setMethod(value)}
                   />
-                  <div>
-                    <b>{label}</b>
-                    <p className="small muted">{desc}</p>
+                  <div style={{ display: "flex", alignItems: "flex-start", gap: "10px" }}>
+                    <div style={{ marginTop: "2px", color: method === value ? "var(--red)" : "var(--muted)" }}>
+                      <Icon name={value === "vnpay" ? "creditCard" : value === "cod" ? "cash" : "store"} />
+                    </div>
+                    <div>
+                      <b>{label}</b>
+                      <p className="small muted">{desc}</p>
+                    </div>
                   </div>
                 </label>
               ))}
@@ -449,10 +465,10 @@ export function CheckoutForm() {
               <div className="section">
                 <Notice>
                   {method === "vnpay"
-                    ? "Sau khi bấm đặt hàng, bạn sẽ được chuyển sang cổng VNPAY Sandbox để quét mã hoặc nhập thẻ test NCB."
+                    ? "Sau khi bấm đặt hàng, bạn sẽ được chuyển sang cổng thanh toán trực tuyến VNPAY để quét mã VNPAY-QR hoặc thanh toán thẻ ATM / Mobile Banking an toàn."
                     : deliveryType === "shipping"
-                    ? "Shipper GHN sẽ thu tiền mặt khi giao hàng tận nhà cho bạn."
-                    : "Bạn thanh toán tiền mặt tại quầy khi đến nhận linh kiện."}
+                    ? "Nhân viên giao hàng GHN Express sẽ thu tiền mặt khi giao hàng tận nơi cho bạn."
+                    : "Bạn thanh toán tiền mặt hoặc quẹt thẻ tại quầy khi đến nhận linh kiện."}
                 </Notice>
               </div>
 

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { Badge, Empty } from "@/components/ui";
+import { Badge,
+  Icon, Empty } from "@/components/ui";
 import { money, dateTime, formatShortOrderCode } from "@/utils";
 import { ORDER_STATUS } from "../constants";
 
@@ -174,9 +175,9 @@ export function OrderSelector({
                         </span>
                         <div style={{ display: "flex", gap: "4px", alignItems: "center" }}>
                           {o.deliveryType === "shipping" ? (
-                            <Badge tone="info">🚚 GHN</Badge>
+                            <Badge tone="info"><Icon name="truck" style={{ verticalAlign: "-2px", marginRight: "4px" }} /> GHN</Badge>
                           ) : (
-                            <Badge tone="neutral">🏪 Quầy</Badge>
+                            <Badge tone="neutral"><Icon name="store" style={{ verticalAlign: "-2px", marginRight: "4px" }} /> Quầy</Badge>
                           )}
                           <Badge tone={tone}>
                             {ORDER_STATUS[o.status] || o.status}

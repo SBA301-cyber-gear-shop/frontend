@@ -324,7 +324,7 @@ export function useLiveCheckout() {
       sessionStorage.removeItem("techzone_cart_selected_ids");
 
       if (order.paymentUrl) {
-        notify("Đang chuyển hướng tới cổng thanh toán VNPAY Sandbox…");
+        notify("Đang chuyển hướng tới cổng thanh toán trực tuyến VNPAY…");
         window.location.href = order.paymentUrl;
         return;
       }
