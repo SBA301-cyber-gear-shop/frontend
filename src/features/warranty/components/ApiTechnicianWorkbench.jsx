@@ -13,7 +13,7 @@ import {
 } from "@/components/ui";
 import { Field } from "@/components/form";
 import { REQUEST_RESOLUTION, REQUEST_STATUS } from "../constants";
-import { cardBadge, day, groupRequestsByIntake, stepButtons, today } from "../domain/requests";
+import { cardBadge, day, groupByPc, groupRequestsByIntake, stepButtons, today } from "../domain/requests";
 import { useAftersales } from "../hooks/useAftersales";
 import { RequestHistory, Timeline } from "./RequestHistory";
 
@@ -101,7 +101,9 @@ export function ApiTechnicianWorkbench() {
                   </span>
                   <span className="tech-intake-toggle" aria-hidden="true" />
                 </summary>
-                {rows.map((t) => (
+                {groupByPc(rows).map((group) => <div key={group.id ?? "loose"}>
+                  <h4>{group.label}</h4>
+                {group.items.map((t) => (
                   <button
                     type="button"
                     className={"selection tech-part " + (t.id === activeId ? "selected" : "")}
@@ -120,7 +122,7 @@ export function ApiTechnicianWorkbench() {
                       <Badge tone="info">{REQUEST_STATUS[t.status] || t.status}</Badge>
                     </span>
                   </button>
-                ))}
+                ))}</div>)}
               </details>
             ))}
             {list && !groups.length && (
@@ -348,7 +350,12 @@ function ApiTicketEditor({ ticket: t, svc, onChanged }) {
         >
           <p className="small muted">Chỉ chọn những linh kiện đã kiểm tra và không phát hiện lỗi. Các linh kiện không chọn giữ nguyên trạng thái.</p>
           <div className="no-fault-parts">
-            {rest.map((r) => (
+            {groupByPc(rest).map((group) => <div key={group.id ?? "loose"}>
+              <h4>{group.label}</h4>
+              {group.id !== null && <Button tone="secondary" onClick={() => setSelectedParts((ids) => [...new Set([...ids, ...group.items.map((r) => r.id)])])}>
+                Chọn tất cả linh kiện của bộ PC #{group.id}
+              </Button>}
+            {group.items.map((r) => (
               <label className="no-fault-part" key={r.id}>
                 <input type="checkbox" checked={selectedParts.includes(r.id)} onChange={(e) =>
                   setSelectedParts((ids) => e.target.checked ? [...ids, r.id] : ids.filter((id) => id !== r.id))
@@ -357,7 +364,7 @@ function ApiTicketEditor({ ticket: t, svc, onChanged }) {
                   <span className="small muted">{REQUEST_STATUS[r.status]}{r.underWarrantyAtIntake === false ? " · Ngoài bảo hành" : ""}</span>
                 </span>
               </label>
-            ))}
+            ))}</div>)}
           </div>
           <Field label="Ghi chú kiểm tra chung (bắt buộc)">
             {(id) => <textarea id={id} className="input full" rows="2" value={noFaultNote} onChange={(e) => setNoFaultNote(e.target.value)} />}

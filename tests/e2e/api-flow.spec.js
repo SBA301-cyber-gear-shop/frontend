@@ -1,6 +1,65 @@
 import { test, expect } from "@playwright/test";
 import { Buffer } from "node:buffer";
 
+test("technician selects only the requested PC group", async ({ page }) => {
+  const parts = [
+    { id: 11, pcCustomId: 7, productName: "CPU PC", serialNumber: "CPU-1", status: "received" },
+    { id: 12, pcCustomId: 7, productName: "RAM PC", serialNumber: "RAM-1", status: "inspecting" },
+    { id: 13, pcCustomId: 8, productName: "PC khác", serialNumber: "PC-2", status: "received" },
+    { id: 14, pcCustomId: null, productName: "Chuột lẻ", serialNumber: "MOUSE-1", status: "received" },
+  ].map((part) => ({ ...part, requestCode: `BH-${part.id}`, intakeId: 5, intakeCode: "BH-5", orderCode: "ORDER-5", version: 0 }));
+  const card = { id: 1, productName: "CPU PC", serialNumber: "CPU-1", orderCode: "ORDER-5", status: "active", valid: true, requests: [] };
+  const detail = { ...parts[0], card, allowedTransitions: [], events: [] };
+  await page.addInitScript(() => {
+    sessionStorage.setItem("techzone-token", "test-token");
+    sessionStorage.setItem("techzone-session", JSON.stringify({ id: 3, name: "Technician", role: "Technician" }));
+  });
+  await page.route("**/api/**", (route) => {
+    const path = new URL(route.request().url()).pathname;
+    if (!path.startsWith("/api/")) return route.continue();
+    const data = path === "/api/service-requests" ? parts : path === "/api/service-requests/11" ? detail :
+      path === "/api/service-intakes/5" ? { id: 5, status: "received", requests: parts } : [];
+    return route.fulfill({ json: { data } });
+  });
+  await page.goto("/ky-thuat");
+  const section = page.locator("section").filter({ has: page.getByRole("heading", { name: "Kết luận linh kiện không tìm thấy lỗi" }) });
+  await expect(section).toBeVisible();
+  await section.getByRole("button", { name: "Chọn tất cả linh kiện của bộ PC #7" }).click();
+  await expect(section.getByLabel(/CPU PC/)).toBeChecked();
+  await expect(section.getByLabel(/RAM PC/)).toBeChecked();
+  await expect(section.getByLabel(/PC khác/)).not.toBeChecked();
+  await expect(section.getByLabel(/Chuột lẻ/)).not.toBeChecked();
+  await section.getByLabel(/Chuột lẻ/).check();
+  await section.getByLabel("Ghi chú kiểm tra chung (bắt buộc)").fill("Đã kiểm tra");
+  await section.getByRole("button", { name: "Xem lại 3 linh kiện đã chọn" }).click();
+  await expect(page.getByRole("dialog")).toContainText("Chuột lẻ");
+});
+
+test("customer sees PC and loose groups on cards and intake results", async ({ page }) => {
+  const cards = [
+    { id: 1, pcCustomId: 7, productName: "RAM PC", serialNumber: "PC-1" },
+    { id: 2, pcCustomId: null, productName: "Chuột lẻ", serialNumber: "MOUSE-1" },
+  ].map((card) => ({ ...card, orderCode: "ORDER-5", status: "active", valid: true, startDate: "2026-01-01", endDate: "2027-01-01" }));
+  const intake = { intakeCode: "BH-5", orderCode: "ORDER-5", status: "received", createdAt: "2026-01-01", components: cards.map((c) => ({ ...c, status: "received", timeline: [] })) };
+  await page.addInitScript(() => {
+    sessionStorage.setItem("techzone-token", "test-token");
+    sessionStorage.setItem("techzone-session", JSON.stringify({ id: 42, name: "Customer", role: "Customer" }));
+  });
+  await page.route("**/api/**", (route) => {
+    const path = new URL(route.request().url()).pathname;
+    if (!path.startsWith("/api/")) return route.continue();
+    return route.fulfill({ json: { data: path === "/api/my/warranty-cards" ? cards : path === "/api/my/service-intakes" ? [intake] : [] } });
+  });
+  await page.goto("/bao-hanh");
+  await page.getByText("Đơn ORDER-5", { exact: false }).click();
+  await expect(page.getByRole("heading", { name: "Bộ PC (cấu hình #7)" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Mua lẻ" })).toBeVisible();
+  await page.getByRole("button", { name: /BH-5/ }).click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog.getByRole("heading", { name: "Bộ PC (cấu hình #7)" })).toBeVisible();
+  await expect(dialog.getByRole("heading", { name: "Mua lẻ" })).toBeVisible();
+});
+
 test("completed orders open a star review dialog with three photos and one video", async ({ page }) => {
   await page.addInitScript(() => {
     sessionStorage.setItem("techzone-token", "review-customer-test");
@@ -94,8 +153,8 @@ test("completed orders open a star review dialog with three photos and one video
 });
 
 test("staff opens an intake in a drawer and prints its receipt on demand", async ({ page }) => {
-  const request = { id: 51, requestCode: "BH-TEST-01", intakeId: 5, intakeCode: "BH-TEST", status: "received", productName: "RAM kiểm thử", serialNumber: "RAM-TEST", warrantyCardId: 1 };
-  const intake = { id: 5, intakeCode: "BH-TEST", orderCode: "ORDER-TEST", customerName: "Khách A", contactName: "Khách A", contactPhone: "0900000000", createdAt: "2026-11-06T09:00:00", expectedReturnDate: "2026-11-08", status: "received", issueDescription: "Lỗi RAM", requests: [request], canCancel: true, canReturn: false };
+  const request = { id: 51, requestCode: "BH-TEST-01", intakeId: 5, intakeCode: "BH-TEST", status: "received", productName: "RAM kiểm thử", serialNumber: "RAM-TEST", warrantyCardId: 1, pcCustomId: 7 };
+  const intake = { id: 5, intakeCode: "BH-TEST", orderCode: "ORDER-TEST", customerName: "Khách A", contactName: "Khách A", contactPhone: "0900000000", createdAt: "2026-11-06T09:00:00", expectedReturnDate: "2026-11-08", status: "received", issueDescription: "Lỗi RAM", requests: [request, { ...request, id: 52, pcCustomId: null, productName: "Chuột lẻ" }], canCancel: true, canReturn: false };
   const card = { id: 1, orderId: 10, orderCode: "ORDER-TEST", customerName: "Khách A", productName: "RAM kiểm thử", serialNumber: "RAM-TEST", status: "active", valid: true, endDate: "2027-01-01", openRequest: request, requests: [request] };
   await page.addInitScript(() => {
     sessionStorage.setItem("techzone-token", "test-token");
@@ -116,6 +175,8 @@ test("staff opens an intake in a drawer and prints its receipt on demand", async
   await page.getByRole("button", { name: "Xem phiếu BH-TEST", exact: true }).click();
   const drawer = page.getByRole("dialog", { name: "Phiếu tiếp nhận BH-TEST" });
   await expect(drawer).toBeVisible();
+  await expect(drawer.getByRole("heading", { name: "Bộ PC (cấu hình #7)" }).last()).toBeVisible();
+  await expect(drawer.getByRole("heading", { name: "Mua lẻ" }).last()).toBeVisible();
   await expect(drawer.getByText("Lỗi RAM").first()).toBeVisible();
   await expect(drawer.getByRole("button", { name: "In biên nhận" })).toBeHidden();
   await drawer.getByText("Xem và in biên nhận").click();

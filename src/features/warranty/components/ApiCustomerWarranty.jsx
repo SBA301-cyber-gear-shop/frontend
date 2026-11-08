@@ -14,6 +14,7 @@ import {
 import { CUSTOMER_RESOLUTION, CUSTOMER_STATUS } from "../constants";
 import { useAftersales } from "../hooks/useAftersales";
 import { RequestRoadmap } from "./RequestRoadmap";
+import { groupByPc } from "../domain/requests";
 
 // Roadmap của cả lần gửi: trạng thái chung kèm tiến trình gộp của mọi linh kiện, mốc mới nhất thắng.
 const intakeRoadmap = (intake) => ({
@@ -102,12 +103,14 @@ export function ApiCustomerWarranty() {
                     {sent.length > 0 && " · " + sent.length + " lần gửi bảo hành"}
                   </summary>
                   {/* Một lưới chung cho cả đơn để các cột thẳng hàng giữa mọi linh kiện. */}
+                  {groupByPc(items).map((group) => <div key={group.id ?? "loose"}>
+                  <h3 className="section">{group.label}</h3>
                   <div className="warranty-table">
                     <span className="th name">Linh kiện</span>
                     <span className="th">Bắt đầu</span>
                     <span className="th">Kết thúc</span>
                     <span className="th">Trạng thái</span>
-                    {items.map((c) => (
+                    {group.items.map((c) => (
                       <Fragment key={c.id}>
                         <div className="name">
                           <b>{c.productName}</b>
@@ -128,7 +131,7 @@ export function ApiCustomerWarranty() {
                         </span>
                       </Fragment>
                     ))}
-                  </div>
+                  </div></div>)}
                   {sent.length > 0 && (
                     <>
                       <h3 className="section">Lần gửi bảo hành</h3>
@@ -197,8 +200,10 @@ export function ApiCustomerWarranty() {
             <b>Lỗi bạn đã báo:</b> {selected.issueDescription}
           </p>
           <h3 className="section">Kết quả từng linh kiện</h3>
+          {groupByPc(selected.components).map((group) => <div key={group.id ?? "loose"}>
+          <h4 className="section">{group.label}</h4>
           <div className="parts-grid">
-            {selected.components.map((c) => {
+            {group.items.map((c) => {
               const result = c.resolution
                 ? CUSTOMER_RESOLUTION[c.resolution]
                 : CUSTOMER_STATUS[c.status];
@@ -224,7 +229,7 @@ export function ApiCustomerWarranty() {
                 </article>
               );
             })}
-          </div>
+          </div></div>)}
           <p className="tiny muted">Cửa hàng sẽ cập nhật tiến trình tại đây.</p>
         </Modal>
       )}
