@@ -1,6 +1,7 @@
 import { dateTime, money, formatShortOrderCode, formatOrderSuffix } from "@/utils";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { paymentApi } from "../api/paymentApi";
+import { shippingApi } from "../api/shippingApi";
 import { ORDER_STATUS, PAYMENT_STATUS } from "../constants";
 import { OrderLines } from "@/features/products";
 import {
@@ -42,6 +43,27 @@ export function OrderDetails() {
     refresh,
     busy,
   } = useOrderDetails();
+
+  const [tracking, setTracking] = useState(null);
+  const [trackingLoading, setTrackingLoading] = useState(false);
+
+  const fetchTracking = async () => {
+    if (!id || order?.deliveryType !== "shipping") return;
+    setTrackingLoading(true);
+    try {
+      const data = await shippingApi.getTracking(id);
+      setTracking(data);
+    } catch (err) {
+      // Ignored
+    } finally {
+      setTrackingLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchTracking();
+  }, [id, order?.deliveryType]);
+
   if (loading) return <Notice>Đang tải đơn hàng…</Notice>;
   if (error)
     return (
@@ -77,23 +99,161 @@ export function OrderDetails() {
         <div className="stack">
           <Notice tone={order.status === "canceled" ? "danger" : "info"}>
             {order.status === "ready_for_pickup"
-              ? "Đơn đã sẵn sàng. Vui lòng đối chiếu thông tin và thanh toán đủ trước khi nhận."
+              ? order.deliveryType === "shipping"
+                ? "Đơn hàng đã được bàn giao cho đơn vị vận chuyển GHN."
+                : "Đơn đã sẵn sàng. Vui lòng đối chiếu thông tin và thanh toán đủ trước khi nhận."
+              : order.status === "delivering"
+                ? "🚚 Kiện hàng đang được Shipper GHN giao đến địa chỉ của bạn. Vui lòng chú ý điện thoại."
               : order.status === "completed"
-                ? "Bạn đã nhận hàng. Thông tin bảo hành theo từng thiết bị có trong tài khoản."
+                ? "Đơn hàng đã giao thành công. Thông tin bảo hành theo từng thiết bị có trong tài khoản."
                 : order.status === "canceled"
                   ? "Đơn đã được hủy. Số lượng giữ hàng đã được giải phóng."
+                  : order.deliveryType === "shipping"
+                  ? "Cửa hàng đang xử lý đóng gói đơn hàng để bàn giao cho GHN Express."
                   : "Cửa hàng đang xử lý đơn. Vui lòng chờ thông báo sẵn sàng trước khi đến nhận."}
           </Notice>
+
+          {/* KHỐI HÀNH TRÌNH VẬN CHUYỂN GHN TRỰC TIẾP TRÊN WEB */}
+          {order.deliveryType === "shipping" && (
+            <Panel
+              title="🚚 Hành trình vận chuyển (GHN Express)"
+              action={
+                <Button
+                  tone="ghost"
+                  disabled={trackingLoading}
+                  onClick={fetchTracking}
+                >
+                  {trackingLoading ? "Đang đồng bộ…" : "🔄 Làm mới hành trình"}
+                </Button>
+              }
+            >
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  flexWrap: "wrap",
+                  gap: "12px",
+                  paddingBottom: "12px",
+                  borderBottom: "1px solid var(--border)",
+                }}
+              >
+                <div>
+                  <span className="small muted">Mã vận đơn GHN:</span>
+                  <div style={{ fontWeight: 600, fontSize: "16px", color: "var(--primary)" }}>
+                    {tracking?.trackingCode || order.trackingCode || "Đang tạo vận đơn..."}
+                  </div>
+                  {(tracking?.trackingCode || order.trackingCode) && (
+                    <div style={{ marginTop: "4px" }}>
+                      <a
+                        href={`https://tracking.ghn.dev/?order_code=${tracking?.trackingCode || order.trackingCode}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "4px",
+                          fontSize: "12px",
+                          color: "#0284c7",
+                          textDecoration: "underline",
+                          fontWeight: 500,
+                        }}
+                      >
+                        🔗 Tra cứu trên GHN Test (Nhập SĐT khi mở web GHN) ↗
+                      </a>
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <span className="small muted">Trạng thái vận chuyển:</span>
+                  <div>
+                    <Badge tone={tracking?.status === "delivered" ? "success" : "info"}>
+                      {tracking?.statusText || "Đang xử lý tại kho CyberShop"}
+                    </Badge>
+                  </div>
+                </div>
+                <div>
+                  <span className="small muted">Dự kiến nhận hàng:</span>
+                  <div style={{ fontWeight: 500 }}>
+                    {tracking?.expectedDeliveryTime || "2 - 3 ngày"}
+                  </div>
+                </div>
+              </div>
+
+              {/* TIMELINE CÁC BƯỚC ĐI QUA */}
+              <div style={{ marginTop: "16px" }}>
+                <b style={{ fontSize: "14px", display: "block", marginBottom: "12px" }}>
+                  Lịch sử hành trình kiện hàng:
+                </b>
+                {tracking?.logs && tracking.logs.length > 0 ? (
+                  <div className="stack" style={{ gap: "12px", paddingLeft: "8px" }}>
+                    {tracking.logs.map((logItem, idx) => (
+                      <div
+                        key={idx}
+                        style={{
+                          display: "flex",
+                          gap: "12px",
+                          position: "relative",
+                          borderLeft: "2px solid var(--primary, #3b82f6)",
+                          paddingLeft: "12px",
+                          paddingBottom: "6px",
+                        }}
+                      >
+                        <div
+                          style={{
+                            width: "8px",
+                            height: "8px",
+                            borderRadius: "50%",
+                            background: idx === 0 ? "#10b981" : "#94a3b8",
+                            position: "absolute",
+                            left: "-5px",
+                            top: "6px",
+                          }}
+                        />
+                        <div style={{ flex: 1 }}>
+                          <div style={{ display: "flex", justifyContent: "space-between" }}>
+                            <b style={{ fontSize: "13px" }}>{logItem.description}</b>
+                            <span className="small muted">{logItem.time}</span>
+                          </div>
+                          {logItem.location && (
+                            <p className="tiny muted" style={{ marginTop: "2px" }}>
+                              📍 {logItem.location}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="small muted" style={{ fontStyle: "italic" }}>
+                    Đơn hàng mới tạo. Lịch sử di chuyển sẽ được cập nhật liên tục ngay khi bưu tá GHN nhận kiện hàng.
+                  </div>
+                )}
+              </div>
+            </Panel>
+          )}
+
           <OrderLines lines={order.lines} products={data.products} />
+
           <Panel title="Thông tin nhận hàng">
             <div className="two-col">
               <KV label="Người nhận">{order.pickupName}</KV>
               <KV label="Điện thoại">{order.pickupPhone}</KV>
             </div>
+            <div className="section">
+              <KV label="Hình thức">
+                {order.deliveryType === "shipping"
+                  ? "🚚 Giao hàng tận nơi qua GHN Express"
+                  : "🏪 Nhận tại quầy TechZone Flagship Store"}
+              </KV>
+              {order.shippingAddress && (
+                <KV label="Địa chỉ giao hàng">{order.shippingAddress}</KV>
+              )}
+            </div>
             <p className="small muted section">
-              {order.note || "Không có ghi chú."}
+              {order.note || "Không có ghi chú thêm."}
             </p>
           </Panel>
+
           {order.status === "completed" && (
             <Panel title="Đánh giá sản phẩm">
               {order.lines.map((l) => (
@@ -117,6 +277,7 @@ export function OrderDetails() {
             </Panel>
           )}
         </div>
+
         <aside className="stack">
           <Panel title="Thanh toán" className="summary">
             <Badge tone={order.payment === "SUCCESS" ? "success" : "warning"}>
@@ -127,6 +288,10 @@ export function OrderDetails() {
               <KV label={"Voucher " + (order.promotion || "")}>
                 −{money(order.discount)}
               </KV>
+              {order.deliveryType === "shipping" && (
+                <KV label="Phí vận chuyển (GHN)">{money(order.shippingFee)}</KV>
+              )}
+              <div className="divider" />
               <KV label="Thành tiền" total>
                 {money(order.final)}
               </KV>
@@ -134,7 +299,9 @@ export function OrderDetails() {
             <p className="small muted section">
               Phương thức:{" "}
               {order.method === "store"
-                ? "Tại cửa hàng"
+                ? "Tại quầy TechZone"
+                : order.method === "cod"
+                ? "Tiền mặt khi nhận hàng (COD)"
                 : order.method === "vnpay"
                 ? "Cổng VNPAY Sandbox"
                 : "Online · Demo"}
@@ -167,36 +334,6 @@ export function OrderDetails() {
                   </Button>
                 </div>
               )}
-            {order.method === "online" &&
-              !["SUCCESS", "CANCELED"].includes(order.payment) &&
-              order.status !== "canceled" && (
-                <div className="section">
-                  <Notice tone="warning">
-                    Mô phỏng kết quả cổng thanh toán. Không thu tiền thật.
-                  </Notice>
-                  <Button className="full" onClick={() => act("pay")}>
-                    Mô phỏng thanh toán thành công
-                  </Button>
-                  <Button
-                    tone="secondary"
-                    className="full"
-                    onClick={() => {
-                      commit((d) => ({
-                        ...d,
-                        orders: d.orders.map((o) =>
-                          o.id === id ? { ...o, payment: "FAILED" } : o,
-                        ),
-                      }));
-                      notify(
-                        "Đã mô phỏng thất bại; bạn có thể thử lại.",
-                        "danger",
-                      );
-                    }}
-                  >
-                    Mô phỏng thất bại
-                  </Button>
-                </div>
-              )}
             <Button to="/don-hang" tone="secondary" className="full">
               Về đơn hàng của tôi
             </Button>
@@ -214,6 +351,7 @@ export function OrderDetails() {
           </Panel>
         </aside>
       </div>
+
       {confirm && (
         <Modal title="Hủy đơn hàng?" onClose={() => setConfirm(false)}>
           <p>

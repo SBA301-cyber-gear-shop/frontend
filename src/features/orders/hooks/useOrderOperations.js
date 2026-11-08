@@ -74,15 +74,26 @@ export function useOrderOperations() {
       setBusy(true);
       try {
         let result;
-        if (action === "advance")
+        if (action === "advance") {
+          const nextMap =
+            selected.deliveryType === "shipping"
+              ? {
+                  pending: "confirmed",
+                  confirmed: "preparing",
+                  preparing: "ready_for_pickup",
+                  ready_for_pickup: "delivering",
+                  delivering: "completed",
+                }
+              : {
+                  pending: "confirmed",
+                  confirmed: "preparing",
+                  preparing: "ready_for_pickup",
+                };
           result = await ordersApi.advance(
             selected.id,
-            {
-              pending: "confirmed",
-              confirmed: "preparing",
-              preparing: "ready_for_pickup",
-            }[selected.status],
+            nextMap[selected.status],
           );
+        }
         else if (action === "pay") {
           const value = amounts[selected.id] || "";
           if (!String(value).trim() || !Number.isFinite(Number(value)))

@@ -93,8 +93,8 @@ export function CustomerOrders() {
                 <div>
                   <b>{o.lines[0]?.name}</b>
                   <p className="small muted">
-                    {o.lines.reduce((s, l) => s + l.quantity, 0)} sản phẩm ·
-                    Nhận tại cửa hàng
+                    {o.lines.reduce((s, l) => s + l.quantity, 0)} sản phẩm ·{" "}
+                    {o.deliveryType === "shipping" ? "🚚 Giao hàng GHN" : "🏪 Nhận tại cửa hàng"}
                   </p>
                 </div>
               </div>

@@ -172,9 +172,16 @@ export function OrderSelector({
                         <span className="order-code-text" title={`Mã đầy đủ: ${o.id}`}>
                           {formatShortOrderCode(o.id)}
                         </span>
-                        <Badge tone={tone}>
-                          {ORDER_STATUS[o.status] || o.status}
-                        </Badge>
+                        <div style={{ display: "flex", gap: "4px", alignItems: "center" }}>
+                          {o.deliveryType === "shipping" ? (
+                            <Badge tone="info">🚚 GHN</Badge>
+                          ) : (
+                            <Badge tone="neutral">🏪 Quầy</Badge>
+                          )}
+                          <Badge tone={tone}>
+                            {ORDER_STATUS[o.status] || o.status}
+                          </Badge>
+                        </div>
                       </div>
 
                       <div className="order-card-customer-row">
