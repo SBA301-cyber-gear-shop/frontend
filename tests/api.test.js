@@ -300,100 +300,97 @@ test("malformed successful JSON is rejected instead of reaching feature code", a
   });
 });
 
-test.each([false, true])(
-  "AI API preserves its payload and unwraps backend envelope=%s",
-  async (wrapped) => {
-    const suggestion = {
-      name: "Office PC",
-      reasoning: "Test suggestion",
-      parts: {},
-      totalAmount: 10000000,
-      validation: { valid: true, checks: [] },
-    };
-    reply.body = wrapped ? { data: suggestion } : suggestion;
-    const payload = {
-      budget: 15000000,
-      purpose: "Văn phòng, học online",
-      userPrompt: "Máy êm",
-    };
-    expect(await pcBuilderApi.suggest(payload)).toEqual(suggestion);
-    expect(requests[0].url).toBe("/backend/api/v1/pc-build/ai-suggest");
-    expect(JSON.parse(requests[0].body)).toEqual(payload);
-    expect(JSON.parse(requests[0].body)).not.toHaveProperty("ramGb");
-  },
-);
+test("analyze and autoBuild POST to the new pc-build endpoints and unwrap ApiResponseDTO", async () => {
+  const analysis = { status: "READY", requirement: { budget: 20000000, purpose: "GAMING" }, notes: [] };
+  reply.body = { status: 200, message: "OK", data: analysis };
+  expect(await pcBuilderApi.analyze({ budget: 20000000, message: "chơi game 2K" })).toEqual(analysis);
+  expect(requests.at(-1)).toMatchObject({ method: "POST", url: "/backend/api/pc-build/requirements/analyze" });
+  expect(JSON.parse(requests.at(-1).body)).toEqual({ budget: 20000000, message: "chơi game 2K" });
 
-test("suggestBuild throws PcBuildApiError with backend code, data and Retry-After", async () => {
+  const build = { status: "VALID", budget: 20000000, total: 19500000, items: [], violations: [], message: "Dạ, Shop..." };
+  reply.body = { status: 200, message: "OK", data: build };
+  expect(await pcBuilderApi.autoBuild({ budget: 20000000, purpose: "GAMING" })).toEqual(build);
+  expect(requests.at(-1)).toMatchObject({ method: "POST", url: "/backend/api/pc-build/builds/auto" });
+  expect(JSON.parse(requests.at(-1).body)).toEqual({ budget: 20000000, purpose: "GAMING" });
+});
+
+test("validate, replacements and save send only {variantId, qty}; prices never leave the client", async () => {
+  const items = [
+    { variantId: 11, qty: 1 },
+    { variantId: 31, qty: 2 },
+  ];
+  reply.body = { data: { status: "OVER_BUDGET", items: [], violations: [] } };
+  await pcBuilderApi.validate({ budget: 20000000, items });
+  expect(requests.at(-1)).toMatchObject({ method: "POST", url: "/backend/api/pc-build/builds/validate" });
+  expect(JSON.parse(requests.at(-1).body)).toEqual({ budget: 20000000, items });
+
+  reply.body = { data: [{ id: 12, name: "RAM", price: 900000, qty: 2, maxQty: 4, current: false }] };
+  expect(await pcBuilderApi.replacements({ category: "RAM", items })).toHaveLength(1);
+  expect(requests.at(-1)).toMatchObject({ method: "POST", url: "/backend/api/pc-build/builds/replacements" });
+  expect(JSON.parse(requests.at(-1).body)).toEqual({ category: "RAM", items });
+
+  reply.body = { data: { buildId: 77, status: "VALID", total: 19000000, difference: -1000000 } };
+  expect(await pcBuilderApi.save({ budget: 20000000, items, confirmOverBudget: true })).toMatchObject({ buildId: 77 });
+  expect(requests.at(-1)).toMatchObject({ method: "POST", url: "/backend/api/pc-build/builds/save" });
+  expect(JSON.parse(requests.at(-1).body)).toEqual({ budget: 20000000, items, confirmOverBudget: true });
+});
+
+test("save 409 OVER_BUDGET_NOT_CONFIRMED keeps the popup message and data", async () => {
   reply = {
-    status: 503,
-    headers: { "Retry-After": "7" },
+    status: 409,
     body: {
-      status: 503,
-      error: "Service Unavailable",
-      message: "Trợ lý AI đang bận",
-      code: "AI_UNAVAILABLE",
-      data: { detail: "TIMEOUT" },
+      status: 409,
+      error: "Conflict",
+      message: "Bộ PC hiện tại đã vượt quá ngân sách 1.000.000đ (tổng 21.000.000đ, ngân sách 20.000.000đ). Bạn có muốn tiếp tục?",
+      code: "OVER_BUDGET_NOT_CONFIRMED",
+      data: { budget: 20000000, total: 21000000, difference: 1000000 },
     },
   };
-  const error = await pcBuilderApi
-    .suggestBuild({ budget: 20000000, purpose: "gaming" })
-    .catch((e) => e);
+  const error = await pcBuilderApi.save({ budget: 20000000, items: [{ variantId: 1, qty: 1 }] }).catch((e) => e);
   expect(error).toBeInstanceOf(PcBuildApiError);
   expect(error).toMatchObject({
-    status: 503,
-    code: "AI_UNAVAILABLE",
-    retryAfter: 7,
-    message: "Trợ lý AI đang bận",
-    data: { detail: "TIMEOUT" },
+    status: 409,
+    code: "OVER_BUDGET_NOT_CONFIRMED",
+    retryAfter: null,
+    message: expect.stringContaining("Bạn có muốn tiếp tục?"),
+    data: { difference: 1000000 },
   });
 });
 
-test("PcBuildApiError without Retry-After keeps retryAfter null", async () => {
+test("429 RATE_LIMITED keeps Retry-After seconds; 400 validationErrors become the message", async () => {
   reply = {
-    status: 422,
-    body: { status: 422, message: "Nhu cầu chưa rõ", code: "NEEDS_UNCLEAR", data: { clarifyingQuestion: "Bạn dùng máy làm gì?" } },
+    status: 429,
+    headers: { "Retry-After": "7" },
+    body: { status: 429, message: "Bạn thao tác quá nhanh", code: "RATE_LIMITED" },
   };
-  const error = await pcBuilderApi.suggestBuild({ budget: 20000000, purpose: "ab" }).catch((e) => e);
-  expect(error).toMatchObject({ status: 422, code: "NEEDS_UNCLEAR", retryAfter: null });
+  const limited = await pcBuilderApi.analyze({ budget: 20000000, message: "game" }).catch((e) => e);
+  expect(limited).toMatchObject({ status: 429, code: "RATE_LIMITED", retryAfter: 7, message: "Bạn thao tác quá nhanh" });
+
+  reply = {
+    status: 400,
+    body: { status: 400, error: "Validation Error", validationErrors: { message: "Mô tả nhu cầu tối đa 500 ký tự" } },
+  };
+  const invalid = await pcBuilderApi.analyze({ budget: 20000000, message: "x" }).catch((e) => e);
+  expect(invalid).toMatchObject({ status: 400, code: undefined, message: "Mô tả nhu cầu tối đa 500 ký tự" });
+});
+
+test("a 200 response without data is rejected instead of reaching the builder", async () => {
+  reply.body = { status: 200, message: "OK", data: null };
+  await expect(pcBuilderApi.autoBuild({ budget: 20000000, purpose: "GAMING" })).rejects.toThrow(
+    "Không nhận được dữ liệu từ máy chủ",
+  );
 });
 
 test("aborted PC Builder requests stay cancel errors, not PcBuildApiError", async () => {
   const controller = new AbortController();
   controller.abort();
   const error = await pcBuilderApi
-    .validateBuild({ items: [] }, { signal: controller.signal })
+    .validate({ budget: 20000000, items: [] }, { signal: controller.signal })
     .catch((e) => e);
   expect(axios.isCancel(error)).toBe(true);
   expect(isAbortError(error)).toBe(true);
   expect(error).not.toBeInstanceOf(PcBuildApiError);
   expect(requests).toHaveLength(0);
-});
-
-test("validate and replacements POST the whole build; save omits client prices", async () => {
-  const items = [
-    { role: "cpu", variantId: 11, quantity: 1 },
-    { role: "ram", variantId: 31, quantity: 2 },
-  ];
-  reply.body = { data: { isCompatible: true, checks: [] } };
-  await pcBuilderApi.validateBuild({ budget: 20000000, profile: null, items });
-  expect(requests.at(-1)).toMatchObject({ method: "POST", url: "/backend/api/v1/pc-build/validate" });
-  expect(JSON.parse(requests.at(-1).body)).toEqual({ budget: 20000000, profile: null, items });
-
-  reply.body = { data: [{ variantId: 12, status: "pass" }] };
-  const list = await pcBuilderApi.getCompatibleReplacements({ role: "cpu", budget: 20000000, items, lineIndex: 0 });
-  expect(list).toEqual([{ variantId: 12, status: "pass" }]);
-  expect(requests.at(-1)).toMatchObject({ method: "POST", url: "/backend/api/v1/pc-build/compatible-replacements" });
-  expect(JSON.parse(requests.at(-1).body)).toEqual({ role: "cpu", budget: 20000000, items, lineIndex: 0 });
-
-  reply.body = { data: 77 };
-  expect(await pcBuilderApi.saveCustomBuild({ buildName: "PC", items })).toBe(77);
-  expect(JSON.parse(requests.at(-1).body)).toEqual({ buildName: "PC", items });
-});
-
-test("getBuildOptions reads GET /options", async () => {
-  reply.body = { data: { minBudget: 8000000, floorPrice: 6778000, maxBudget: 9999999999, examples: [] } };
-  expect(await pcBuilderApi.getBuildOptions()).toMatchObject({ minBudget: 8000000, maxBudget: 9999999999 });
-  expect(requests.at(-1)).toMatchObject({ method: "GET", url: "/backend/api/v1/pc-build/options" });
 });
 
 test("network errors remain distinguishable from HTTP errors", async () => {
