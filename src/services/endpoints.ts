@@ -1,15 +1,11 @@
 export const endpoints = {
   auth: { login: "/api/auth/login", register: "/api/auth/register", me: "/api/auth/me" },
   pcBuilder: {
-    suggest: "/api/v1/pc-build/ai-suggest",
-    replacements: "/api/v1/pc-build/compatible-replacements",
-    validate: "/api/v1/pc-build/validate",
-    options: "/api/v1/pc-build/options",
-    peripherals: "/api/v1/pc-build/peripherals",
-    saveCustom: "/api/v1/pc-build/save",
-    myBuilds: "/api/v1/pc-build/my-builds",
-    detail: (buildId: number | string) => `/api/v1/pc-build/${buildId}`,
-    delete: (buildId: number | string) => `/api/v1/pc-build/${buildId}`,
+    analyze: "/api/pc-build/requirements/analyze",
+    auto: "/api/pc-build/builds/auto",
+    validate: "/api/pc-build/builds/validate",
+    replacements: "/api/pc-build/builds/replacements",
+    save: "/api/pc-build/builds/save",
   },
   catalog: {
     products: "/api/catalog/products",

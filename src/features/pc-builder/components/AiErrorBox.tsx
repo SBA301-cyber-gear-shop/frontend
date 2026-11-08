@@ -1,66 +1,33 @@
 import { useEffect, useState } from "react";
-import { money } from "@/utils";
-import { minFullSetBudget } from "../domain/fullSet";
 import type { PcBuilderApiError } from "../hooks/usePcBuilder";
-import type { PeripheralRange } from "../types/pcBuilder.types";
-
-const DEFAULT_MIN_BUDGET = 8_000_000;
-
-interface ErrorData {
-  clarifyingQuestion?: string;
-  minBudget?: number;
-  floorPrice?: number | null;
-  minPriority1Price?: number | null;
-  blockingItems?: { id: string; reason: string }[];
-}
 
 const TITLES: Record<string, string> = {
   AI_UNAVAILABLE: "Trợ lý AI đang bận",
   RATE_LIMITED: "Bạn thao tác hơi nhanh",
-  NEEDS_UNCLEAR: "Hệ thống cần thêm thông tin về nhu cầu",
-  NEEDS_REQUIRED: "Bạn chưa nhập nhu cầu sử dụng chính",
-  BUDGET_BELOW_FLOOR: "Ngân sách chưa đủ để ráp một bộ máy",
+  BUILD_NOT_FOUND: "Chưa ráp được bộ PC phù hợp",
+  BUDGET_TOO_LOW: "Ngân sách chưa đủ",
   BUDGET_TOO_HIGH: "Ngân sách vượt mức tối đa",
-  NO_FEASIBLE_BUILD: "Không ráp được bộ máy thỏa yêu cầu",
-  INVALID_PROFILE: "Hồ sơ nhu cầu không hợp lệ",
-  CATALOG_EMPTY: "Kho chưa có linh kiện",
+  PURPOSE_INVALID: "Mục đích sử dụng không hợp lệ",
+  VARIANT_NOT_FOUND: "Có linh kiện không còn trong kho",
+  METADATA_INVALID: "Dữ liệu cấu hình của shop đang lỗi",
 };
 
-// Lỗi do dữ liệu khách nhập: thử lại y nguyên vô ích, cần sửa đầu vào
-const INPUT_ERRORS = ["NEEDS_UNCLEAR", "NEEDS_REQUIRED", "BUDGET_BELOW_FLOOR", "BUDGET_TOO_HIGH", "NO_FEASIBLE_BUILD", "INVALID_PROFILE"];
+// Lỗi do dữ liệu khách nhập: gửi lại y nguyên vô ích, cần sửa đầu vào
+const INPUT_ERRORS = ["BUILD_NOT_FOUND", "BUDGET_TOO_LOW", "BUDGET_TOO_HIGH", "PURPOSE_INVALID", "VARIANT_NOT_FOUND"];
 
 interface AiErrorBoxProps {
-  message?: string | null;
-  error?: PcBuilderApiError | null;
-  retryLockedUntil?: number;
-  isBusy?: boolean;
+  error: PcBuilderApiError;
+  retryLockedUntil: number;
+  isBusy: boolean;
   onRetry: () => void;
   onReset: () => void;
-  onSetBudget?: (value: number) => void;
-  fullSetRange?: PeripheralRange | null;
 }
 
-/** Mức tối thiểu backend báo chỉ tính thùng máy; ở chế độ trọn bộ phải cộng tiền phụ kiện. */
-export function fullSetMinimum(pcMin: number, range?: PeripheralRange | null): number {
-  return range ? minFullSetBudget(pcMin, range) : pcMin;
-}
-
-export function AiErrorBox({
-  message,
-  error,
-  retryLockedUntil = 0,
-  isBusy = false,
-  onRetry,
-  onReset,
-  onSetBudget,
-  fullSetRange = null,
-}: AiErrorBoxProps) {
-  const code = error?.code;
-  const data = (error?.data ?? {}) as ErrorData;
+export function AiErrorBox({ error, retryLockedUntil, isBusy, onRetry, onReset }: AiErrorBoxProps) {
   const [now, setNow] = useState(() => Date.now());
   const secondsLeft = Math.max(0, Math.ceil((retryLockedUntil - now) / 1000));
 
-  // Đếm ngược Retry-After: nút "Thử lại" khóa tới khi hết giờ (DD 10.3)
+  // Đếm ngược Retry-After: nút "Thử lại" khóa tới khi hết giờ
   useEffect(() => {
     if (retryLockedUntil <= Date.now()) return;
     const timer = setInterval(() => {
@@ -71,27 +38,11 @@ export function AiErrorBox({
     return () => clearInterval(timer);
   }, [retryLockedUntil]);
 
-  // Nhu cầu mơ hồ / thiếu: đưa khách về ô nhu cầu để bổ sung
-  useEffect(() => {
-    if (code === "NEEDS_UNCLEAR" || code === "NEEDS_REQUIRED")
-      document.getElementById("inputPurpose")?.focus();
-  }, [code]);
-
-  const title = (code && TITLES[code]) || "Dịch vụ AI hiện không khả dụng";
-  const minBudget = fullSetMinimum(Math.max(data.minBudget ?? DEFAULT_MIN_BUDGET, data.floorPrice ?? 0), fullSetRange);
-  const description =
-    code === "NEEDS_UNCLEAR"
-      ? data.clarifyingQuestion || message
-      : code === "AI_UNAVAILABLE"
-        ? "Trợ lý AI đang bận hoặc phản hồi quá lâu. Hồ sơ nhu cầu của bạn vẫn được giữ, vui lòng bấm \"Thử lại\"."
-        : code === "BUDGET_BELOW_FLOOR" && fullSetRange
-          ? `Trọn bộ gồm màn hình, bàn phím, chuột cần tối thiểu ${money(minBudget)}.`
-          : message ||
-            "Hệ thống AI tạm thời không thể đề xuất cấu hình lúc này. Vui lòng kiểm tra lại kết nối mạng hoặc thử lại sau ít phút.";
-  const canRetry = !code || !INPUT_ERRORS.includes(code);
+  const canRetry = error.status !== 400 && !(error.code && INPUT_ERRORS.includes(error.code));
+  const title = (error.code && TITLES[error.code]) || (error.status === 400 ? "Dữ liệu chưa hợp lệ" : "Không đề xuất được cấu hình");
 
   return (
-    <div className="ai-error-box" id="aiErrorBox" role="alert" data-code={code}>
+    <div className="ai-error-box" id="aiErrorBox" role="alert" data-code={error.code}>
       <div className="ai-error-icon-wrapper">
         <svg
           className="ai-error-icon"
@@ -109,96 +60,18 @@ export function AiErrorBox({
           <line x1="12" y1="17" x2="12.01" y2="17" />
         </svg>
       </div>
-
       <div className="ai-error-content">
         <h3 className="ai-error-title">{title}</h3>
-        <p className="ai-error-desc">{description}</p>
-
-        {code === "NO_FEASIBLE_BUILD" && (
-          <div className="ai-error-blocking">
-            {!!data.blockingItems?.length && (
-              <ul>
-                {data.blockingItems.map((b) => (
-                  <li key={b.id}>{b.reason}</li>
-                ))}
-              </ul>
-            )}
-            <p>
-              {data.minPriority1Price != null
-                ? `Mức tối thiểu là ${money(fullSetMinimum(data.minPriority1Price, fullSetRange))}.`
-                : "Kho chưa có linh kiện thỏa yêu cầu này."}{" "}
-              Hãy tăng ngân sách hoặc bỏ bớt yêu cầu trong hồ sơ bên dưới.
-            </p>
-          </div>
-        )}
-
-        {canRetry && (
-          <div className="ai-error-notice">
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-            >
-              <circle cx="12" cy="12" r="10" />
-              <line x1="12" y1="16" x2="12" y2="12" />
-              <line x1="12" y1="8" x2="12.01" y2="8" />
-            </svg>
-            <span>
-              <strong>Lưu ý:</strong> CyberShop chỉ hiển thị cấu hình thực tế được AI đề xuất từ kho hàng có sẵn, tuyệt đối không dùng dữ liệu giả lập (mock data) để tránh gây nhầm lẫn cho bạn.
-            </span>
-          </div>
-        )}
-
+        <p className="ai-error-desc">{error.message}</p>
+        {!canRetry && <p className="ai-error-notice">Hãy đổi ngân sách hoặc mô tả nhu cầu rồi đề xuất lại.</p>}
         <div className="ai-error-actions">
           {canRetry && (
-            <button
-              type="button"
-              className="btn-ai-retry"
-              onClick={onRetry}
-              disabled={isBusy || secondsLeft > 0}
-            >
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.5"
-              >
-                <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-                <path d="M3 3v5h5" />
-                <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" />
-                <path d="M16 16h5v5" />
-              </svg>
-              <span>{secondsLeft > 0 ? `Thử lại sau ${secondsLeft} giây` : "Thử lại"}</span>
+            <button type="button" className="btn-ai-retry" onClick={onRetry} disabled={isBusy || secondsLeft > 0}>
+              {secondsLeft > 0 ? `Thử lại sau ${secondsLeft}s` : "Thử lại"}
             </button>
           )}
-
-          {code === "BUDGET_BELOW_FLOOR" && onSetBudget && (
-            <button type="button" className="btn-ai-retry" onClick={() => onSetBudget(minBudget)}>
-              <span>Đặt ngân sách tối thiểu ({money(minBudget)})</span>
-            </button>
-          )}
-
-          {(code === "NEEDS_UNCLEAR" || code === "NEEDS_REQUIRED") && (
-            <button
-              type="button"
-              className="btn-ai-retry"
-              onClick={() => document.getElementById("inputPurpose")?.focus()}
-            >
-              <span>Bổ sung nhu cầu</span>
-            </button>
-          )}
-
-          <button
-            type="button"
-            className="btn-ai-back"
-            onClick={onReset}
-          >
-            <span>Quay về trạng thái ban đầu</span>
+          <button type="button" className="btn-ai-back" onClick={onReset} disabled={isBusy}>
+            Làm lại từ đầu
           </button>
         </div>
       </div>
