@@ -10,6 +10,7 @@ function blank() {
       .slice(0, 16);
   return {
     code: "",
+    audience: "ASSIGNED",
     name: "",
     type: "fixed_amount",
     value: 100000,

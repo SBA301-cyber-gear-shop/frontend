@@ -4,6 +4,7 @@ import {
   Badge,
   Button,
   Heading,
+  Icon,
   KV,
   Modal,
   Notice,
@@ -12,8 +13,11 @@ import {
 import { Field, Select } from "@/components/form";
 import { usePromotionManagement } from "../hooks/usePromotionManagement";
 import "./PromotionManagement.css";
+import "./VoucherList.css";
+import { VoucherActions, VoucherCode, VoucherDates, VoucherLoading, VoucherUsage } from "./VoucherTableParts";
 import { ProductSaleManagement } from "./ProductSaleManagement";
 import { PromotionUsageHistory } from "./PromotionUsageHistory";
+import { VoucherRecipients } from "./VoucherRecipients";
 import { PromotionListFilters } from "./PromotionListFilters";
 import {
   usePromotionListFilters,
@@ -24,7 +28,7 @@ import {
 
 function promotionStatus(promotion, now) {
   const status = promotionListStatus(promotion, "voucher", now);
-  return { label: listStatusLabels[status], tone: listStatusTones[status] };
+  return { label: listStatusLabels[status], tone: listStatusTones[status], key: status };
 }
 
 function displayDate(value) {
@@ -65,6 +69,7 @@ export function PromotionManagement() {
 function VoucherManagement() {
   const [editing, setEditing] = useState(false);
   const [usageVoucher, setUsageVoucher] = useState(null);
+  const [recipientVoucher, setRecipientVoucher] = useState(null);
   const {
     p,
     set,
@@ -78,13 +83,15 @@ function VoucherManagement() {
     busy,
     loading,
     error,
+    refresh,
   } = usePromotionManagement();
   const listFilters = usePromotionListFilters(promotions, "voucher");
-  if (loading) return <Notice>Đang tải khuyến mãi…</Notice>;
+  if (loading) return <VoucherLoading />;
   if (error)
     return (
-      <div className="stack">
-        <Notice tone="danger">{error}</Notice>
+      <div className="voucher-list voucher-list-error stack">
+        <Notice tone="danger"><Icon name="alertCircle" />{error}</Notice>
+        {refresh && <Button tone="secondary" onClick={refresh}>Thử lại</Button>}
       </div>
     );
   return (
@@ -109,12 +116,12 @@ function VoucherManagement() {
       />
       <PromotionListFilters kind="voucher" model={listFilters} />
       <section
-        className="promotion-list section"
+        className="promotion-list voucher-list section"
         aria-labelledby="promotion-list-title"
       >
         <div className="promotion-list-header">
-          <h2 id="promotion-list-title">
-            Danh sách voucher ({promotions.length})
+          <h2 id="promotion-list-title" aria-label={`Danh sách voucher (${promotions.length})`}>
+            Danh sách voucher <span className="voucher-total-badge" aria-label={`${promotions.length} voucher`}>{promotions.length}</span>
           </h2>
           <div className="promotion-list-tools">
             <span>
@@ -123,23 +130,12 @@ function VoucherManagement() {
             </span>
           </div>
         </div>
-        <div className="promotion-table-scroll">
-          <table className="promotion-table">
-            <colgroup>
-              <col style={{ width: "5%" }} />
-              <col style={{ width: "18%" }} />
-              <col style={{ width: "11%" }} />
-              <col style={{ width: "10%" }} />
-              <col style={{ width: "17%" }} />
-              <col style={{ width: "13%" }} />
-              <col style={{ width: "13%" }} />
-              <col style={{ width: "13%" }} />
-            </colgroup>
+        <div className="promotion-table-scroll voucher-table-scroll" tabIndex={0} role="region" aria-label="Danh sách voucher" >
+          <table className="promotion-table promotion-voucher-table">
             <thead>
               <tr>
-                <th scope="col">ID</th>
-                <th scope="col">Voucher & chương trình</th>
-                <th scope="col">Loại giảm giá</th>
+                <th scope="col">Mã voucher</th>
+                <th scope="col">Tên chương trình</th>
                 <th scope="col">Giá trị giảm</th>
                 <th scope="col">Thời gian (UTC+07)</th>
                 <th scope="col">Lượt sử dụng</th>
@@ -154,79 +150,50 @@ function VoucherManagement() {
                   (promotion.used || 0) + (promotion.reserved || 0);
                 return (
                   <tr key={promotion.id}>
-                    <td className="promotion-id">#{promotion.id}</td>
-                    <td>
-                      <strong className="promotion-code">
-                        {promotion.code}
-                      </strong>
-                      <span className="promotion-description">
-                        {promotion.name}
-                      </span>
+                    <td className="voucher-code-cell" data-label="Mã voucher">
+                      <VoucherCode code={promotion.code} audience={promotion.audience} />
                     </td>
-                    <td>
-                      <span className="promotion-type">
-                        {promotion.type === "percentage"
-                          ? "Phần trăm"
-                          : "Số tiền cố định"}
-                      </span>
-                    </td>
-                    <td>
+                    <td className="promotion-program-name" data-label="Tên chương trình"><span title={promotion.name}>{promotion.name}</span></td>
+                    <td className="voucher-value-cell" data-label="Giá trị giảm">
                       <strong className="promotion-value">
                         {promotion.type === "percentage"
                           ? `${promotion.value}%`
-                          : money(promotion.value)}
+                          : `${new Intl.NumberFormat("vi-VN").format(Number(promotion.value))} ₫`}
                       </strong>
                     </td>
-                    <td className="promotion-dates">
-                      <span>Từ {displayDate(promotion.start)}</span>
-                      <span>Đến {displayDate(promotion.end)}</span>
+                    <td className="voucher-dates-cell" data-label="Thời gian (UTC+07)">
+                      <VoucherDates start={promotion.start} end={promotion.end} now={listFilters.now} format={displayDate} />
                     </td>
-                    <td>
-                      <span className="promotion-count">
-                        {allocated} / {promotion.limit} lượt
-                      </span>
-                      <span className="promotion-description">
-                        Còn {Math.max(0, promotion.limit - allocated)} lượt
-                      </span>
-                      <Button
-                        tone="ghost"
-                        className="promotion-usage-trigger"
-                        disabled={busy}
-                        aria-label={`Xem lượt sử dụng voucher ${promotion.code}`}
-                        onClick={() => setUsageVoucher(promotion)}
-                      >
-                        Xem lượt sử dụng
-                      </Button>
+                    <td className="voucher-usage-cell" data-label="Lượt sử dụng">
+                      <VoucherUsage allocated={allocated} limit={promotion.limit} />
+                      <Button tone="ghost" className="voucher-usage-details" title="Lượt dùng" aria-label={`Xem lượt sử dụng voucher ${promotion.code}`} disabled={busy} onClick={() => setUsageVoucher(promotion)}><Icon name="fileText" /><span>Lượt dùng</span></Button>
                     </td>
-                    <td>
+                    <td className="voucher-status-cell" data-label="Trạng thái">
                       <span
-                        className={`promotion-status promotion-status-${status.tone}`}
+                        className={`promotion-status voucher-status-${status.key}`}
                       >
-                        {status.label}
+                        <span className="voucher-status-dot" aria-hidden="true" />{status.label}
                       </span>
                     </td>
                     <td className="promotion-actions">
-                      <Button
-                        tone="secondary"
-                        disabled={busy}
-                        aria-label={`Chỉnh sửa voucher ${promotion.code}`}
-                        onClick={() => {
+                      <VoucherActions code={promotion.code} demoMode={demoMode} busy={busy} onRecipients={() => setRecipientVoucher(promotion)} onEdit={() => {
                           select(promotion.id);
                           setEditing(true);
-                        }}
-                      >
-                        Chỉnh sửa
-                      </Button>
+                        }} />
                     </td>
                   </tr>
                 );
               })}
               {!listFilters.filtered.length && (
                 <tr>
-                  <td colSpan={8} className="promotion-empty">
+                  <td colSpan={7} className="promotion-empty">
+                    <Icon name="fileText" />
+                    <strong>{promotions.length ? "Không có voucher phù hợp với tìm kiếm và bộ lọc." : "Chưa có voucher nào"}</strong>
+                    <p>
                     {promotions.length
-                      ? "Không có voucher phù hợp với tìm kiếm và bộ lọc."
+                      ? "Thử thay đổi từ khóa hoặc bộ lọc để xem các voucher khác."
                       : "Chưa có voucher. Nhấn “Tạo mã mới” để thêm chương trình khuyến mãi."}
+                    </p>
                   </td>
                 </tr>
               )}
@@ -241,6 +208,7 @@ function VoucherManagement() {
           onClose={() => setUsageVoucher(null)}
         />
       )}
+      {recipientVoucher && <VoucherRecipients key={recipientVoucher.id} voucher={recipientVoucher} onClose={() => setRecipientVoucher(null)} />}
       {editing && (
         <Modal
           title={p.id ? `Chỉnh sửa voucher ${p.code}` : "Tạo voucher mới"}
@@ -288,6 +256,7 @@ function VoucherManagement() {
                         { value: "percentage", label: "Phần trăm" },
                       ]}
                     />
+                    {!demoMode && <Select label="Đối tượng nhận voucher" value={p.audience || "PUBLIC"} onChange={(event) => set("audience", event.target.value)} options={[{ value: "ASSIGNED", label: "Khách được cấp (riêng từng tài khoản)" }, { value: "PUBLIC", label: "Công khai (mọi khách có mã)" }]} />}
                     <Field
                       label={
                         "Giá trị giảm " +

@@ -11,6 +11,24 @@ const view = (promotion) => ({
 });
 
 export const promotionsApi = {
+  async staffList(signal?: AbortSignal) {
+    const { data } = await axiosClient.get("/api/operations/promotions", { signal });
+    return data.map(view);
+  },
+  async mine(signal?: AbortSignal) {
+    const { data } = await axiosClient.get("/api/me/vouchers", { signal });
+    return data;
+  },
+  async recipients(id: number, search: string, assignedOnly: boolean, signal?: AbortSignal) {
+    const { data } = await axiosClient.get(`/api/admin/promotions/${id}/recipients`, { params: { search, assignedOnly }, signal });
+    return data;
+  },
+  async grant(id: number, userIds: number[]) {
+    await axiosClient.post(`/api/admin/promotions/${id}/recipients`, { userIds });
+  },
+  async revoke(id: number, userId: number) {
+    await axiosClient.delete(`/api/admin/promotions/${id}/recipients/${userId}`);
+  },
   async history(
     id: number,
     params: { page: number; size: number; status: string; search: string },
@@ -61,6 +79,7 @@ export const promotionsApi = {
       bannerLink: promotion.bannerLink,
       bannerOrder: Number(promotion.bannerOrder) || 0,
       bannerActive: promotion.bannerActive,
+      audience: promotion.audience || "PUBLIC",
     };
     const { data } = promotion.id
       ? await axiosClient.put(`/api/admin/promotions/${promotion.id}`, payload)

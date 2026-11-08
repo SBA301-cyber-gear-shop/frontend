@@ -1,6 +1,131 @@
 import { test, expect } from "@playwright/test";
 import { Buffer } from "node:buffer";
 
+test("staff looks up all voucher states and copies codes without management actions", async ({ page, context }) => {
+  await page.addInitScript(() => {
+    sessionStorage.setItem("techzone-token", "staff-lookup");
+    sessionStorage.setItem("techzone-session", JSON.stringify({ id: 2, name: "Staff", role: "Staff" }));
+  });
+  await page.clock.setFixedTime(new Date("2026-11-08T10:00:00+07:00"));
+  const base = { id: 1, code: "STAFFACTIVE", name: "Ưu đãi công khai", type: "percentage", value: 10, limit: 100, used: 5, reserved: 1, active: true, start: "2026-11-01T00:00", end: "2026-12-01T00:00", audience: "PUBLIC" };
+  const vouchers = [base, { ...base, id: 2, code: "PRIVATE", audience: "ASSIGNED", active: false }, { ...base, id: 3, code: "EXPIRED", end: "2026-11-01T00:00" }];
+  const requests = [];
+  let failed = true;
+  await page.route("**/api/**", (route) => {
+    const request = route.request(), path = new URL(request.url()).pathname;
+    if (!path.startsWith("/api/")) return route.continue();
+    requests.push({ path, method: request.method() });
+    if (path === "/api/operations/promotions") {
+      if (failed) { failed = false; return route.fulfill({ status: 500, json: { message: "Không tải được danh sách voucher." } }); }
+      return route.fulfill({ json: vouchers });
+    }
+    return route.fulfill({ json: [] });
+  });
+  await page.goto("/van-hanh/voucher");
+  await expect(page.getByRole("link", { name: "Tra cứu voucher", exact: true })).toBeVisible();
+  await expect(page.getByText("Không tải được danh sách voucher.", { exact: false })).toBeVisible();
+  await page.getByRole("button", { name: "Thử lại", exact: true }).click();
+  await expect(page.locator(".staff-voucher-card")).toHaveCount(3);
+  await expect(page.getByRole("article", { name: "Voucher STAFFACTIVE", exact: true })).toContainText("Đang áp dụng");
+  await expect(page.getByRole("article", { name: "Voucher PRIVATE", exact: true })).toContainText("Đã tắt");
+  await expect(page.getByRole("article", { name: "Voucher EXPIRED", exact: true })).toContainText("Đã hết hạn");
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  await page.getByRole("button", { name: "Sao chép mã STAFFACTIVE", exact: true }).click();
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe("STAFFACTIVE");
+  await expect(page.getByText("Đã sao chép STAFFACTIVE", { exact: true })).toHaveCount(1);
+  await page.getByRole("textbox", { name: "Tìm kiếm voucher", exact: true }).fill("PRIVATE");
+  await expect(page.locator(".staff-voucher-card")).toHaveCount(1);
+  await page.getByRole("button", { name: "Xóa bộ lọc", exact: true }).click();
+  await page.getByRole("group", { name: "Trạng thái voucher", exact: true }).getByRole("button", { name: "Đã tắt (1)", exact: true }).click();
+  await expect(page.locator(".staff-voucher-card")).toHaveCount(1);
+  await page.getByRole("button", { name: "Xóa bộ lọc", exact: true }).click();
+  await expect(page.getByRole("button", { name: /Tạo mã mới|Chỉnh sửa|Khách nhận|Cấp voucher|Thu hồi|Lượt dùng/ })).toHaveCount(0);
+  expect(requests.every((request) => request.method === "GET")).toBeTruthy();
+  expect(requests.some((request) => request.path.startsWith("/api/admin/"))).toBeFalsy();
+  await page.screenshot({ path: "test-results/staff-voucher-lookup-desktop.png", fullPage: true });
+  await page.setViewportSize({ width: 375, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBeTruthy();
+  await page.screenshot({ path: "test-results/staff-voucher-lookup-mobile.png", fullPage: true });
+});
+
+test("admin grants a private voucher and each customer sees only their own offers", async ({ page }) => {
+  test.setTimeout(90000);
+  await page.addInitScript(() => {
+    if (!sessionStorage.getItem("techzone-token")) {
+      sessionStorage.setItem("techzone-token", "wallet-admin");
+      sessionStorage.setItem("techzone-session", JSON.stringify({ id: 1, name: "Admin", role: "Admin" }));
+    }
+  });
+  const voucher = { id: 71, code: "ONLYME", name: "Ưu đãi riêng", type: "fixed_amount", value: 100000, limit: 100, used: 0, reserved: 0, start: "2026-11-01T00:00", end: "2026-12-01T00:00", active: true, audience: "ASSIGNED" };
+  const recipients = [{ id: 42, name: "Khách A", email: "a@example.com", assigned: false, used: false }, { id: 43, name: "Khách B", email: "b@example.com", assigned: false, used: false }];
+  let granted = [];
+  await page.route("**/api/**", (route) => {
+    const req = route.request();
+    const url = new URL(req.url()), path = url.pathname;
+    if (!path.startsWith("/api/")) return route.continue();
+    if (path === "/api/admin/promotions") return route.fulfill({ json: [voucher] });
+    if (path === "/api/admin/promotions/71/recipients") {
+      if (req.method() === "POST") {
+        granted = req.postDataJSON().userIds;
+        recipients.forEach((customer) => { if (granted.includes(customer.id)) customer.assigned = true; });
+        return route.fulfill({ status: 204 });
+      }
+      const search = (url.searchParams.get("search") || "").toLowerCase();
+      return route.fulfill({ json: recipients.filter((customer) => (url.searchParams.get("assignedOnly") !== "true" || customer.assigned) && `${customer.id} ${customer.name} ${customer.email}`.toLowerCase().includes(search)) });
+    }
+    if (path === "/api/me/vouchers") return route.fulfill({ json: req.headers().authorization === "Bearer wallet-customer-a" ? [
+      { ...voucher, status: "AVAILABLE" },
+      { ...voucher, id: 72, code: "PAID", name: "Đã dùng cho đơn", status: "USED", orderCode: "TZ-OLD" },
+      { ...voucher, id: 73, code: "EXPIRED", name: "Ưu đãi hết hạn", status: "EXPIRED" },
+      { ...voucher, id: 74, code: "RESERVED", name: "Ưu đãi đang giữ", status: "RESERVED", orderCode: "TZ-PENDING" },
+    ] : [] });
+    if (path === "/api/orders/cart") return route.fulfill({ json: { data: { items: [], totalAmount: 0 } } });
+    return route.fulfill({ json: [] });
+  });
+  await page.goto("/quan-tri/khuyen-mai");
+  await page.getByRole("button", { name: "Tạo mã mới", exact: true }).click();
+  await expect(page.getByLabel("Đối tượng nhận voucher", { exact: true })).toHaveValue("ASSIGNED");
+  await page.getByRole("dialog").getByRole("button", { name: "Đóng", exact: true }).click();
+  await page.getByRole("button", { name: "Cấp voucher ONLYME", exact: true }).click();
+  const modal = page.getByRole("dialog", { name: "Khách nhận voucher ONLYME", exact: true });
+  await modal.getByRole("button", { name: "Chọn khách nhận", exact: true }).click();
+  await modal.getByLabel("Tìm khách nhận voucher", { exact: true }).fill("a@example.com");
+  await modal.getByRole("checkbox", { name: "Cấp voucher cho a@example.com", exact: true }).check();
+  await modal.getByRole("button", { name: "Cấp voucher (1)", exact: true }).click();
+  await expect(modal.getByText("Đã cấp", { exact: true }).last()).toBeVisible();
+  expect(granted).toEqual([42]);
+  await modal.getByRole("button", { name: "Đóng", exact: true }).last().click();
+  await page.evaluate(() => {
+    sessionStorage.setItem("techzone-token", "wallet-customer-a");
+    sessionStorage.setItem("techzone-session", JSON.stringify({ id: 42, name: "Khách A", role: "Customer" }));
+  });
+  await page.goto("/voucher-cua-toi");
+  await expect(page.getByRole("link", { name: "Voucher của tôi", exact: true })).toBeVisible();
+  await expect(page.locator(".voucher-wallet-card")).toHaveCount(4);
+  await page.getByRole("button", { name: "Có thể dùng (1)", exact: true }).click();
+  await expect(page.locator(".voucher-wallet-card")).toHaveCount(1);
+  await expect(page.locator(".voucher-wallet-card")).toContainText("ONLYME");
+  await expect(page.getByRole("button", { name: "Sao chép mã", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Đã dùng (1)", exact: true }).click();
+  await expect(page.locator(".voucher-wallet-card")).toContainText("PAID");
+  await expect(page.getByRole("button", { name: "Sao chép mã", exact: true })).toHaveCount(0);
+  await page.getByRole("button", { name: "Hết hạn (1)", exact: true }).click();
+  await expect(page.locator(".voucher-wallet-card")).toContainText("EXPIRED");
+  await page.getByRole("button", { name: "Tất cả (4)", exact: true }).click();
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBeTruthy();
+  await page.screenshot({ path: "test-results/my-vouchers-mobile.png", fullPage: true });
+  await page.getByLabel("Tìm voucher của tôi", { exact: true }).fill("không tồn tại");
+  await expect(page.getByText("Không có voucher phù hợp", { exact: true })).toBeVisible();
+  await page.evaluate(() => {
+    sessionStorage.setItem("techzone-token", "wallet-customer-b");
+    sessionStorage.setItem("techzone-session", JSON.stringify({ id: 43, name: "Khách B", role: "Customer" }));
+  });
+  await page.reload();
+  await expect(page.getByText("Bạn chưa có voucher", { exact: true })).toBeVisible();
+  await expect(page.locator(".voucher-wallet-card")).toHaveCount(0);
+});
+
 test("completed orders open a star review dialog with three photos and one video", async ({ page }) => {
   await page.addInitScript(() => {
     sessionStorage.setItem("techzone-token", "review-customer-test");
@@ -186,6 +311,7 @@ async function backend(
     const respond = (json, status = 200) => route.fulfill({ status, json });
     if (path === "/api/products") return respond([product]);
     if (path === "/api/promotions") return respond([]);
+    if (path === "/api/me/vouchers") return respond([]);
     if (path === "/api/products/101/reviews")
       return respond([
         {
@@ -808,6 +934,48 @@ test("guest add redirects to login, failed buy stays on product", async ({
   await page.getByRole("button", { name: "Mua ngay" }).click();
   await expect(page.getByRole("alert")).toContainText("Không đủ tồn kho");
   await expect(page).toHaveURL(/san-pham\/101/);
+});
+
+test("checkout lists owned available vouchers and applies a selected code without typing", async ({ page }) => {
+  test.setTimeout(60000);
+  const calls = await backend(page, { quantity: 2 });
+  let revoked = false;
+  const offer = { id: 81, code: "MINE100", name: "Ưu đãi của tài khoản", type: "fixed_amount", value: 100000, status: "AVAILABLE", start: "2026-11-01T00:00", end: "2026-12-01T00:00" };
+  await page.route("**/api/me/vouchers", (route) => route.fulfill({ json: [offer,
+    ...(!revoked ? [{ ...offer, id: 82, code: "STALE100" }] : []),
+    { ...offer, id: 83, code: "USED100", status: "USED" },
+    { ...offer, id: 84, code: "EXPIRED100", status: "EXPIRED" },
+    { ...offer, id: 85, code: "RESERVED100", status: "RESERVED" },
+    { ...offer, id: 86, code: "UPCOMING100", status: "UPCOMING" },
+  ] }));
+  await page.route("**/api/checkout/details/preview", (route) => {
+    if (route.request().postDataJSON().promotionCode !== "STALE100") return route.fallback();
+    revoked = true;
+    return route.fulfill({ status: 400, json: { message: "Voucher này chưa được cấp cho tài khoản của bạn." } });
+  });
+  await login(page);
+  await page.goto("/thanh-toan");
+  const picker = page.getByRole("region", { name: "Voucher có thể áp dụng", exact: true });
+  await expect(picker.getByRole("button", { name: "Dùng mã MINE100", exact: true })).toBeVisible();
+  await expect(picker.locator(".checkout-voucher-option")).toHaveCount(2);
+  await expect(picker).not.toContainText("USED100");
+  await expect(picker).not.toContainText("EXPIRED100");
+  await page.getByRole("textbox", { name: "Mã giảm giá", exact: true }).fill("OLD-DRAFT");
+  await picker.getByRole("button", { name: "Dùng mã MINE100", exact: true }).click();
+  await expect(page.getByRole("textbox", { name: "Mã giảm giá", exact: true })).toHaveValue("MINE100");
+  await expect(picker.getByRole("button", { name: "Đang dùng MINE100", exact: true })).toBeDisabled();
+  expect(calls.filter((call) => call.path === "/api/checkout/details/preview").at(-1).payload.promotionCode).toBe("MINE100");
+  await page.getByRole("button", { name: "Bỏ mã", exact: true }).click();
+  await expect(page.getByRole("textbox", { name: "Mã giảm giá", exact: true })).toHaveValue("");
+  await expect(picker.getByRole("button", { name: "Dùng mã MINE100", exact: true })).toBeEnabled();
+  await picker.getByRole("button", { name: "Dùng mã STALE100", exact: true }).click();
+  await expect(page.getByText("Voucher này chưa được cấp cho tài khoản của bạn.", { exact: true })).toBeVisible();
+  await expect(picker.locator(".checkout-voucher-option")).toHaveCount(1);
+  await picker.getByRole("button", { name: "Dùng mã MINE100", exact: true }).click();
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBeTruthy();
+  await picker.screenshot({ path: "test-results/checkout-my-vouchers-mobile.png" });
+  expect(calls.some((call) => call.path === "/api/orders" && call.method === "POST")).toBeFalsy();
 });
 
 test("checkout validates, previews voucher, invalidates edits and never creates demo orders", async ({

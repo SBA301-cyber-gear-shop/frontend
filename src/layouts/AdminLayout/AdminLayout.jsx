@@ -6,6 +6,7 @@ import { demoMode } from "@/utils";
 
 const menu = [
   ["/van-hanh/don-hang", "bag", "Đơn hàng", ["Staff", "Admin"]],
+  ["/van-hanh/voucher", "fileText", "Tra cứu voucher", ["Staff", "Admin"]],
   ["/van-hanh/ho-tro-truc-tuyen", "message", "Hỗ trợ trực tuyến", ["Staff", "Admin"]],
   ["/van-hanh/ban-giao", "pin", "Bàn giao tại quầy", ["Staff", "Admin"]],
   ["/van-hanh/bao-hanh", "shield", "Tiếp nhận bảo hành", ["Staff", "Admin"]],
