@@ -311,7 +311,7 @@ cp .env.example .env.local
 | Feature | Integration | Notes |
 |---------|-------------|-------|
 | **Auth (Login/Register)** | ✅ Real API | `/api/auth/login`, `/api/auth/register` |
-| **PC Builder AI Suggest** | 🔌 Endpoint ready | `/api/v1/pc-build/ai-suggest` (not connected in UI) |
+| **AI Build PC** | ✅ Real API | `/api/pc-build/requirements/analyze`, `/api/pc-build/builds/{auto,validate,replacements,save}`; unavailable in demo mode |
 | **Catalog, Cart, Checkout preview** | ✅ Real API | Products, authenticated cart, stock validation and voucher preview |
 | **Order creation, payment, Warranty, Admin** | ⏳ Pending | Unavailable in API mode; original UI in demo mode |
 

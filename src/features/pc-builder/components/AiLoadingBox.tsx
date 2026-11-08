@@ -1,3 +1,5 @@
+import type { LoadingStep } from "../hooks/usePcBuilder";
+
 const STAR_PATH =
   "M63,37c-6.7-4-4-27-13-27s-6.3,23-13,27-27,4-27,13,20.3,9,27,13,4,27,13,27,6.3-23,13-27,27-4,27-13-20.3-9-27-13Z";
 
@@ -102,7 +104,23 @@ function PegtopSvg({ id, hasDefs = false }: { id: string; hasDefs?: boolean }) {
   );
 }
 
-export function AiLoadingBox() {
+const STEP_TEXT: Record<LoadingStep, { title: string; desc: string }> = {
+  analyze: {
+    title: "AI đang đọc nhu cầu và thẩm định ngân sách...",
+    desc: "Chuẩn hóa mô tả của bạn thành mục đích sử dụng và kiểm tra ngân sách tối thiểu.",
+  },
+  build: {
+    title: "Đang chọn linh kiện & kiểm tra tương thích...",
+    desc: "Chia ngân sách, chọn linh kiện còn hàng, kiểm tra luật phần cứng rồi viết lời tư vấn.",
+  },
+  load: {
+    title: "Đang nạp cấu hình từ giỏ hàng...",
+    desc: "Kiểm tra lại giá, tồn kho và tương thích với dữ liệu mới nhất.",
+  },
+};
+
+export function AiLoadingBox({ step = "analyze" }: { step?: LoadingStep }) {
+  const text = STEP_TEXT[step];
   return (
     <div className="ai-loading-box" id="aiLoadingBox">
       {/* From Uiverse.io by andrew-manzyk - Crystal Stream Pegtop Loader */}
@@ -114,13 +132,8 @@ export function AiLoadingBox() {
         </div>
       </div>
 
-      <h3 className="ai-loading-title">
-        AI đang phân tích kho linh kiện & thẩm định tương thích...
-      </h3>
-      <p className="ai-loading-desc">
-        Đang chạy thuật toán Budget Heuristic, đối chiếu các quy tắc phần cứng
-        và triệu gọi Google Gemini 2.0 Flash.
-      </p>
+      <h3 className="ai-loading-title">{text.title}</h3>
+      <p className="ai-loading-desc">{text.desc}</p>
     </div>
   );
 }

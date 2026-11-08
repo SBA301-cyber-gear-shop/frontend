@@ -185,6 +185,8 @@
 
 .promotion-management .promotion-table-scroll {
   overflow-x: auto;
+  border: 1px solid #e8edf3;
+  border-radius: 12px;
 }
 
 .promotion-management .promotion-table {
@@ -196,18 +198,18 @@
 }
 
 .promotion-management .promotion-table th {
-  background: #f6f8fa;
-  color: #78869b;
+  background: #f5f7fb;
+  color: #64748b;
   font-size: 12px;
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.025em;
-  padding: 20px 12px;
+  text-transform: none;
+  letter-spacing: 0;
+  padding: 18px 12px;
   border-bottom: 1px solid var(--line, #e2e7ed);
 }
 
 .promotion-management .promotion-table td {
-  padding: 26px 12px;
+  padding: 22px 12px;
   border-bottom: 1px solid #e9eef4;
   vertical-align: middle;
   color: var(--ink, #152237);
@@ -218,7 +220,7 @@
   border-bottom: 0;
 }
 .promotion-management .promotion-table tbody tr:hover {
-  background: #fafbfd;
+  background: #f9fbfe;
 }
 .promotion-management .promotion-table .promotion-id {
   color: var(--muted, #657185);
@@ -258,14 +260,22 @@
   white-space: nowrap;
 }
 .promotion-management .promotion-type {
-  background: #f3f4f6;
+  background: transparent;
   color: #657185;
-  white-space: normal;
+  padding: 0;
+  font-weight: 500;
+  white-space: nowrap;
 }
-.promotion-management .promotion-count,
 .promotion-management .promotion-status-success {
   background: #e6f4ee;
   color: #008577;
+}
+.promotion-management .promotion-count {
+  padding: 0;
+  color: #334155;
+  background: transparent;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 .promotion-management .promotion-status-neutral {
   background: #f0f1f3;
@@ -291,6 +301,87 @@
 .promotion-management .promotion-actions .btn:hover {
   background: #f3f7fc;
 }
+.promotion-management .promotion-voucher-table {
+  min-width: 1040px;
+}
+.promotion-management .promotion-voucher-table th {
+  padding: 18px 10px;
+  font-size: 12px;
+}
+.promotion-management .promotion-voucher-table td {
+  padding: 22px 10px;
+  font-size: 13px;
+}
+.promotion-management .promotion-voucher-table .promotion-value {
+  font-size: 13px;
+}
+.promotion-management .promotion-voucher-table .promotion-type {
+  white-space: normal;
+  line-height: 1.6;
+}
+.promotion-management .promotion-voucher-table .promotion-dates span {
+  font-size: 12px;
+  color: #526277;
+}
+.promotion-management .promotion-voucher-table .promotion-count,
+.promotion-management .promotion-voucher-table .promotion-status {
+  font-size: 11px;
+  padding: 6px 8px;
+  white-space: nowrap;
+  max-width: 100%;
+}
+.promotion-management .promotion-voucher-table .promotion-count {
+  padding: 0;
+  font-size: 12px;
+}
+.promotion-management .promotion-voucher-table .promotion-code {
+  font-size: 14px;
+}
+.promotion-management .promotion-voucher-table .promotion-program-name {
+  font-weight: 600;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.promotion-management .promotion-voucher-table .promotion-action-group {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: nowrap;
+  gap: 8px;
+}
+.promotion-management .promotion-voucher-table .promotion-action-group .btn {
+  flex: 0 0 78px;
+  width: 78px;
+  height: 42px;
+  min-height: 42px;
+  padding: 8px;
+  font-size: 12px;
+  font-weight: 700;
+}
+.promotion-management .promotion-voucher-table .promotion-action-usage {
+  color: #08735b;
+  background: #eaf7f1;
+  border-color: #b3dfce;
+}
+.promotion-management .promotion-voucher-table .promotion-action-usage:hover {
+  background: #d8efe4;
+}
+.promotion-management .promotion-voucher-table .promotion-action-recipients {
+  color: #245ba0;
+  background: #edf4ff;
+  border-color: #bed2ee;
+}
+.promotion-management .promotion-voucher-table .promotion-action-recipients:hover {
+  background: #dceaff;
+}
+.promotion-management .promotion-voucher-table .promotion-action-edit {
+  color: #c21f3a;
+  background: #fff0f3;
+  border-color: #efbbc5;
+}
+.promotion-management .promotion-voucher-table .promotion-action-edit:hover {
+  background: #ffe0e7;
+}
 .promotion-management .promotion-table .promotion-empty {
   padding: 48px 16px;
   text-align: center;
@@ -299,6 +390,23 @@
 
 .promotion-management .product-sale-table {
   min-width: 1000px;
+}
+.promotion-management .product-sale-table .promotion-code {
+  font-size: 14px;
+  line-height: 1.6;
+}
+.promotion-management .product-sale-table .promotion-actions .btn {
+  height: 42px;
+  min-height: 42px;
+  padding: 8px 16px;
+  color: #c21f3a;
+  background: #fff0f3;
+  border-color: #efbbc5;
+  font-size: 12px;
+  font-weight: 700;
+}
+.promotion-management .product-sale-table .promotion-actions .btn:hover {
+  background: #ffe0e7;
 }
 .promotion-management .product-sale-editor {
   scroll-margin-top: 24px;

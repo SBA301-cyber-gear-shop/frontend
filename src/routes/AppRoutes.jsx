@@ -15,7 +15,9 @@ const Orders = lazy(() => import("@/pages/Orders"));
 const OrderDetail = lazy(() => import("@/pages/OrderDetail"));
 const Warranty = lazy(() => import("@/pages/Warranty"));
 const Account = lazy(() => import("@/pages/Account"));
+const MyVouchers = lazy(() => import("@/pages/MyVouchers"));
 const StaffOrders = lazy(() => import("@/pages/StaffOrders"));
+const StaffVouchers = lazy(() => import("@/pages/StaffVouchers"));
 const Intake = lazy(() => import("@/pages/WarrantyIntake"));
 const Technician = lazy(() => import("@/pages/Technician"));
 const AdminProduct = lazy(() => import("@/pages/AdminProduct"));
@@ -55,6 +57,7 @@ export function AppRoutes() {
             <Route path="/don-hang/:id" element={<OrderDetail />} />
             <Route path="/bao-hanh" element={<Warranty />} />
           </Route>
+          <Route path="/voucher-cua-toi" element={<PrivateRoute roles={["Customer"]}><MyVouchers /></PrivateRoute>} />
           <Route
             path="/thanh-toan"
             element={
@@ -91,6 +94,7 @@ export function AppRoutes() {
         >
           <Route element={<PrivateRoute roles={["Staff", "Admin"]} />}>
             <Route path="/van-hanh/don-hang" element={<StaffOrders />} />
+            <Route path="/van-hanh/voucher" element={<StaffVouchers />} />
             <Route path="/van-hanh/ban-giao" element={<Handover />} />
             <Route path="/van-hanh/bao-hanh" element={<Intake />} />
             <Route path="/van-hanh/ho-tro-truc-tuyen" element={<StaffLiveSupport />} />

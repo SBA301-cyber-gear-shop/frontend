@@ -13,6 +13,7 @@ export function AccountLayout({ children }) {
           <span className="small muted">{user?.email}</span>
         </div>
         <NavLink to="/don-hang">Đơn hàng của tôi</NavLink>
+        {user?.role === "Customer" && <NavLink to="/voucher-cua-toi">Voucher của tôi</NavLink>}
         <NavLink to="/bao-hanh">Bảo hành của tôi</NavLink>
         <NavLink to="/tai-khoan">Hồ sơ & tài khoản</NavLink>
         {user?.role !== "Customer" && (

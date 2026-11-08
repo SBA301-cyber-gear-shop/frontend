@@ -1,97 +1,163 @@
 import { expect, test } from "vitest";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { buildVerdict } from "../src/features/pc-builder/components/SummaryCard";
-import { AiInsightPanel, reasonMessage } from "../src/features/pc-builder/components/AiInsightPanel";
-import { quantityLimit } from "../src/features/pc-builder/components/PartsTable";
-import { itemReason, toDraftProfile } from "../src/features/pc-builder/components/ProfileEditor";
-import { initialBuildParts, initialProfile } from "../src/features/pc-builder/domain";
-import type { BudgetFit, BuildPart, RuleCheck } from "../src/features/pc-builder/types/pcBuilder.types";
+import { AnalysisPanel } from "../src/features/pc-builder/components/AnalysisPanel";
+import { AiErrorBox } from "../src/features/pc-builder/components/AiErrorBox";
+import { PartsTable } from "../src/features/pc-builder/components/PartsTable";
+import { SummaryCard, buildVerdict } from "../src/features/pc-builder/components/SummaryCard";
+import type { AnalyzeResponse, BuildResult } from "../src/features/pc-builder/types/pcBuilder.types";
 
-const rule = (status: RuleCheck["status"]): RuleCheck => ({ id: "R1", title: "Socket", detail: "", status });
-const fit: BudgetFit = {
-  ratio: 0.8,
-  percent: 80,
-  status: "UNDER_SATURATED",
-  windowMin: 27_000_000,
-  windowMax: 30_000_000,
-  leftover: 6_000_000,
-};
+const noop = () => {};
+const vnd = (n: number) => new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(n);
 
-test("SummaryCard verdict: PASS ALL only when backend has no fail/warning/unknown", () => {
-  expect(buildVerdict([rule("pass"), rule("fail")], false).label).toBe("KHÔNG TƯƠNG THÍCH");
-  // Có fail thì không bao giờ ghi PASS ALL, kể cả khi cờ tổng bị sai (AC7)
-  expect(buildVerdict([rule("fail")], true).label).toBe("KHÔNG TƯƠNG THÍCH");
-  expect(buildVerdict([rule("pass"), rule("warning")], false).label).toBe("CẦN LƯU Ý");
-  expect(buildVerdict([rule("pass")], true).label).toBe("PASS ALL");
-  expect(buildVerdict([rule("pass")], true, true).label).toBe("ĐANG KIỂM TRA…");
+const analysis = (overrides: Partial<AnalyzeResponse>): AnalyzeResponse => ({
+  status: "READY",
+  message: "Shop đã hiểu yêu cầu: PC chơi game, ngân sách 20.000.000đ.",
+  requirement: { budget: 20_000_000, purpose: "GAMING" },
+  minBudget: 16_000_000,
+  maxBuildPrice: 200_000_000,
+  suggestedPurposes: [],
+  explanation: null,
+  suggestedBudget: null,
+  notes: [],
+  ...overrides,
 });
 
-test("reasonCode messages follow DD 6.6", () => {
-  expect(reasonMessage("NEEDS_SATURATED", fit, 24_000_000, initialProfile)).toMatch(/đã đáp ứng tối đa.*còn dư 6\.000\.000/);
-  expect(reasonMessage("CATALOG_CEILING", fit, 24_000_000)).toMatch(/mạnh nhất cửa hàng/);
-  expect(reasonMessage("REQUIREMENT_RELAXED", fit, 24_000_000, initialProfile, ["c1"])).toContain(
-    "Game AAA 1080p cần tối thiểu 8 GB VRAM",
+const build = (overrides: Partial<BuildResult> = {}): BuildResult => ({
+  status: "VALID",
+  budget: 20_000_000,
+  purpose: "GAMING",
+  total: 19_000_000,
+  difference: -1_000_000,
+  items: [
+    { category: "CPU", id: 4, name: "Ryzen 5 7600", qty: 1, maxQty: 1, price: 5_000_000 },
+    { category: "RAM", id: 6, name: "DDR5 16GB", qty: 2, maxQty: 2, price: 1_000_000 },
+  ],
+  violations: [],
+  budgetWarning: null,
+  message: null,
+  ...overrides,
+});
+
+const renderAnalysis = (a: AnalyzeResponse) =>
+  renderToStaticMarkup(createElement(AnalysisPanel, { analysis: a, isBusy: false, onUseBudget: noop, onPickPurpose: noop }));
+
+test("AnalysisPanel BUDGET_TOO_LOW hiện các mục đích vừa ngân sách và nút tăng lên mức tối thiểu", () => {
+  const html = renderAnalysis(
+    analysis({
+      status: "BUDGET_TOO_LOW",
+      message: "Mức nhu cầu tối thiểu cho PC chơi game là 16.000.000đ.",
+      requirement: { budget: 13_000_000, purpose: "GAMING" },
+      suggestedPurposes: [{ purpose: "OFFICE", label: "PC văn phòng", description: "Văn phòng, học tập", minBudget: 12_500_000 }],
+    }),
   );
-  expect(reasonMessage(null, { ...fit, percent: 99.4, status: "IN_WINDOW" }, 0)).toMatch(/đạt 99,4% ngân sách/);
-  expect(reasonMessage(null, null, 0)).toBeNull();
+  expect(html).toContain("Ngân sách chưa đủ cho nhu cầu này");
+  expect(html).toContain("Build PC văn phòng");
+  expect(html).toContain(vnd(12_500_000));
+  expect(html).toContain(`Tăng ngân sách lên ${vnd(16_000_000)}`);
 });
 
-test("cảnh báo khi cấu hình dưới 90% và không cảnh báo tại đúng ngưỡng", () => {
-  const render = (budgetFit: BudgetFit) => renderToStaticMarkup(createElement(AiInsightPanel, {
-    insight: { title: "", reasoning: "", highlight: "" },
-    budgetFit,
-  }));
-  expect(render(fit)).toMatch(/chưa đạt mức tối thiểu 90% ngân sách \(27\.000\.000/);
-  expect(render({ ...fit, leftover: 3_000_000, status: "IN_WINDOW" })).not.toContain("chưa đạt mức tối thiểu");
-});
-
-test("MAX_PRICE_REACHED says the build is the most expensive, not the best fit for the needs", () => {
-  const message = reasonMessage("MAX_PRICE_REACHED", fit, 24_000_000);
-  expect(message).toMatch(/đắt nhất ráp được/);
-  expect(message).toMatch(/không phải cấu hình tối ưu/);
-  expect(message).toMatch(/còn dư 6\.000\.000/);
-});
-
-test("editing the profile keeps the MAX_PRICE objective in what is sent back", () => {
-  const draft = toDraftProfile({ ...initialProfile, objective: "MAX_PRICE" }, []);
-  expect(draft.objective).toBe("MAX_PRICE");
-});
-
-test("turning a chip off removes it from the profile sent back, marked USER_EDITED", () => {
-  const rows = [
-    { item: initialProfile.constraints[0], enabled: false },
-    { item: initialProfile.metrics[0], enabled: true },
-  ];
-  const draft = toDraftProfile(initialProfile, rows);
-  expect(draft.source).toBe("USER_EDITED");
-  expect(draft.constraints).toEqual([]);
-  expect(draft.metrics.map((m) => m.id)).toEqual(["m1"]);
-  // Trường do server điền không gửi ngược lên
-  expect(draft.metrics[0]).not.toHaveProperty("label");
-  expect(draft.metrics[0]).not.toHaveProperty("satisfied");
-  expect(initialProfile.metrics[0].label).toBe("Tổng RAM ≥ 32 GB");
-});
-
-test("itemReason resolves P:{id} keys to the profile reason", () => {
-  expect(itemReason(initialProfile, "m1")).toBe("Vừa chơi game vừa livestream");
-  expect(itemReason(initialProfile, "zz")).toBe("zz");
-});
-
-test("quantity buttons: ram/ssd/gpu only, cpu only on dual-socket boards, capped by capacity", () => {
-  const parts = initialBuildParts;
-  const part = (role: string) => parts.find((p) => p.role === role)!;
-  expect(quantityLimit(part("psu"), parts).adjustable).toBe(false);
-  expect(quantityLimit(part("cpu"), parts).adjustable).toBe(false);
-  expect(quantityLimit(part("ssd"), parts)).toEqual({ adjustable: true, canAdd: true });
-
-  const dual: BuildPart[] = parts.map((p) =>
-    p.role === "mainboard" ? { ...p, specs: { ...p.specs, CPU_Socket_Count: "2" } } : p,
+test("AnalysisPanel BUDGET_WARNING gợi ý phân tích lại với ngân sách AI đề xuất, kèm ghi chú", () => {
+  const html = renderAnalysis(
+    analysis({
+      status: "BUDGET_WARNING",
+      explanation: "Với 20 triệu, máy chơi tốt game eSports.",
+      suggestedBudget: 35_000_000,
+      notes: ["Mức gợi ý ngân sách là ước lượng từ AI, không đảm bảo chính xác tuyệt đối."],
+    }),
   );
-  expect(quantityLimit(part("cpu"), dual)).toEqual({ adjustable: true, canAdd: true });
-  expect(quantityLimit({ ...part("cpu"), quantity: 2 }, dual).canAdd).toBe(false);
+  expect(html).toContain("Với 20 triệu, máy chơi tốt game eSports.");
+  expect(html).toContain(`Phân tích lại với ${vnd(35_000_000)}`);
+  expect(html).toContain("ước lượng từ AI");
+});
 
-  const capacity = { ramSlotsUsed: 4, ramSlotsMax: 4, ramGb: 64, ramMaxGb: 128, m2Used: 1, m2Max: 2, gpuCount: 1, gpuMax: 2 };
-  expect(quantityLimit(part("ram"), parts, capacity).canAdd).toBe(false);
-  expect(quantityLimit(part("gpu"), parts, capacity).canAdd).toBe(true);
+test("AnalysisPanel NEED_CLARIFICATION hiện câu hỏi và nhắc bổ sung mô tả, không có nút ngân sách", () => {
+  const html = renderAnalysis(
+    analysis({ status: "NEED_CLARIFICATION", message: "Bạn dùng máy chủ yếu để làm gì?", requirement: { budget: 20_000_000, purpose: null } }),
+  );
+  expect(html).toContain("Bạn dùng máy chủ yếu để làm gì?");
+  expect(html).toContain("Bổ sung mô tả nhu cầu");
+  expect(html).not.toContain("btn-secondary");
+});
+
+test("AnalysisPanel BUDGET_TOO_HIGH đề nghị dùng giá bộ PC cao cấp nhất", () => {
+  const html = renderAnalysis(analysis({ status: "BUDGET_TOO_HIGH", maxBuildPrice: 150_000_000 }));
+  expect(html).toContain(`Dùng ngân sách ${vnd(150_000_000)}`);
+});
+
+test("buildVerdict tách xung đột phần cứng và vượt tiền; đang kiểm tra hoặc lỗi thì không báo tương thích", () => {
+  expect(buildVerdict(build(), false, null).label).toBe("TƯƠNG THÍCH");
+  expect(buildVerdict(build({ status: "INCOMPATIBLE" }), false, null).label).toBe("KHÔNG TƯƠNG THÍCH");
+  expect(buildVerdict(build({ status: "OVER_BUDGET" }), false, null).label).toBe("VƯỢT NGÂN SÁCH");
+  expect(buildVerdict(build(), true, null).label).toBe("ĐANG KIỂM TRA…");
+  expect(buildVerdict(build(), false, "mạng lỗi").label).toBe("CHƯA KIỂM TRA");
+});
+
+const renderSummary = (b: BuildResult, extra: Record<string, unknown> = {}) =>
+  renderToStaticMarkup(
+    createElement(SummaryCard, {
+      build: b,
+      isChecking: false,
+      checkError: null,
+      savedBuildId: null,
+      isSaving: false,
+      isAdding: false,
+      onRecheck: noop,
+      onAddToCart: noop,
+      onSave: noop,
+      ...extra,
+    }),
+  );
+
+test("SummaryCard: còn dư khi difference âm, vượt và câu cảnh báo khi OVER_BUDGET", () => {
+  expect(renderSummary(build())).toContain(`Còn dư <strong style="color:#148465">${vnd(1_000_000)}`);
+  const over = renderSummary(
+    build({ status: "OVER_BUDGET", total: 21_000_000, difference: 1_000_000, budgetWarning: "Vượt ngân sách 1.000.000đ" }),
+  );
+  expect(over).toContain(`Vượt ${vnd(1_000_000)}`);
+  expect(over).toContain("Vượt ngân sách 1.000.000đ");
+  expect(over).not.toMatch(/btn-buy-now"[^>]*disabled/); // vượt tiền vẫn mua được sau khi xác nhận
+});
+
+test("SummaryCard khóa giỏ hàng và lưu khi INCOMPATIBLE, liệt kê luật vi phạm", () => {
+  const html = renderSummary(build({ status: "INCOMPATIBLE", violations: [{ rule: "RULE_7", message: "RAM DDR4 không hợp main DDR5" }] }));
+  expect(html).toContain("RULE_7");
+  expect(html).toContain("RAM DDR4 không hợp main DDR5");
+  expect(html).toMatch(/btn-buy-now"[^>]*disabled/);
+  expect(html).toMatch(/btn-save-build[^"]*"[^>]*disabled/);
+});
+
+test("SummaryCard khi /validate lỗi: báo lỗi, có nút Kiểm tra lại và khóa nút mua", () => {
+  const html = renderSummary(build(), { checkError: "Máy chủ không phản hồi" });
+  expect(html).toContain("Không kiểm tra được cấu hình: Máy chủ không phản hồi");
+  expect(html).toContain("Kiểm tra lại");
+  expect(html).toMatch(/btn-buy-now"[^>]*disabled/);
+});
+
+test("PartsTable: ô số lượng chỉ có nút khi maxQty > 1, nút + khóa ở maxQty, slot trống có nút Chọn", () => {
+  const html = renderToStaticMarkup(
+    createElement(PartsTable, {
+      items: build().items,
+      verdict: { label: "TƯƠNG THÍCH", tone: "success" },
+      onReplace: noop,
+      onChangeQty: noop,
+    }),
+  );
+  expect(html).not.toContain("Tăng số lượng CPU");
+  expect(html).toMatch(/aria-label="Tăng số lượng RAM"[^>]*disabled/); // qty 2 = maxQty 2
+  expect(html).toContain('aria-label="Chọn Card đồ họa"');
+  expect(html).toContain('aria-label="Đổi CPU"');
+  expect(html).toContain(vnd(2_000_000)); // thành tiền RAM 2 × 1.000.000
+});
+
+const renderError = (error: Parameters<typeof AiErrorBox>[0]["error"], retryLockedUntil = 0) =>
+  renderToStaticMarkup(createElement(AiErrorBox, { error, retryLockedUntil, isBusy: false, onRetry: noop, onReset: noop }));
+
+test("AiErrorBox: AI bận thì có Thử lại (khóa theo Retry-After); lỗi đầu vào thì không", () => {
+  expect(renderError({ code: "AI_UNAVAILABLE", status: 503, message: "AI bận", retryAfter: null })).toContain(">Thử lại<");
+  expect(renderError({ code: "RATE_LIMITED", status: 429, message: "Chậm lại", retryAfter: 30 }, Date.now() + 30_000)).toMatch(
+    /disabled[^>]*>Thử lại sau 30s/,
+  );
+  expect(renderError({ code: "BUILD_NOT_FOUND", status: 422, message: "Không ráp được", retryAfter: null })).not.toContain("Thử lại");
+  expect(renderError({ status: 400, message: "Ngân sách tối đa là 9.999.999.999đ", retryAfter: null })).not.toContain("Thử lại");
 });

@@ -621,7 +621,7 @@ test("admin promotion → customer order → staff collection and handover → w
     .getByRole("button", { name: "Bắt đầu chuẩn bị", exact: true })
     .click();
   await page
-    .getByRole("button", { name: "Đánh dấu sẵn sàng nhận", exact: true })
+    .getByRole("button", { name: "Đóng gói xong (sẵn sàng giao)", exact: true })
     .click();
   await page
     .getByRole("button", { name: "Xác nhận đã thu đủ", exact: true })
