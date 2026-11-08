@@ -1,0 +1,15 @@
+.voucher-wallet-tabs { display: flex; flex-wrap: wrap; gap: 10px; }
+.voucher-wallet-list { display: grid; gap: 16px; }
+.voucher-wallet-card { display: flex; border: 1px solid #e4e8f0; border-radius: 14px; overflow: hidden; background: #fff; min-width: 0; }
+.voucher-wallet-discount { flex: 0 0 150px; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 8px; padding: 20px 12px; background: #fff0f2; color: #e71936; border-right: 2px dashed #f0bec6; text-align: center; }
+.voucher-wallet-discount > span:first-child { font-size: 28px; }
+.voucher-wallet-discount strong { font-size: 21px; overflow-wrap: anywhere; }
+.voucher-wallet-discount span { font-size: 12px; }
+.voucher-wallet-content { display: grid; gap: 12px; padding: 20px; min-width: 0; flex: 1; }
+.voucher-wallet-content h3,.voucher-wallet-content p { margin: 0; }
+.voucher-wallet-code { overflow-wrap: anywhere; color: #d71932; }
+.voucher-wallet-card.is-unavailable .voucher-wallet-discount { background: #f3f5f8; color: #69778b; border-color: #d8dfe9; }
+.voucher-recipient-row { display: flex; gap: 12px; align-items: center; padding: 14px 0; border-bottom: 1px solid #e4e8f0; }
+.voucher-recipient-row > div { min-width: 0; flex: 1; overflow-wrap: anywhere; }
+.voucher-recipient-row p { margin: 4px 0 0; }
+@media (max-width: 600px) { .voucher-wallet-discount { flex-basis: 100px; padding: 14px 8px; } .voucher-wallet-discount strong { font-size: 16px; } .voucher-wallet-content { padding: 14px; } .voucher-recipient-row { flex-wrap: wrap; } }

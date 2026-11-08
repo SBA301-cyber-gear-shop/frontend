@@ -175,13 +175,13 @@ export function useLiveCheckout() {
     return lines.reduce((sum, line) => sum + line.quantity * line.unitPrice, 0);
   }, [cart, selectedVariantIds, lines]);
 
-  async function apply() {
-    const code = inputCode.trim();
+  async function apply(selectedCode) {
+    const code = (typeof selectedCode === "string" ? selectedCode : inputCode).trim();
     if (!code) {
       setPromoError("Vui lòng nhập mã giảm giá.");
-      return;
+      return false;
     }
-    if (applying || placing || validating) return;
+    if (applying || placing || validating) return false;
     setApplying(true);
     setPromoError("");
     try {
@@ -198,10 +198,12 @@ export function useLiveCheckout() {
       setDiscount(result.discountAmount ?? 0);
       setPromoError("");
       notify("Đã áp dụng mã giảm giá thành công.");
+      return true;
     } catch (failure) {
       setPromoError(failure.message || "Mã giảm giá không hợp lệ.");
       setApplied("");
       setDiscount(0);
+      return false;
     } finally {
       setApplying(false);
     }

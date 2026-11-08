@@ -11,6 +11,7 @@ import {
 } from "@/components/ui";
 import { Field } from "@/components/form";
 import { OrderLines } from "@/features/products";
+import { CheckoutVoucherPicker } from "@/features/promotions";
 import { useCheckout } from "../hooks/useCheckout";
 
 export function CheckoutForm() {
@@ -422,6 +423,7 @@ export function CheckoutForm() {
                   <Notice tone="danger">{promoError}</Notice>
                 </div>
               )}
+              {!demoMode && <CheckoutVoucherPicker applied={applied} disabled={placing || applying || validating || Boolean(error)} onSelect={apply} />}
               <p className="tiny muted section">
                 Một mã mỗi đơn · Mỗi khách dùng một lần.
               </p>

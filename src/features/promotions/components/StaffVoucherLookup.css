@@ -1,0 +1,12 @@
+.staff-voucher-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%,320px),1fr)); gap: 16px; }
+.staff-voucher-card { min-width: 0; padding: 20px; border: 1px solid #e2e7ed; border-radius: 12px; display: grid; gap: 16px; align-content: start; background: #fff; }
+.staff-voucher-card-top { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: start; gap: 12px; }
+.staff-voucher-card-top .voucher-identity { max-width: 100%; }
+.staff-voucher-card h3 { margin: 0; color: #233b5b; font-size: 15px; line-height: 1.6; overflow-wrap: anywhere; }
+.staff-voucher-amount,.staff-voucher-quota { border-top: 1px solid #edf0f5; padding-top: 14px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.staff-voucher-amount > span,.staff-voucher-quota > span { color: #657185; font-size: 12px; }
+.staff-voucher-amount strong { color: #245ba0; font-size: 20px; }
+.staff-voucher-quota .voucher-usage { width: 110px; text-align: right; }
+.promotion-management.staff-voucher-lookup .voucher-list .voucher-copy.btn { opacity: 1; background: #eff5fd; color: #245ba0; }
+.staff-voucher-lookup .voucher-list .promotion-status { flex-shrink: 0; }
+@media(max-width:600px) { .promotion-management.staff-voucher-lookup .voucher-list { padding: 16px; } .staff-voucher-card { padding: 16px; } }

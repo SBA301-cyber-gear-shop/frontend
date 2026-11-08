@@ -27,7 +27,7 @@ export function ProductCard({ product: p }) {
       </p>
       <div className="buy">
         <div>
-          <span className="old-price">{money(p.originalPrice)}</span>
+          {Number(p.originalPrice) > Number(p.price) && <span className="old-price">{money(p.originalPrice)}</span>}
           <div className="price">{money(p.price)}</div>
         </div>
         <Link to={"/san-pham/" + p.id}>Xem chi tiết</Link>
