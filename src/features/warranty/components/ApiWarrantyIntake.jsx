@@ -14,7 +14,7 @@ import {
 } from "@/components/ui";
 import { Field } from "@/components/form";
 import { REQUEST_RESOLUTION, REQUEST_STATUS } from "../constants";
-import { cardBadge, day, today, warrantyRemainingText } from "../domain/requests";
+import { cardBadge, day, groupByPc, today, warrantyRemainingText } from "../domain/requests";
 import { useAftersales } from "../hooks/useAftersales";
 import { RequestDetail, RequestHistory } from "./RequestHistory";
 
@@ -578,7 +578,7 @@ export function ApiWarrantyIntake() {
                   <KV label="Tiếp nhận lúc">{dateTime(intake.createdAt)}</KV>
                   <KV label="Ngày hẹn trả">{day(intake.expectedReturnDate)}</KV>
                   <h4 className="section">Thiết bị nhận</h4>
-                  {intake.requests.map((r) => (
+                  {groupByPc(intake.requests).map((group) => <div key={group.id ?? "loose"}><h5>{group.label}</h5>{group.items.map((r) => (
                     <p className="small" key={r.id}>
                       <b className="mono">{r.requestCode}</b> · {r.productName} · <span className="mono">{r.serialNumber}</span>
                       {" · "}Thẻ #{r.warrantyCardId} · Bảo hành: {day(r.warrantyStartDate)} – {day(r.warrantyEndDate)} (hạn hiện tại hoặc dự kiến sau sửa)
@@ -586,14 +586,14 @@ export function ApiWarrantyIntake() {
                       {r.replacementSerialNumber && ` · Đổi sang ${r.replacementSerialNumber}, hạn mới ${day(r.replacementWarrantyEndDate)}`}
                       {r.replacementWarrantyRemainingDays != null && ` · Còn ${r.replacementWarrantyRemainingDays} ngày tính từ hôm nay`}
                     </p>
-                  ))}
+                  ))}</div>)}
                   <p className="section">{intake.issueDescription}</p>
                   <KV label="Ngoại quan">{intake.conditionNote}</KV>
                   <KV label="Phụ kiện">{intake.accessoriesNote}</KV>
                   <div className="row wrap-row section"><Button onClick={printReceipt}>In biên nhận</Button></div>
                 </div>
               </details>
-              {intake.requests.map((r) => (
+              {groupByPc(intake.requests).map((group) => <div key={group.id ?? "loose"}><h4>{group.label}</h4>{group.items.map((r) => (
                 <div className="ticket-preview intake-request-row" key={r.id}>
                   <b className="mono">{r.requestCode}</b>
                   <span className="small intake-request-product">
@@ -652,7 +652,7 @@ export function ApiWarrantyIntake() {
                     </button>
                   </div>
                 </div>
-              ))}
+              ))}</div>)}
               {partActions && (
                 <div className="section">
                   <Field label="Ghi chú bàn giao hoặc lý do">
