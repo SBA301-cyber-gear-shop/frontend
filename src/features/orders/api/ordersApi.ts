@@ -14,7 +14,10 @@ function orderView(order) {
     discount: order.discountAmount,
     final: order.finalAmount,
     promotion: order.promotionCode,
-    method: order.methodType === "cash" ? "store" : order.methodType,
+    method:
+      order.methodType === "cash"
+        ? order.deliveryType === "shipping" ? "cod" : "store"
+        : order.methodType,
     payment: order.paymentStatus,
     createdAt: order.createdAt,
     paidAt: order.paidAt,
@@ -82,6 +85,13 @@ export const ordersApi = {
       { receivedAmount, reference },
     );
     return orderView(data);
+  },
+  async cashCollection(code: string, signal?: AbortSignal) {
+    const { data } = await axiosClient.get(
+      `${codePath(endpoints.orderOperations, code)}/cash-collection`,
+      { signal },
+    );
+    return data || null;
   },
   async handover(code: string, payload) {
     const { data } = await axiosClient.post(
