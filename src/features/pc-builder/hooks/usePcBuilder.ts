@@ -1,1112 +1,541 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useStore } from "@/store";
-import type {
-  AiBuildRequestPayload,
-  AiBuildResponse,
-  BuildOptionsResponse,
-  BuildPart,
-  CompatibilityCheckResponse,
-  ComponentRole,
-  ReplacementCandidate,
-  AiBuildInsight,
-  BuilderStatus,
-  BuildScope,
-  PeripheralRange,
-  PeripheralRole,
-  PeripheralSelection,
-  PeripheralStatus,
-  PeripheralSuggestionResponse,
-  RequirementProfile,
-  SavedPcBuildDetail,
-  SelectedPartResponse,
-  ValidateBuildResponse,
-} from "../types/pcBuilder.types";
-import {
-  initialBuildParts,
-  initialAiInsight,
-  initialProfile,
-  evaluateHardwareRules,
-  minFullSetBudget,
-  pcBudgetOf,
-  replacementCandidatesByRole,
-  reserveFor,
-  ROLE_LABELS,
-  selectionFromSuggestion,
-  selectionTotal,
-} from "../domain";
-import { isAbortError, pcBuilderApi, PcBuildApiError } from "../api/pcBuilderApi";
-import {
-  changeLineQuantity,
-  compatibilityPassed,
-  PERIPHERAL_ROLES,
-  replaceLine,
-  savedSelection,
-  splitSavedItems,
-} from "../domain/buildLines";
 import { cartApi } from "@/features/cart";
-import { checksToRules, createBuildRequests, toBuildItems, validationFromSuggest } from "./buildRequests";
+import { money } from "@/utils";
+import { pcBuilderApi, PcBuildApiError } from "../api/pcBuilderApi";
+import {
+  buildKey,
+  buildableRequirement,
+  checkInput,
+  itemsFromCartSet,
+  lineTotal,
+  replaceLine,
+  saveErrorText,
+  setLineQty,
+  toItemRequests,
+  type CartBuildSet,
+} from "../domain/buildLines";
+import { createBuildRequests } from "./buildRequests";
+import type {
+  AnalyzeResponse,
+  BuildItem,
+  BuildItemRequest,
+  BuildResult,
+  PurposeOption,
+  ReplacementOption,
+} from "../types/pcBuilder.types";
 
-// Dùng khi /options chưa tải được; backend vẫn kiểm lại (DD 5.2)
-const DEFAULT_MIN_BUDGET = 8_000_000;
-const DEFAULT_MAX_BUDGET = 9_999_999_999;
+export type BuilderPhase = "idle" | "loading" | "analysis" | "done" | "error";
+export type LoadingStep = "analyze" | "build" | "load";
 
 export interface PcBuilderApiError {
   code?: string;
+  status?: number;
   message: string;
   retryAfter: number | null;
   data?: unknown;
 }
 
-// Tách khỏi hook để test được: lưu lỗi thì báo lỗi, không báo "Đã lưu" (B27)
-export async function saveBuildOrNotify(
-  save: () => Promise<number>,
-  notify: (message: string, tone?: string) => void,
-): Promise<{ saved: boolean; buildId?: number }> {
-  try {
-    const buildId = await save();
-    notify("💾 Đã lưu cấu hình PC thành công vào tài khoản của bạn!", "success");
-    return { saved: true, buildId };
-  } catch (err: unknown) {
-    console.warn("[PC Builder] Lỗi lưu cấu hình:", err);
-    let reason = err instanceof Error && err.message ? err.message : "Máy chủ không phản hồi";
-    // 422 BUILD_INCOMPATIBLE: liệt kê check fail (DD 10.4)
-    const checks = (err instanceof PcBuildApiError &&
-      (err.data as { checks?: CompatibilityCheckResponse[] } | undefined)?.checks) || [];
-    const failed = checks.filter((c) => c.status === "fail").map((c) => c.label);
-    if (failed.length) reason += ` (${failed.join(", ")})`;
-    notify(`❌ Lưu cấu hình thất bại: ${reason}. Vui lòng thử lại.`, "danger");
-    return { saved: false };
-  }
+export interface ReplaceState {
+  category: string;
+  /** Dòng đang đổi; -1 là thêm món cho slot trống. */
+  index: number;
+  options: ReplacementOption[];
+  loading: boolean;
+  error: string | null;
 }
+
+export interface ConfirmState {
+  action: "save" | "cart";
+  message: string;
+}
+
+interface Outcome {
+  analysis: AnalyzeResponse | null;
+  build: BuildResult | null;
+}
+
+/** Lời giải thích bước 8 cùng khóa của bộ PC nó mô tả. */
+interface Explanation {
+  message: string;
+  key: string;
+}
+
+interface GuestDraft {
+  budget: number | "";
+  message: string;
+  analysis: AnalyzeResponse | null;
+  build: BuildResult;
+  explanation: Explanation | null;
+}
+
+// Không đổi tên các khóa này: giỏ hàng và trang đăng nhập dùng chung
+const GUEST_BUILD_KEY = "techzone_guest_build";
+const PC_SETS_KEY = "techzone_pc_build_sets";
 
 export function toApiError(err: unknown): PcBuilderApiError {
   if (err instanceof PcBuildApiError)
-    return { code: err.code, message: err.message, retryAfter: err.retryAfter, data: err.data };
+    return { code: err.code, status: err.status, message: err.message, retryAfter: err.retryAfter, data: err.data };
   return {
-    message:
-      err instanceof Error && err.message
-        ? err.message
-        : "Dịch vụ AI hiện không khả dụng. Vui lòng thử lại sau!",
+    message: err instanceof Error && err.message ? err.message : "Máy chủ không phản hồi, vui lòng thử lại sau.",
     retryAfter: null,
   };
 }
 
-/** Kiểm tra form trước khi gửi /ai-suggest; trả câu báo lỗi hoặc null (DD 10.4). */
-export function checkSuggestInput(
-  budget: number,
-  purpose: string,
-  options: Pick<BuildOptionsResponse, "minBudget" | "floorPrice" | "maxBudget"> | null,
-  hasProfile = false,
-  fullSetRange: PeripheralRange | null = null,
-): string | null {
-  const pcMin = Math.max(options?.minBudget ?? DEFAULT_MIN_BUDGET, options?.floorPrice ?? 0);
-  const min = fullSetRange ? minFullSetBudget(pcMin, fullSetRange) : pcMin;
-  const max = options?.maxBudget ?? DEFAULT_MAX_BUDGET;
-  const vnd = (n: number) => n.toLocaleString("vi-VN") + " ₫";
-  if (!budget || budget < min) {
-    return fullSetRange
-      ? `Trọn bộ gồm màn hình, bàn phím, chuột cần tối thiểu ${vnd(min)}.`
-      : `Ngân sách tối thiểu để ráp một bộ máy mới là ${vnd(min)}.`;
+/** Cấu hình khách làm dở trước khi bị chuyển sang trang đăng nhập. */
+function readGuestDraft(): GuestDraft | null {
+  try {
+    const draft = JSON.parse(sessionStorage.getItem(GUEST_BUILD_KEY) || "null") as GuestDraft | null;
+    return Array.isArray(draft?.build?.items) && draft.build.items.length > 0 ? draft : null;
+  } catch {
+    return null;
   }
-  if (budget > max) return `Ngân sách tối đa là ${vnd(max)}.`;
-  if (!hasProfile && purpose.trim().length < 2) return "Vui lòng mô tả nhu cầu sử dụng chính (ít nhất 2 ký tự).";
-  return null;
 }
 
-function toBuildParts(
-  items: AiBuildResponse["items"],
-  fallbackReason: string,
-): BuildPart[] {
-  return items.map((item) => ({
-    role: item.role,
-    roleName: ROLE_LABELS[item.role] || item.role.toUpperCase(),
-    variantId: item.variantId,
-    productName: item.productName,
-    variantName: item.variantName || "",
-    imageUrl: item.imageUrl || "/placeholder-pc.svg",
-    unitPrice: item.unitPrice,
-    quantity: item.quantity,
-    specs: item.specs || {},
-    aiReason: item.aiReason || fallbackReason,
-  }));
+function readCartSets(): CartBuildSet[] {
+  try {
+    const sets = JSON.parse(localStorage.getItem(PC_SETS_KEY) || "[]");
+    return Array.isArray(sets) ? sets : [];
+  } catch {
+    return [];
+  }
 }
-
-const GUEST_BUILD_KEY = "techzone_guest_build";
 
 export function usePcBuilder() {
-  const { user, commit, notify, demoMode, mutateCart, reloadCart } = useStore();
+  const { user, notify, demoMode, mutateCart, reloadCart } = useStore();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const editBuildId = searchParams.get("editBuildId") || searchParams.get("loadBuildId");
-  const addingParts = useRef(false);
-  const [requests] = useState(() => createBuildRequests(pcBuilderApi));
+  const editBuildId = searchParams.get("editBuildId");
+  const [requests] = useState(() => createBuildRequests());
+  const [draft] = useState(readGuestDraft);
+  // Bộ PC từ giỏ hàng ("Sửa trong bộ lắp ráp"); khôi phục bản nháp sau đăng nhập được ưu tiên
+  const [cartSet] = useState(() =>
+    draft || !editBuildId ? null : readCartSets().find((set) => String(set.id) === editBuildId) ?? null,
+  );
+  const [cartItems] = useState(() => itemsFromCartSet(cartSet));
 
-  async function addLiveParts(
-    parts: { variantId: number | string; quantity: number }[],
-    buildName?: string,
-    buildIdVal?: number | string,
-    // Màn, phím, chuột: vào giỏ nhưng không thuộc bộ PC, nên giỏ hàng hiện thành hàng mua lẻ
-    extras: { variantId: number | string; quantity: number }[] = [],
-  ) {
-    if (addingParts.current) return;
-    if (!user) {
-      redirectGuestToLogin();
-      return;
-    }
-    if (!parts.length) return;
-    addingParts.current = true;
-    setIsBusy(true);
-    let added = 0;
-    try {
-      const quantities = new Map<string, number>();
-      for (const part of [...parts, ...extras]) {
-        const id = String(part.variantId);
-        if (
-          !Number.isInteger(Number(id)) ||
-          Number(id) <= 0 ||
-          !Number.isInteger(part.quantity) ||
-          part.quantity < 1
-        )
-          throw new Error("Cấu hình có linh kiện hoặc số lượng không hợp lệ.");
-        quantities.set(id, (quantities.get(id) || 0) + part.quantity);
-      }
-      const updated = await mutateCart(async () => {
-        for (const [id, quantity] of quantities) {
-          await cartApi.add(id, quantity);
-          added++;
-        }
-      });
-      if (!updated) return;
-      try {
-        const buildSet = {
-          id: buildIdVal || ("set_" + Date.now()),
-          name: buildName || (userPrompt ? ("Dàn PC AI Build: " + userPrompt.slice(0, 30)) : "Dàn PC Gaming & Đồ Họa Pro"),
-          itemVariantIds: parts.map((p) => String(p.variantId)),
-          parts: buildParts.length > 0 ? buildParts : parts,
-          createdAt: Date.now(),
-        };
-        const existingSets = JSON.parse(localStorage.getItem("techzone_pc_build_sets") || "[]");
-        localStorage.setItem("techzone_pc_build_sets", JSON.stringify([...existingSets, buildSet]));
-      } catch (e) {
-        console.error(e);
-      }
-      notify("Đã thêm các linh kiện vào giỏ hàng.");
-      navigate("/gio-hang");
-    } catch (error) {
-      if (added) await reloadCart();
-      const message =
-        error instanceof Error
-          ? error.message
-          : "Không thêm được cấu hình vào giỏ hàng.";
-      notify(
-        added
-          ? `${message} Đã thêm ${added} phiên bản; kiểm tra giỏ hàng trước khi thêm lại.`
-          : message,
-        "danger",
-      );
-    } finally {
-      addingParts.current = false;
-      setIsBusy(false);
-    }
-  }
+  // Form
+  const [budget, setBudget] = useState<number | "">(draft?.budget ?? cartItems?.budget ?? "");
+  const [message, setMessage] = useState(draft?.message ?? "");
 
-  // Inputs
-  const [budget, setBudget] = useState<number | "">("");
-  const [purpose, setPurpose] = useState<string>("");
-  const [userPrompt, setUserPrompt] = useState<string>("");
+  // Kết quả
+  const [phase, setPhase] = useState<BuilderPhase>(draft ? "done" : cartItems ? "loading" : "idle");
+  const [step, setStep] = useState<LoadingStep>("load");
+  const [analysis, setAnalysis] = useState<AnalyzeResponse | null>(draft?.analysis ?? null);
+  const [build, setBuild] = useState<BuildResult | null>(draft?.build ?? null);
+  const [explanation, setExplanation] = useState<Explanation | null>(draft?.explanation ?? null);
+  const [error, setError] = useState<PcBuilderApiError | null>(null);
+  const [retryLockedUntil, setRetryLockedUntil] = useState(0);
 
-  // States
-  const [buildId, setBuildId] = useState<number | string | null>(null);
-  const [status, setStatus] = useState<BuilderStatus>("empty");
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [apiError, setApiError] = useState<PcBuilderApiError | null>(null);
-  const [retryLockedUntil, setRetryLockedUntil] = useState<number>(0);
-  const [isBusy, setIsBusy] = useState<boolean>(false);
-  const [isFetchingCandidates, setIsFetchingCandidates] =
-    useState<boolean>(false);
-  const [buildParts, setBuildParts] = useState<BuildPart[]>([]);
-  const [aiInsight, setAiInsight] = useState<AiBuildInsight | null>(null);
-  const [activeReplaceIndex, setActiveReplaceIndex] = useState<number>(-1);
-  const [activeReplaceRole, setActiveReplaceRole] =
-    useState<ComponentRole | null>(null);
-  const [dynamicCandidates, setDynamicCandidates] = useState<
-    ReplacementCandidate[]
-  >([]);
-  const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
-  const [isSaved, setIsSaved] = useState<boolean>(false);
+  // Kiểm tra lại sau khi khách đổi món
+  const [isChecking, setIsChecking] = useState(false);
+  const [checkError, setCheckError] = useState<string | null>(null);
 
-  // Hồ sơ nhu cầu & kết quả kiểm tra của backend (DD 10.4)
-  const [options, setOptions] = useState<BuildOptionsResponse | null>(null);
-  const [profile, setProfile] = useState<RequirementProfile | null>(null);
-  const [profileDraft, setProfileDraft] = useState<RequirementProfile | null>(null);
-  const [lastRequest, setLastRequest] = useState<AiBuildRequestPayload | null>(null);
-  const [aiResult, setAiResult] = useState<AiBuildResponse | null>(null);
-  const [validation, setValidation] = useState<ValidateBuildResponse | null>(null);
-  const [isRevalidating, setIsRevalidating] = useState<boolean>(false);
+  // Đổi món, lưu, giỏ hàng
+  const [replace, setReplace] = useState<ReplaceState | null>(null);
+  const [confirm, setConfirm] = useState<ConfirmState | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [savedBuildId, setSavedBuildId] = useState<number | null>(null);
+  const [isAdding, setIsAdding] = useState(false);
+  const saving = useRef(false);
+  const adding = useRef(false);
+  const lastAction = useRef<(() => void) | null>(null);
 
-  // Trọn bộ: buildScope là lựa chọn trên form, resultScope là chế độ của kết quả đang hiện
-  const [buildScope, setBuildScope] = useState<BuildScope>("pc");
-  const [resultScope, setResultScope] = useState<BuildScope>("pc");
-  const [peripherals, setPeripherals] = useState<PeripheralSuggestionResponse | null>(null);
-  const [selectedPeripherals, setSelectedPeripherals] = useState<PeripheralSelection>({});
-  const [peripheralsStatus, setPeripheralsStatus] = useState<PeripheralStatus>("idle");
-  const [peripheralsError, setPeripheralsError] = useState<string | null>(null);
-  const peripheralRequest = useRef<AbortController | null>(null);
-  // Màn, phím, chuột của cấu hình đã lưu đang mở; "Thử lại" dùng lại để không đổi sang món khác
-  const savedPeripherals = useRef<SelectedPartResponse[] | null>(null);
-  // Chế độ và ngân sách của lần đề xuất đang chạy; "Thử lại" dùng lại đúng hai giá trị này
-  const pendingSuggest = useRef<{ scope: BuildScope; budget: number }>({ scope: "pc", budget: 0 });
+  const numericBudget = typeof budget === "number" ? budget : Number(budget) || 0;
 
   useEffect(() => () => requests.cancelAll(), [requests]);
-  useEffect(() => () => peripheralRequest.current?.abort(), []);
 
-  // Khách đăng nhập xong quay lại: khôi phục cấu hình đang làm dở.
   useEffect(() => {
-    if (editBuildId) return;
-    const saved = sessionStorage.getItem(GUEST_BUILD_KEY);
-    if (!saved) return;
+    if (!draft) return;
     sessionStorage.removeItem(GUEST_BUILD_KEY);
-    try {
-      const draft = JSON.parse(saved);
-      setBudget(draft.budget);
-      setPurpose(draft.purpose);
-      setUserPrompt(draft.userPrompt);
-      setProfile(draft.profile);
-      setProfileDraft(draft.profileDraft);
-      setLastRequest(draft.lastRequest);
-      setAiResult(draft.aiResult);
-      setAiInsight(draft.aiInsight);
-      setValidation(draft.validation);
-      applyParts(draft.buildParts);
-      setBuildScope(draft.buildScope ?? "pc");
-      setResultScope(draft.resultScope ?? "pc");
-      setPeripherals(draft.peripherals ?? null);
-      setSelectedPeripherals(draft.selectedPeripherals ?? {});
-      setPeripheralsStatus(draft.peripherals ? "ready" : "idle");
-      setStatus("success");
-      notify("Đã khôi phục cấu hình bạn vừa tạo.");
-    } catch (error) {
-      console.warn("[PC Builder] Không khôi phục được cấu hình:", error);
-    }
+    requests.track(toItemRequests(draft.build.items));
+    notify("Đã khôi phục cấu hình bạn vừa tạo.");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    if (!cartSet) return;
+    if (!cartItems) {
+      notify("Không đọc được bộ PC này trong giỏ hàng, vui lòng tạo cấu hình mới.", "warning");
+      return;
+    }
+    const name = cartSet.name || "từ giỏ hàng";
+    void requests.suggest(
+      async (signal) => ({
+        analysis: null,
+        build: await pcBuilderApi.validate({ budget: cartItems.budget, items: cartItems.items }, { signal }),
+      }),
+      {
+        onSuccess: (outcome: Outcome) => {
+          applyOutcome(outcome);
+          notify(`✨ Đã nạp cấu hình "${name}" vào bộ lắp ráp.`, "success");
+        },
+        onError: applyError,
+      },
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  /** Mọi lần thay cả bộ PC đi qua đây để phản hồi /validate, /replacements cũ bị bỏ. */
+  function applyBuild(next: BuildResult | null) {
+    requests.cancel("validate");
+    requests.track(next ? toItemRequests(next.items) : []);
+    setBuild(next);
+    setIsChecking(false);
+    setCheckError(null);
+  }
+
+  function applyOutcome({ analysis: nextAnalysis, build: nextBuild }: Outcome) {
+    setAnalysis(nextAnalysis);
+    setError(null);
+    setRetryLockedUntil(0);
+    setSavedBuildId(null);
+    if (!nextBuild) {
+      applyBuild(null);
+      setExplanation(null);
+      setPhase("analysis");
+      return;
+    }
+    if (!Array.isArray(nextBuild.items) || nextBuild.items.length === 0) {
+      applyError(new Error("Chưa tìm được bộ linh kiện phù hợp với ngân sách này trong kho."));
+      return;
+    }
+    applyBuild(nextBuild);
+    setExplanation(
+      nextBuild.message ? { message: nextBuild.message, key: buildKey(toItemRequests(nextBuild.items)) } : null,
+    );
+    setPhase("done");
+  }
+
+  function applyError(err: unknown) {
+    console.warn("[PC Builder] Lỗi khi đề xuất cấu hình:", err);
+    const apiError = toApiError(err);
+    // Không giữ bộ PC cũ trên màn hình khi lỗi
+    applyBuild(null);
+    setExplanation(null);
+    setError(apiError);
+    setRetryLockedUntil(apiError.retryAfter ? Date.now() + apiError.retryAfter * 1000 : 0);
+    setPhase("error");
+  }
+
+  function runSuggest(call: (signal: AbortSignal) => Promise<Outcome>, firstStep: LoadingStep) {
+    setPhase("loading");
+    setStep(firstStep);
+    setError(null);
+    setReplace(null);
+    setConfirm(null);
+    void requests.suggest(call, { onSuccess: applyOutcome, onError: applyError });
+  }
+
+  /** Bấm "Đề xuất": analyze, rồi tự gọi /builds/auto khi READY hoặc BUDGET_WARNING. */
+  function submit(budgetOverride?: number) {
+    if (requests.isSuggesting) return;
+    const value = budgetOverride ?? numericBudget;
+    const text = message.trim();
+    const invalid = checkInput(value, text);
+    if (invalid) {
+      notify(invalid, "danger");
+      return;
+    }
+    if (budgetOverride !== undefined) setBudget(budgetOverride);
+    lastAction.current = () => submit(value);
+    setAnalysis(null);
+    runSuggest(async (signal) => {
+      const result = await pcBuilderApi.analyze({ budget: value, message: text }, { signal });
+      const requirement = buildableRequirement(result);
+      if (!requirement) return { analysis: result, build: null };
+      setStep("build");
+      return { analysis: result, build: await pcBuilderApi.autoBuild(requirement, { signal }) };
+    }, "analyze");
+  }
+
+  /** BUDGET_TOO_LOW: khách chọn một mục đích vừa ngân sách trong suggestedPurposes. */
+  function buildWithPurpose(option: PurposeOption) {
+    if (requests.isSuggesting) return;
+    const value = analysis?.requirement?.budget ?? numericBudget;
+    lastAction.current = () => buildWithPurpose(option);
+    runSuggest(
+      async (signal) => ({
+        analysis: null,
+        build: await pcBuilderApi.autoBuild({ budget: value, purpose: option.purpose }, { signal }),
+      }),
+      "build",
+    );
+  }
+
+  /** "Thử lại": chạy lại đúng thao tác vừa lỗi, khóa trong Retry-After giây. */
+  function retry() {
+    if (requests.isSuggesting) return;
+    if (Date.now() < retryLockedUntil) {
+      const seconds = Math.ceil((retryLockedUntil - Date.now()) / 1000);
+      notify(`Hệ thống đang bận, vui lòng thử lại sau ${seconds} giây.`, "warning");
+      return;
+    }
+    if (lastAction.current) lastAction.current();
+    else submit();
+  }
+
+  function reset() {
+    requests.cancelAll();
+    lastAction.current = null;
+    applyBuild(null);
+    setPhase("idle");
+    setAnalysis(null);
+    setExplanation(null);
+    setError(null);
+    setRetryLockedUntil(0);
+    setReplace(null);
+    setConfirm(null);
+    setSavedBuildId(null);
+    setBudget("");
+    setMessage("");
+  }
+
+  /** Khách đổi món / số lượng: hiện ngay theo giá đang có, rồi /validate (debounce) trả trạng thái thật. */
+  function updateItems(items: BuildItem[]) {
+    if (!build) return;
+    const requestItems = toItemRequests(items);
+    const total = lineTotal(items);
+    requests.track(requestItems);
+    setBuild({ ...build, items, total, difference: total - build.budget });
+    setSavedBuildId(null);
+    setIsChecking(true);
+    setCheckError(null);
+    void revalidate(build.budget, requestItems);
+  }
+
+  function revalidate(budgetValue: number, items: BuildItemRequest[]) {
+    return requests.revalidate(
+      (signal) => pcBuilderApi.validate({ budget: budgetValue, items }, { signal }),
+      items,
+      {
+        onSuccess: (result: BuildResult) => {
+          // /validate không có mục đích và lời giải thích: giữ của lần tự build
+          setBuild((prev) => ({ ...result, purpose: prev?.purpose ?? result.purpose, message: null }));
+          setIsChecking(false);
+        },
+        onError: (err) => {
+          console.warn("[PC Builder] Lỗi kiểm tra lại cấu hình:", err);
+          setIsChecking(false);
+          setCheckError(toApiError(err).message);
+        },
+      },
+    );
+  }
+
+  function recheck() {
+    if (!build) return;
+    setIsChecking(true);
+    setCheckError(null);
+    void revalidate(build.budget, toItemRequests(build.items));
+  }
+
+  function changeQty(index: number, qty: number) {
+    if (!build) return;
+    const items = setLineQty(build.items, index, qty);
+    if (items !== build.items) updateItems(items);
+  }
+
+  function openReplace(category: string, index: number) {
+    if (!build) return;
+    setReplace({ category, index, options: [], loading: true, error: null });
+    const items = toItemRequests(build.items);
+    const isSame = (prev: ReplaceState | null) => prev?.category === category && prev.index === index;
+    void requests.replacements(
+      (signal) => pcBuilderApi.replacements({ category, items }, { signal }),
+      items,
+      {
+        onSuccess: (options: ReplacementOption[]) =>
+          setReplace((prev) => (prev && isSame(prev) ? { ...prev, options, loading: false } : prev)),
+        onError: (err) =>
+          setReplace((prev) =>
+            prev && isSame(prev) ? { ...prev, loading: false, error: toApiError(err).message } : prev,
+          ),
+      },
+    );
+  }
+
+  function closeReplace() {
+    requests.cancel("replacements");
+    setReplace(null);
+  }
+
+  function chooseReplacement(option: ReplacementOption) {
+    if (!build || !replace) return;
+    const current = build.items[replace.index];
+    closeReplace();
+    if (option.current && current?.id === option.id && current.qty === option.qty) return;
+    updateItems(replaceLine(build.items, replace.index, replace.category, option));
+    notify(`Đã chọn "${option.name}".`);
+  }
+
   function redirectGuestToLogin() {
-    if (buildParts.length > 0) {
+    if (build) {
       try {
-        sessionStorage.setItem(
-          GUEST_BUILD_KEY,
-          JSON.stringify({
-            budget,
-            purpose,
-            userPrompt,
-            profile,
-            profileDraft,
-            lastRequest,
-            aiResult,
-            aiInsight,
-            validation,
-            buildParts,
-            buildScope,
-            resultScope,
-            peripherals,
-            selectedPeripherals,
-          }),
-        );
-      } catch (error) {
-        console.warn("[PC Builder] Không lưu tạm được cấu hình:", error);
+        const guestDraft: GuestDraft = { budget, message, analysis, build, explanation };
+        sessionStorage.setItem(GUEST_BUILD_KEY, JSON.stringify(guestDraft));
+      } catch (err) {
+        console.warn("[PC Builder] Không lưu tạm được cấu hình:", err);
       }
     }
     navigate("/dang-nhap", { state: { from: "/build-pc" } });
   }
 
-  useEffect(() => {
-    if (demoMode) return;
-    let active = true;
-    pcBuilderApi
-      .getBuildOptions()
-      .then((o) => active && setOptions(o))
-      .catch((err) => console.warn("[PC Builder] Không tải được /options:", err));
-    return () => {
-      active = false;
-    };
-  }, [demoMode]);
-
-  /** Mọi thay đổi buildParts đi qua đây để phản hồi /validate, /replacements cũ bị bỏ theo buildKey. */
-  function applyParts(next: BuildPart[]) {
-    requests.track(next);
-    setBuildParts(next);
+  /** Chặn lưu / thêm giỏ khi bộ PC chưa có kết quả kiểm tra mới nhất hoặc đang xung đột. */
+  function blockedReason(): string | null {
+    if (!build) return "Chưa có cấu hình nào.";
+    if (isChecking) return "Đang kiểm tra lại cấu hình, vui lòng đợi trong giây lát.";
+    if (checkError) return "Chưa kiểm tra được cấu hình mới nhất. Bấm \"Kiểm tra lại\" rồi thử lại.";
+    if (build.status === "INCOMPATIBLE") return "Cấu hình có linh kiện không tương thích, hãy đổi linh kiện trước.";
+    return null;
   }
 
-  /** Gọi /validate (debounce 300 ms) sau khi khách đổi linh kiện / số lượng. Demo mode dùng rules.ts. */
-  function revalidate(next: BuildPart[], budgetValue = pcBudget, profileValue = profile) {
-    if (demoMode || next.length === 0) return;
-    setIsRevalidating(true);
-    void requests.revalidate(
-      { budget: budgetValue || undefined, profile: profileValue, items: toBuildItems(next) },
-      {
-        onSuccess: (result) => {
-          setValidation(result);
-          setIsRevalidating(false);
-        },
-        onError: (err) => {
-          console.warn("[PC Builder] Lỗi kiểm tra tương thích:", err);
-          setValidation(null);
-          setIsRevalidating(false);
-          notify(`❌ Không kiểm tra được tương thích: ${toApiError(err).message}`, "danger");
-        },
-      },
-    );
-  }
-
-  /** Bỏ mọi kết quả kiểm tra đang chờ: dùng khi buildParts được thay cả bộ. */
-  function resetValidation(next: ValidateBuildResponse | null) {
-    requests.cancel("validate");
-    setIsRevalidating(false);
-    setValidation(next);
-  }
-
-  useEffect(() => {
-    if (!editBuildId) return;
-    let isMounted = true;
-    setIsBusy(true);
-
-    const numericId = Number(editBuildId);
-    if (numericId && user) {
-      pcBuilderApi
-        .getSavedBuildDetail(numericId)
-        .then((detail) => {
-          if (!isMounted) return;
-          loadSavedBuildIntoBuilder(detail);
-        })
-        .catch(() => {
-          loadFromLocal(editBuildId, isMounted);
-        })
-        .finally(() => {
-          if (isMounted) setIsBusy(false);
-        });
-    } else {
-      loadFromLocal(editBuildId, isMounted);
-      setIsBusy(false);
-    }
-
-    function loadFromLocal(idToFind: string, mounted: boolean) {
-      try {
-        const sets = JSON.parse(localStorage.getItem("techzone_pc_build_sets") || "[]");
-        const found = sets.find((s: any) => String(s.id) === String(idToFind));
-        if (found && Array.isArray(found.parts) && found.parts.length > 0 && mounted) {
-          applyParts(found.parts);
-          resetValidation(null);
-          clearPeripherals();
-          revalidate(found.parts);
-          setBuildId(null);
-          setIsSaved(false);
-          setStatus("success");
-          setAiInsight({
-            title: found.name || "Cấu hình chỉnh sửa",
-            reasoning: "Cấu hình đã được nạp từ giỏ hàng vào bộ lắp ráp.",
-            highlight: "Bạn có thể tiếp tục tùy chỉnh các linh kiện bên dưới hoặc thêm lại vào giỏ.",
-          });
-          notify("✨ Đã nạp cấu hình \"" + (found.name || "từ giỏ hàng") + "\" vào bộ lắp ráp!", "success");
-        }
-      } catch (e) {
-        console.error(e);
-      }
-    }
-
-    return () => {
-      isMounted = false;
-    };
-  }, [editBuildId, user]);
-
-  // Derived calculations
-  const grandTotal = buildParts.reduce(
-    (sum, p) => sum + p.unitPrice * p.quantity,
-    0,
-  );
-  const numericBudget =
-    typeof budget === "number" ? budget : Number(budget) || 0;
-  const remainingBudget = numericBudget - grandTotal;
-  const peripheralRange: PeripheralRange | null =
-    !demoMode && options?.peripheralMinTotal != null && options?.peripheralMaxTotal != null
-      ? { min: options.peripheralMinTotal, max: options.peripheralMaxTotal }
-      : null;
-  const activeScope: BuildScope = buildScope === "full" && peripheralRange ? "full" : "pc";
-  const peripheralTotal = resultScope === "full" ? selectionTotal(selectedPeripherals) : 0;
-  // /validate và /compatible-replacements chỉ biết thùng máy, nên nhận ngân sách đã trừ phụ kiện
-  const pcBudget = numericBudget ? pcBudgetOf(numericBudget, peripheralTotal) : 0;
-  // API mode: check của backend; demo mode: rules.ts (DD 10.4)
-  const rules = demoMode
-    ? evaluateHardwareRules(buildParts, numericBudget)
-    : checksToRules(validation?.checks || []);
-  const allRulesPassed = demoMode
-    ? rules.every((r) => r.status === "pass")
-    : compatibilityPassed(Boolean(validation?.isCompatible), rules);
-  const canAddToCart = demoMode
-    ? rules.every((r) => r.status !== "fail")
-    : Boolean(
-        validation?.isCompatible &&
-          !isRevalidating &&
-          peripheralsStatus !== "loading" &&
-          validation.budgetFit?.status !== "OVER",
-      );
-
-  // Candidates for the currently active modal role
-  const modalCandidates: ReplacementCandidate[] =
-    dynamicCandidates.length > 0 || !demoMode
-      ? dynamicCandidates
-      : activeReplaceRole
-        ? replacementCandidatesByRole[activeReplaceRole] || []
-        : [];
-
-  /** Bỏ phụ kiện đang hiện và hủy request đang chạy: dùng khi kết quả đổi cả bộ. */
-  function clearPeripherals() {
-    peripheralRequest.current?.abort();
-    peripheralRequest.current = null;
-    savedPeripherals.current = null;
-    setResultScope("pc");
-    setPeripherals(null);
-    setSelectedPeripherals({});
-    setPeripheralsStatus("idle");
-    setPeripheralsError(null);
-  }
-
-  /** Lỗi ở đây không ảnh hưởng thùng máy: khách vẫn mua được và có nút thử lại. */
-  async function loadPeripherals(
-    parts: BuildPart[],
-    archetype: string | undefined,
-    totalBudget: number,
-    profileValue: RequirementProfile | null,
-    // Mở lại cấu hình đã lưu: giữ đúng các món khách đã chọn thay vì để bộ chọn chọn lại
-    saved: SelectedPartResponse[] | null = null,
-  ) {
-    peripheralRequest.current?.abort();
-    const controller = new AbortController();
-    peripheralRequest.current = controller;
-    setPeripheralsStatus("loading");
-    setPeripheralsError(null);
-    try {
-      const suggestion = await pcBuilderApi.suggestPeripherals(
-        { budget: totalBudget, archetype, items: toBuildItems(parts) },
-        { signal: controller.signal },
-      );
-      if (controller.signal.aborted) return;
-      const selection = saved ? savedSelection(saved, suggestion) : selectionFromSuggestion(suggestion);
-      setPeripherals(suggestion);
-      setSelectedPeripherals(selection);
-      setPeripheralsStatus("ready");
-      revalidate(parts, pcBudgetOf(totalBudget, selectionTotal(selection)), profileValue);
-    } catch (err) {
-      if (isAbortError(err) || controller.signal.aborted) return;
-      console.warn("[PC Builder] Không tải được gợi ý màn, phím, chuột:", err);
-      setPeripheralsStatus("error");
-      setPeripheralsError(toApiError(err).message);
-      if (saved) {
-        // Chưa tải được danh sách vẫn giữ món đã lưu, để tổng tiền và giỏ hàng đúng với cấu hình
-        const selection = savedSelection(saved, null);
-        setSelectedPeripherals(selection);
-        revalidate(parts, pcBudgetOf(totalBudget, selectionTotal(selection)), profileValue);
-      }
-    }
-  }
-
-  function retryPeripherals() {
-    void loadPeripherals(buildParts, profile?.archetype, numericBudget, profile, savedPeripherals.current);
-  }
-
-  /** Đổi món hoặc bỏ tick: ngân sách của thùng máy đổi theo nên phải kiểm tra lại. */
-  function selectPeripheral(role: PeripheralRole, item: PeripheralSelection[PeripheralRole]) {
-    const next = { ...selectedPeripherals, [role]: item };
-    setSelectedPeripherals(next);
-    revalidate(buildParts, pcBudgetOf(numericBudget, selectionTotal(next)));
-  }
-
-  function onSuggestSuccess(res: AiBuildResponse) {
-    if (!Array.isArray(res.items) || res.items.length === 0) {
-      onSuggestError(new Error("AI chưa tìm thấy bộ linh kiện phù hợp với mức ngân sách này trong kho."));
-      return;
-    }
-    const parts = toBuildParts(res.items, "Linh kiện được AI lựa chọn cân đối theo ngân sách và nhu cầu.");
-    applyParts(parts);
-    resetValidation(validationFromSuggest(res));
-    setBuildId(res.buildId ?? null);
-    setIsSaved(false);
-    setAiResult(res);
-    setProfile(res.profile ?? null);
-    setProfileDraft(res.profile ?? null);
-    setAiInsight({
-      title: res.buildName || "Cấu hình AI tối ưu",
-      reasoning:
-        res.aiReasoning ||
-        "Hệ thống đã phân bổ ngân sách tối ưu và bảo đảm tính tương thích 100%.",
-      highlight:
-        res.performanceHighlight ||
-        "Vận hành mượt mà, tối ưu chi phí và hiệu năng.",
-    });
-    setApiError(null);
-    setErrorMessage(null);
-    setStatus("success");
-    setIsBusy(false);
-    notify("✨ AI đã phân tích kho hàng và đề xuất cấu hình tối ưu thành công!", "success");
-    clearPeripherals();
-    const { scope, budget: totalBudget } = pendingSuggest.current;
-    if (scope === "full") {
-      setResultScope("full");
-      void loadPeripherals(parts, res.profile?.archetype, totalBudget, res.profile ?? null);
-    }
-  }
-
-  function onSuggestError(err: unknown) {
-    console.error("[PC Builder] Lỗi khi triệu gọi AI đề xuất:", err);
-    const error = toApiError(err);
-    const question = (error.data as { clarifyingQuestion?: string } | undefined)?.clarifyingQuestion;
-    const message = error.code === "NEEDS_UNCLEAR" && question ? question : error.message;
-    // Không giữ bộ máy cũ / nửa vời trên màn hình khi lỗi (DD 10.4, AC6)
-    applyParts([]);
-    resetValidation(null);
-    clearPeripherals();
-    setAiResult(null);
-    setAiInsight(null);
-    setApiError(error);
-    setRetryLockedUntil(error.retryAfter ? Date.now() + error.retryAfter * 1000 : 0);
-    setErrorMessage(message);
-    setStatus("error");
-    setIsBusy(false);
-    notify(`❌ ${message}`, "danger");
-  }
-
-  async function sendSuggest(payload: AiBuildRequestPayload | null) {
-    // Đang tải thì không làm gì: chống gửi trùng (DD 10.4, U16)
-    if (requests.isSuggesting) return;
-    if (!payload) return;
-    setLastRequest(payload);
-    if (demoMode) {
-      // Demo mode không có backend: hiện bộ máy mẫu từ mockData
-      applyParts(initialBuildParts);
-      resetValidation(null);
-      setAiResult(null);
-      setAiInsight(initialAiInsight);
-      setProfile(initialProfile);
-      setProfileDraft(initialProfile);
-      setApiError(null);
-      setErrorMessage(null);
-      setStatus("success");
-      return;
-    }
-    setIsBusy(true);
-    setStatus("loading");
-    setErrorMessage(null);
-    setApiError(null);
-    await requests.suggest(payload, { onSuccess: onSuggestSuccess, onError: onSuggestError });
-  }
-
-  function suggestPayload(withProfile: RequirementProfile | null): AiBuildRequestPayload | null {
-    const fullSetRange = activeScope === "full" ? peripheralRange : null;
-    const invalid = checkSuggestInput(numericBudget, purpose, options, Boolean(withProfile), fullSetRange);
-    if (invalid) {
-      notify(invalid, "danger");
-      return null;
-    }
-    pendingSuggest.current = { scope: activeScope, budget: numericBudget };
-    return {
-      budget: fullSetRange ? numericBudget - reserveFor(numericBudget, fullSetRange) : numericBudget,
-      // B4: cho AI biết ngân sách khách thật sự nhập, để lời giải thích không gọi phần thùng máy là ngân sách của khách
-      ...(fullSetRange ? { fullSetBudget: numericBudget } : {}),
-      purpose: purpose.trim() || undefined,
-      userPrompt: userPrompt.trim() || undefined,
-      ...(withProfile ? { profile: withProfile } : {}),
-    };
-  }
-
-  // Handlers
-  async function handleAiSuggest() {
-    if (requests.isSuggesting) return;
-    await sendSuggest(suggestPayload(null));
-  }
-
-  /** "Đề xuất lại theo hồ sơ này": gửi kèm hồ sơ khách đã sửa. */
-  async function handleResuggestWithProfile() {
-    if (requests.isSuggesting) return;
-    const edited = profileDraft ?? profile;
-    if (!edited) return handleAiSuggest();
-    await sendSuggest(suggestPayload(edited));
-  }
-
-  /** "Thử lại": gửi lại đúng request cũ, bị khóa trong retryAfter giây. */
-  async function handleRetry() {
-    if (requests.isSuggesting) return;
-    if (Date.now() < retryLockedUntil) {
-      const seconds = Math.ceil((retryLockedUntil - Date.now()) / 1000);
-      notify(`Trợ lý AI đang bận, vui lòng thử lại sau ${seconds} giây.`, "warning");
-      return;
-    }
-    if (!requests.lastRequest) return handleAiSuggest();
-    await sendSuggest(requests.lastRequest);
-  }
-
-  // Chỉ số dòng: bộ máy có thể có 2 dòng cùng role (B6), nên không tìm dòng theo role
-  async function openReplaceModal(role: ComponentRole, index = buildParts.findIndex((p) => p.role === role)) {
-    setActiveReplaceRole(role);
-    setActiveReplaceIndex(index);
-    setIsModalOpen(true);
-    setIsFetchingCandidates(true);
-    setDynamicCandidates([]);
-
-    const currentPart = buildParts[index];
-
-    if (demoMode) {
-      setDynamicCandidates(mockCandidates(role, currentPart));
-      setIsFetchingCandidates(false);
-      return;
-    }
-
-    // Gửi toàn bộ build + hồ sơ; mở modal role khác thì request cũ bị hủy (DD 10.4)
-    await requests.replacements(
-      {
-        role,
-        budget: pcBudget || undefined,
-        profile,
-        items: toBuildItems(buildParts),
-        lineIndex: Math.max(0, index),
-      },
-      {
-        onSuccess: (list) => {
-          setDynamicCandidates(
-            list.map((c) => ({
-              variantId: c.variantId,
-              productName: c.productName,
-              variantName: c.variantName,
-              price: c.price,
-              specs: c.specs || {},
-              isCompatible: c.isCompatible,
-              compatibilityNote: c.compatibilityNote,
-              isCurrent: String(c.variantId) === String(currentPart?.variantId),
-              status: c.status,
-              warningChecks: c.warningChecks,
-              priceDelta: c.priceDelta,
-              newPercent: c.newPercent,
-            })),
-          );
-          setIsFetchingCandidates(false);
-        },
-        onError: (err) => {
-          // API mode: không hiện dữ liệu mock như thể là hàng trong kho (B26)
-          console.warn("[PC Builder] Lỗi tải linh kiện thay thế từ Backend:", err);
-          setDynamicCandidates([]);
-          setIsFetchingCandidates(false);
-          notify("❌ Không tải được danh sách linh kiện thay thế. Vui lòng thử lại.", "danger");
-        },
-      },
-    );
-  }
-
-  function mockCandidates(role: ComponentRole, currentPart?: BuildPart) {
-    return (replacementCandidatesByRole[role] || []).map((c) => ({
-      ...c,
-      isCurrent: String(c.variantId) === String(currentPart?.variantId),
-    }));
-  }
-
-  function closeReplaceModal() {
-    requests.cancel("replacements");
-    setIsModalOpen(false);
-    setActiveReplaceRole(null);
-    setActiveReplaceIndex(-1);
-    setDynamicCandidates([]);
-    setIsFetchingCandidates(false);
-  }
-
-  function selectReplacement(candidate: ReplacementCandidate) {
-    if (!activeReplaceRole) return;
-
-    const next = replaceLine(buildParts, activeReplaceIndex, candidate);
-    applyParts(next);
-    revalidate(next);
-
-    const pool = replacementCandidatesByRole[activeReplaceRole];
-    if (pool) {
-      pool.forEach((c) => {
-        c.isCurrent = String(c.variantId) === String(candidate.variantId);
-      });
-    }
-
-    notify(`Đã thay đổi linh kiện thành "${candidate.productName}"`);
-    closeReplaceModal();
-  }
-
-  function updateQuantity(role: ComponentRole, delta: number, index = buildParts.findIndex((p) => p.role === role)) {
-    // Giới hạn theo capacity của backend khi có (thông tin dung lượng không ghi cứng nữa)
-    const capacity = validation?.capacity;
-    const max =
-      (role === "ram" && capacity?.ramSlotsMax) ||
-      (role === "gpu" && capacity?.gpuMax) ||
-      (role === "cpu" && 2) ||
-      8; // /validate nhận quantity 1–8 (DD 9.2)
-    const next = changeLineQuantity(buildParts, index, delta, max);
-    applyParts(next);
-    revalidate(next);
-    notify(`Đã cập nhật số lượng ${role.toUpperCase()}`);
-  }
-
-  function handleAddToCart() {
-    if (!canAddToCart) {
-      notify(
-        isRevalidating
-          ? "Đang kiểm tra tương thích, vui lòng đợi trong giây lát."
-          : "Cấu hình chưa tương thích hoặc vượt ngân sách, chưa thể thêm vào giỏ.",
-        "warning",
-      );
-      return;
-    }
-    const buildName = userPrompt ? ("Dàn PC AI Build: " + userPrompt.slice(0, 30)) : "Dàn PC Gaming & Đồ Họa Pro";
-    if (!demoMode) {
-      const extras = Object.values(selectedPeripherals)
-        .filter((item) => resultScope === "full" && item)
-        .map((item) => ({ variantId: item!.variantId, quantity: 1 }));
-      return addLiveParts(buildParts, buildName, buildId || undefined, extras);
-    }
-    try {
-      const buildSet = {
-        id: buildId || ("set_" + Date.now()),
-        name: buildName,
-        itemVariantIds: buildParts.map((p) => String(p.variantId)),
-        parts: buildParts,
-        createdAt: Date.now(),
-      };
-      const existingSets = JSON.parse(localStorage.getItem("techzone_pc_build_sets") || "[]");
-      localStorage.setItem("techzone_pc_build_sets", JSON.stringify([...existingSets, buildSet]));
-    } catch (e) {
-      console.error(e);
-    }
-    // Thêm các linh kiện vào giỏ hàng, đồng thời liên kết buildId vào store
-    commit((current: any) => {
-      const existingProducts = Array.isArray(current.products)
-        ? [...current.products]
-        : [];
-      const cart = Array.isArray(current.cart) ? [...current.cart] : [];
-
-      buildParts.forEach((part) => {
-        const partIdStr = String(part.variantId);
-        const found = existingProducts.find((p) => String(p.id) === partIdStr);
-        if (!found) {
-          existingProducts.push({
-            id: partIdStr,
-            name: part.productName,
-            price: part.unitPrice,
-            stock: 99,
-            status: "active",
-            category: part.role,
-            description: part.variantName || part.productName,
-            image: part.imageUrl,
-          });
-        }
-
-        const oldLine = cart.find((l) => String(l.id) === partIdStr);
-        if (oldLine) {
-          cart[cart.indexOf(oldLine)] = {
-            ...oldLine,
-            quantity: oldLine.quantity + part.quantity,
-          };
-        } else {
-          cart.push({ id: partIdStr, quantity: part.quantity });
-        }
-      });
-
-      return {
-        ...current,
-        products: existingProducts,
-        cart,
-        currentBuildId: buildId || Date.now(),
-      };
-    });
-
-    notify("🛒 Đã thêm toàn bộ 8 linh kiện cấu hình vào giỏ hàng!");
-    navigate("/gio-hang");
-  }
-
-  async function handleSaveBuild() {
-    // 1. Kiểm tra trạng thái đăng nhập
+  /** Lưu bộ PC (bước 9). Vượt ngân sách thì server trả 409 và câu popup; khách bấm "Tiếp tục" thì gửi lại kèm xác nhận. */
+  async function save(confirmOverBudget = false) {
+    if (!build || saving.current) return;
     if (!user) {
       notify("Vui lòng đăng nhập để lưu cấu hình.", "warning");
       redirectGuestToLogin();
       return;
     }
-
-    if (buildParts.length === 0) {
-      notify("Chưa có linh kiện nào trong cấu hình để lưu.", "warning");
+    const blocked = blockedReason();
+    if (blocked) {
+      notify(blocked, "warning");
       return;
     }
-    if (peripheralsStatus === "loading") {
-      notify("Đang chọn màn hình, bàn phím, chuột, vui lòng đợi trong giây lát.", "warning");
-      return;
-    }
-
-    setIsBusy(true);
-
-    // Trọn bộ: lưu cả màn, phím, chuột đang được tick, mỗi món một dòng với role riêng
-    const peripheralLines = resultScope === "full"
-      ? PERIPHERAL_ROLES.flatMap((role) => {
-          const item = selectedPeripherals[role];
-          return item ? [{ variantId: item.variantId, role, quantity: 1 }] : [];
-        })
-      : [];
-
+    saving.current = true;
+    setIsSaving(true);
     try {
-      // 2. Gọi backend API tạo mới và lưu cấu hình vào DB (giá do server tính lại)
-      const result = await saveBuildOrNotify(
-        () =>
-          pcBuilderApi.saveCustomBuild({
-            buildName: aiInsight?.title || "Cấu hình PC Custom",
-            items: [
-              ...buildParts.map((p) => ({
-                variantId: p.variantId,
-                role: p.role,
-                quantity: p.quantity,
-              })),
-              ...peripheralLines,
-            ],
-          }),
-        notify,
-      );
-
-      if (result.buildId) {
-        setBuildId(result.buildId);
+      const result = await pcBuilderApi.save({
+        budget: build.budget,
+        items: toItemRequests(build.items),
+        ...(confirmOverBudget ? { confirmOverBudget: true } : {}),
+      });
+      setSavedBuildId(result.buildId);
+      notify(`💾 Đã lưu cấu hình #${result.buildId} vào tài khoản của bạn.`, "success");
+    } catch (err) {
+      const apiError = toApiError(err);
+      if (apiError.code === "OVER_BUDGET_NOT_CONFIRMED") {
+        setConfirm({ action: "save", message: apiError.message });
+      } else if (apiError.status === 401) {
+        notify("Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại.", "warning");
+        redirectGuestToLogin();
+      } else {
+        console.warn("[PC Builder] Lỗi lưu cấu hình:", err);
+        notify(`❌ Lưu cấu hình thất bại: ${saveErrorText(apiError.message, apiError.data)}`, "danger");
       }
-      setIsSaved(result.saved);
     } finally {
-      setIsBusy(false);
+      saving.current = false;
+      setIsSaving(false);
     }
   }
 
-  function handleReset() {
-    requests.cancelAll();
-    applyParts([]);
-    resetValidation(null);
-    clearPeripherals();
-    setBuildScope("pc");
-    setIsBusy(false);
-    setStatus("empty");
-    setAiInsight(null);
-    setAiResult(null);
-    setErrorMessage(null);
-    setApiError(null);
-    setRetryLockedUntil(0);
-    setProfile(null);
-    setProfileDraft(null);
-    setLastRequest(null);
-    setBudget("");
-    setPurpose("");
-    setUserPrompt("");
-  }
-
-  function switchPreviewState(newState: BuilderStatus) {
-    setStatus(newState);
-    if (newState === "loading") {
-      setIsBusy(true);
-    } else {
-      setIsBusy(false);
-    }
-
-    if (newState === "empty") {
-      applyParts([]);
-      setAiInsight(null);
-      setErrorMessage(null);
-    } else if (newState === "error") {
-      applyParts([]);
-      setAiInsight(null);
-      setErrorMessage(
-        "Dịch vụ AI (Google Gemini) hiện không khả dụng. Không thể đề xuất cấu hình lúc này. Vui lòng thử lại sau!",
-      );
-    } else if (newState === "success") {
-      setErrorMessage(null);
-      if (buildParts.length === 0) {
-        applyParts(initialBuildParts);
-        setAiInsight(initialAiInsight);
-        setProfile(initialProfile);
-        setProfileDraft(initialProfile);
-      }
-    }
-  }
-
-  function loadSavedBuildIntoBuilder(savedDetail: SavedPcBuildDetail) {
-    if (
-      !savedDetail ||
-      !Array.isArray(savedDetail.items) ||
-      savedDetail.items.length === 0
-    ) {
-      notify("Cấu hình này không có linh kiện nào.", "warning");
+  function addToCart(confirmed = false) {
+    if (!build) return;
+    const blocked = blockedReason();
+    if (blocked) {
+      notify(blocked, "warning");
       return;
     }
-
-    // Thùng máy đi qua /validate; màn, phím, chuột về khu Trọn bộ (/validate không biết 3 món này)
-    const { pc, peripherals: savedExtras } = splitSavedItems(savedDetail.items);
-    const mappedParts = toBuildParts(pc, "Linh kiện từ cấu hình đã lưu.");
-
-    setBuildId(savedDetail.buildId);
-    applyParts(mappedParts);
-    resetValidation(null);
-    clearPeripherals();
-    if (savedExtras.length > 0) {
-      setBuildScope("full");
-      setResultScope("full");
-      setSelectedPeripherals(savedSelection(savedExtras, null));
-      savedPeripherals.current = savedExtras;
-      void loadPeripherals(mappedParts, undefined, savedDetail.totalPrice, null, savedExtras);
-    } else {
-      revalidate(mappedParts, savedDetail.totalPrice);
-    }
-    setBudget(savedDetail.totalPrice);
-    setIsSaved(true);
-    setStatus("success");
-    setErrorMessage(null);
-    setApiError(null);
-    setAiInsight({
-      title: savedDetail.buildName || "Cấu hình đã lưu",
-      reasoning: "Cấu hình đã được tải từ danh mục lưu trữ vào bộ lắp ráp.",
-      highlight:
-        "Bạn có thể kiểm tra tương thích, thay thế linh kiện hoặc thêm vào giỏ hàng ngay.",
-    });
-
-    notify(
-      `✨ Đã nạp thành công "${savedDetail.buildName}" vào bộ lắp ráp!`,
-      "success",
-    );
-  }
-
-  function addSavedBuildToCart(savedDetail: SavedPcBuildDetail) {
-    if (
-      !savedDetail ||
-      !Array.isArray(savedDetail.items) ||
-      savedDetail.items.length === 0
-    ) {
-      notify("Cấu hình này không có linh kiện nào.", "warning");
+    if (build.status === "OVER_BUDGET" && !confirmed) {
+      const warning = build.budgetWarning || `Bộ PC vượt ngân sách ${money(build.difference)}.`;
+      setConfirm({ action: "cart", message: `${warning}. Bạn vẫn muốn thêm vào giỏ hàng?` });
       return;
     }
+    void addBuildToCart(build);
+  }
 
-    if (!demoMode) {
-      // Màn, phím, chuột vào giỏ như hàng mua lẻ, giống lúc thêm từ bộ lắp ráp
-      const { pc, peripherals: extras } = splitSavedItems(savedDetail.items);
-      return addLiveParts(pc, savedDetail.buildName || ("Dàn PC #" + savedDetail.buildId), savedDetail.buildId, extras);
+  async function addBuildToCart(current: BuildResult) {
+    if (adding.current) return;
+    if (!user) {
+      redirectGuestToLogin();
+      return;
     }
+    adding.current = true;
+    setIsAdding(true);
+    let added = 0;
     try {
-      const buildSet = {
-        id: savedDetail.buildId || Date.now(),
-        name: savedDetail.buildName || ("Dàn PC #" + savedDetail.buildId),
-        itemVariantIds: savedDetail.items.map((p) => String(p.variantId)),
-        createdAt: Date.now(),
-      };
-      const existingSets = JSON.parse(localStorage.getItem("techzone_pc_build_sets") || "[]");
-      localStorage.setItem("techzone_pc_build_sets", JSON.stringify([...existingSets, buildSet]));
-    } catch (e) {
-      console.error(e);
-    }
-
-    commit((current: any) => {
-      const existingProducts = Array.isArray(current.products)
-        ? [...current.products]
-        : [];
-      const cart = Array.isArray(current.cart) ? [...current.cart] : [];
-
-      savedDetail.items.forEach((part) => {
-        const partIdStr = String(part.variantId);
-        const found = existingProducts.find((p) => String(p.id) === partIdStr);
-        if (!found) {
-          existingProducts.push({
-            id: partIdStr,
-            name: part.productName,
-            price: part.unitPrice,
-            stock: 99,
-            status: "active",
-            category: part.role,
-            description: part.variantName || part.productName,
-            image: part.imageUrl,
-          });
-        }
-
-        const oldLine = cart.find((l) => String(l.id) === partIdStr);
-        if (oldLine) {
-          cart[cart.indexOf(oldLine)] = {
-            ...oldLine,
-            quantity: oldLine.quantity + part.quantity,
-          };
-        } else {
-          cart.push({ id: partIdStr, quantity: part.quantity });
+      const quantities = new Map<number, number>();
+      for (const item of current.items) quantities.set(item.id, (quantities.get(item.id) || 0) + item.qty);
+      const updated = await mutateCart(async () => {
+        for (const [variantId, qty] of quantities) {
+          await cartApi.add(String(variantId), qty);
+          added++;
         }
       });
+      if (!updated) return;
+      rememberCartSet(current);
+      notify("Đã thêm các linh kiện vào giỏ hàng.");
+      navigate("/gio-hang");
+    } catch (err) {
+      if (added) await reloadCart();
+      const reason = err instanceof Error && err.message ? err.message : "Không thêm được cấu hình vào giỏ hàng.";
+      notify(added ? `${reason} Đã thêm ${added} linh kiện; kiểm tra giỏ hàng trước khi thêm lại.` : reason, "danger");
+    } finally {
+      adding.current = false;
+      setIsAdding(false);
+    }
+  }
 
-      return {
-        ...current,
-        products: existingProducts,
-        cart,
-        currentBuildId: savedDetail.buildId || Date.now(),
+  /** Giỏ hàng gom các linh kiện này thành một bộ PC (chỉ lưu ở trình duyệt). */
+  function rememberCartSet(current: BuildResult) {
+    try {
+      const set: CartBuildSet & { createdAt: number } = {
+        id: savedBuildId ?? "set_" + Date.now(),
+        name: "Bộ PC AI Build" + (message.trim() ? ": " + message.trim().slice(0, 30) : ""),
+        budget: current.budget,
+        itemVariantIds: current.items.map((item) => String(item.id)),
+        parts: current.items.map((item) => ({ ...item })),
+        createdAt: Date.now(),
       };
-    });
+      localStorage.setItem(PC_SETS_KEY, JSON.stringify([...readCartSets(), set]));
+    } catch (err) {
+      console.error(err);
+    }
+  }
 
-    notify("🛒 Đã thêm các linh kiện của bộ PC vào giỏ hàng!");
-    navigate("/gio-hang");
+  function confirmContinue() {
+    const pending = confirm;
+    setConfirm(null);
+    if (pending?.action === "save") void save(true);
+    else if (pending?.action === "cart") addToCart(true);
   }
 
   return {
+    demoMode,
     budget,
     setBudget,
-    purpose,
-    setPurpose,
-    userPrompt,
-    setUserPrompt,
-    buildId,
-    status,
-    setStatus,
-    errorMessage,
-    apiError,
+    message,
+    setMessage,
+    phase,
+    step,
+    analysis,
+    build,
+    explanation: explanation?.message ?? null,
+    isEdited: Boolean(explanation && build && buildKey(toItemRequests(build.items)) !== explanation.key),
+    error,
     retryLockedUntil,
-    isBusy,
-    isSuggesting: status === "loading",
-    isFetchingCandidates,
-    buildParts,
-    aiInsight,
-    aiResult,
-    activeReplaceRole,
-    isModalOpen,
-    isSaved,
-    grandTotal,
-    remainingBudget,
-    rules,
-    allRulesPassed,
-    canAddToCart,
-    options,
-    profile,
-    profileDraft,
-    setProfileDraft,
-    lastRequest,
-    validation,
-    isRevalidating,
-    revalidate: () => revalidate(buildParts),
-    modalCandidates,
-    buildScope,
-    setBuildScope,
-    activeScope,
-    resultScope,
-    peripheralRange,
-    peripherals,
-    selectedPeripherals,
-    peripheralsStatus,
-    peripheralsError,
-    peripheralTotal,
-    selectPeripheral,
-    retryPeripherals,
-    handleAiSuggest,
-    handleResuggestWithProfile,
-    handleRetry,
-    handleReset,
-    openReplaceModal,
-    closeReplaceModal,
-    selectReplacement,
-    updateQuantity,
-    handleAddToCart,
-    handleSaveBuild,
-    loadSavedBuildIntoBuilder,
-    addSavedBuildToCart,
-    switchPreviewState,
+    isChecking,
+    checkError,
+    replace,
+    confirm,
+    isSaving,
+    savedBuildId,
+    isAdding,
+    isBusy: phase === "loading" || isSaving || isAdding,
+    submit,
+    buildWithPurpose,
+    retry,
+    reset,
+    recheck,
+    changeQty,
+    openReplace,
+    closeReplace,
+    chooseReplacement,
+    save: () => save(false),
+    addToCart: () => addToCart(false),
+    confirmContinue,
+    cancelConfirm: () => setConfirm(null),
   };
 }
