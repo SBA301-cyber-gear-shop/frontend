@@ -12,6 +12,10 @@ export interface ProductSummary {
   name: string;
   brand?: string;
   description?: string;
+  specs?: string;
+  warrantyMonths?: number;
+  rating?: number;
+  reviewCount?: number;
   variantName?: string;
   category?: string;
   price?: number;

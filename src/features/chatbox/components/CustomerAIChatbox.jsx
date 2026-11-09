@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from "react";
+import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useSession } from "@/features/auth";
 import { useCart } from "@/features/cart";
@@ -71,12 +71,15 @@ function formatMarkdown(text) {
 function renderInline(str) {
   if (!str) return "";
   return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
     .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
     .replace(/`(.*?)`/g, "<code>$1</code>")
     .replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" style="color: var(--red, #d91f31); text-decoration: underline; font-weight: 500;">$1</a>');
 }
 
-function ProductCardsCarousel({ products, navigate }) {
+function ProductCardsCarousel({ products, navigate, onAddToCart }) {
   const scrollRef = useRef(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
@@ -204,6 +207,23 @@ function ProductCardsCarousel({ products, navigate }) {
               {prod.variantName && (
                 <div className="cyberbot-product-variant-name">{prod.variantName}</div>
               )}
+              {/* Metadata UI Badges: Brand, Warranty, Specs, Rating */}
+              <div className="cyberbot-product-meta-badges">
+                {prod.brand && prod.brand !== "Chính hãng" && (
+                  <span className="cyberbot-meta-chip is-brand">{prod.brand}</span>
+                )}
+                {prod.warrantyMonths && (
+                  <span className="cyberbot-meta-chip is-warranty">BH {prod.warrantyMonths}T</span>
+                )}
+                {prod.rating && prod.rating > 0 && (
+                  <span className="cyberbot-meta-chip is-rating">★ {prod.rating}</span>
+                )}
+              </div>
+              {prod.specs && (
+                <div className="cyberbot-product-specs-line" title={prod.specs}>
+                  {prod.specs}
+                </div>
+              )}
               <div className="cyberbot-product-price-row">
                 <span className="cyberbot-product-cur-price">
                   {prod.price ? Number(prod.price).toLocaleString("vi-VN") + "₫" : "Liên hệ"}
@@ -214,16 +234,32 @@ function ProductCardsCarousel({ products, navigate }) {
                   </span>
                 )}
               </div>
-              <button
-                type="button"
-                className="cyberbot-product-btn"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  navigate(prod.route || `/san-pham/${prod.id}`);
-                }}
-              >
-                Xem chi tiết →
-              </button>
+              <div className="cyberbot-product-actions">
+                <button
+                  type="button"
+                  className="cyberbot-product-btn cyberbot-product-btn-view"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigate(prod.route || `/san-pham/${prod.id}`);
+                  }}
+                >
+                  Chi tiết →
+                </button>
+                {onAddToCart && (
+                  <button
+                    type="button"
+                    className="cyberbot-product-btn cyberbot-product-btn-add"
+                    disabled={prod.stock <= 0}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onAddToCart(prod);
+                    }}
+                    title={prod.stock > 0 ? 'Thêm vào giỏ hàng' : 'Hết hàng'}
+                  >
+                    {prod.stock > 0 ? '+ Giỏ' : 'Hết hàng'}
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         ))}
@@ -352,7 +388,7 @@ function QuickChipsBar({ suggestions, onSelect }) {
 
 export function CustomerAIChatbox() {
   const { user } = useSession();
-  const { addMultipleToCart } = useCart();
+  const { addToCart, addMultipleToCart } = useCart();
   const navigate = useNavigate();
 
   const [isOpen, setIsOpen] = useState(() => {
@@ -382,6 +418,44 @@ export function CustomerAIChatbox() {
     ];
   });
   const [input, setInput] = useState("");
+
+  const prevUserIdRef = useRef(user?.id ?? null);
+  useEffect(() => {
+    const currentId = user?.id ?? null;
+    if (prevUserIdRef.current !== currentId) {
+      prevUserIdRef.current = currentId;
+      sessionStorage.removeItem("cyberbot_conv_id");
+      sessionStorage.removeItem("cyberbot_messages");
+      sessionStorage.removeItem("cyberbot_staff");
+      sessionStorage.setItem("cyberbot_mode", "ai");
+      setChatMode("ai");
+      setActiveStaff(null);
+      setConversationId("");
+      setMessages([
+        {
+          id: "init-" + Date.now(),
+          sender: "bot",
+          text: user
+            ? `Xin chào **${user.fullName || "bạn"}**! Mình là **CyberBot** - Trợ lý AI chính thức của TechZone.\n\nMình có thể hỗ trợ bạn:\n* **Tra cứu đơn hàng gần nhất & shipper GHN**\n* **Kiểm tra thời hạn bảo hành linh kiện & số Serial**\n* **Tư vấn cấu hình PC tối ưu ngân sách từ kho thực tế**\n\nBạn cần hỗ trợ điều gì hôm nay?`
+            : `Xin chào bạn! Mình là **CyberBot** - Trợ lý AI chính thức của TechZone.\n\nMình có thể hỗ trợ bạn tra cứu linh kiện có sẵn trong kho, giải đáp bảo hành và giao nhận hàng toàn quốc. Bạn cần tìm hiểu gì hôm nay?`,
+          quickActions: [],
+        },
+      ]);
+    }
+  }, [user]);
+
+  const isProductDetailPage = typeof window !== "undefined" && window.location.pathname.startsWith("/san-pham/");
+  const currentSuggestions = useMemo(() => {
+    if (chatMode === "staff") return STAFF_SUGGESTIONS;
+    if (isProductDetailPage) {
+      return [
+        { label: "Đánh giá mẫu này", icon: "chip", query: "Đánh giá chi tiết ưu nhược điểm của sản phẩm đang xem này" },
+        { label: "Linh kiện tương thích", icon: "check", query: "Linh kiện nào tương thích và tối ưu với mẫu này?" },
+        ...QUICK_SUGGESTIONS,
+      ];
+    }
+    return QUICK_SUGGESTIONS;
+  }, [chatMode, isProductDetailPage]);
   const [loading, setLoading] = useState(false);
   const [conversationId, setConversationId] = useState(() => {
     return sessionStorage.getItem("cyberbot_conv_id") || "";
@@ -573,8 +647,9 @@ export function CustomerAIChatbox() {
         setActiveStaff(null);
       }
 
-      if (data.messageType === "cart_action" && data.products && data.products.length > 0) {
-        addMultipleToCart(data.products);
+      const validProducts = (data.products || []).filter((p) => (p.stock ?? 0) > 0);
+      if (data.messageType === "cart_action" && validProducts.length > 0) {
+        addMultipleToCart(validProducts);
       }
 
       if (data.messageType === "staff_sent" || (!data.message && data.messageType !== "navigate")) {
@@ -611,9 +686,10 @@ export function CustomerAIChatbox() {
 
   const handleActionClick = (action, currentMsg) => {
     if (action.action === "add_all_to_cart") {
-      const prods = currentMsg?.products && currentMsg.products.length > 0
+      const rawProds = currentMsg?.products && currentMsg.products.length > 0
         ? currentMsg.products
         : messages.slice().reverse().find((m) => m.products && m.products.length > 0)?.products;
+      const prods = (rawProds || []).filter((p) => (p.stock ?? 0) > 0);
 
       if (prods && prods.length > 0) {
         addMultipleToCart(prods);
@@ -773,7 +849,7 @@ export function CustomerAIChatbox() {
                   {formatMarkdown(msg.text)}
 
                   {/* Product Cards Carousel UI with Mouse Wheel Horizontal Scroll & Arrows */}
-                  <ProductCardsCarousel products={msg.products} navigate={navigate} />
+                  <ProductCardsCarousel products={msg.products} navigate={navigate} onAddToCart={(prod) => addToCart(prod.variantId || prod.id, 1)} />
 
                   {/* Quick Action Buttons */}
                   {msg.quickActions && msg.quickActions.length > 0 && (
@@ -815,7 +891,7 @@ export function CustomerAIChatbox() {
 
           {/* Quick Suggestions Chips with Drag & Wheel Scroll */}
           <QuickChipsBar
-            suggestions={chatMode === "staff" ? STAFF_SUGGESTIONS : QUICK_SUGGESTIONS}
+            suggestions={currentSuggestions}
             onSelect={(item) => {
               if (item.query === "end_staff_session") {
                 handleSend("end_staff_session");

@@ -132,6 +132,7 @@ function useDemoCheckout() {
     applying: false,
     discount,
     promoError,
+    totalWeightGram: 1000,
     apply,
     submit,
     validating: false,

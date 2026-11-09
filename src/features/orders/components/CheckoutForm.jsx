@@ -44,6 +44,7 @@ export function CheckoutForm() {
     setAddressDetail,
     shippingFee = 0,
     calculatingFee = false,
+    totalWeightGram = 1000,
     inputCode,
     setInputCode,
     applied,
@@ -334,9 +335,9 @@ export function CheckoutForm() {
 
                   <Notice tone={shippingFee > 0 ? "info" : "default"}>
                     {calculatingFee
-                      ? "Đang tính phí vận chuyển GHN từ kho Quận 12..."
+                      ? `Đang tính phí vận chuyển GHN cho kiện hàng ~${((totalWeightGram || 1000) / 1000).toFixed(1)} kg...`
                       : shippingFee > 0
-                      ? `Phí vận chuyển GHN: ${money(shippingFee)} (Thời gian giao dự kiến 2 - 3 ngày)`
+                      ? `Phí vận chuyển GHN: ${money(shippingFee)} (Khối lượng đóng gói: ~${((totalWeightGram || 1000) / 1000).toFixed(1)} kg · Giao dự kiến 2 - 3 ngày)`
                       : "Vui lòng chọn Phường/Xã để tính cước phí vận chuyển GHN."}
                   </Notice>
                 </div>
@@ -463,7 +464,7 @@ export function CheckoutForm() {
                 {deliveryType === "shipping"
                   ? calculatingFee
                     ? "Đang tính…"
-                    : money(shippingFee)
+                    : `${money(shippingFee)} (~${((totalWeightGram || 1000) / 1000).toFixed(1)} kg)`
                   : "Miễn phí"}
               </KV>
               <div className="divider" />

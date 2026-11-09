@@ -99,11 +99,7 @@ export function OrderOperations({ handover = false }) {
       const res = await shippingApi.createShipment(selected.id);
       notify(`Đã tạo vận đơn GHN thành công! Mã: ${res.trackingCode}`, "success");
       setTrackingInfo(res);
-      if (selected.status === "preparing") {
-        await update("advance");
-      } else {
-        refresh();
-      }
+      refresh();
     } catch (err) {
       notify(err.message || "Không thể tạo vận đơn GHN", "danger");
     } finally {
@@ -731,10 +727,7 @@ export function OrderOperations({ handover = false }) {
                   <Button
                     tone="ghost"
                     className="full"
-                    disabled={
-                      busy ||
-                      (selected.payment === "SUCCESS" && selected.final > 0)
-                    }
+                    disabled={busy}
                     onClick={() => setCancelConfirm(true)}
                   >
                     Hủy đơn hàng

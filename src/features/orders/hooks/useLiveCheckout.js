@@ -5,6 +5,21 @@ import { checkoutApi } from "../api/checkoutApi";
 import { ordersApi } from "../api/ordersApi";
 import { shippingApi } from "../api/shippingApi";
 
+function estimateHardwareWeightGram(productName) {
+  if (!productName) return 500;
+  const lower = String(productName).toLowerCase();
+  if (/(case|vỏ máy|thùng máy|vỏ case|montech|nzxt h|corsair 4000|corsair 5000|mik|xigmatek|sama)/.test(lower)) return 6200;
+  if (/(màn hình|monitor|inch|oled|ultrasharp|odyssey|viewsonic|proart)/.test(lower)) return 5200;
+  if (/(nguồn|psu|corsair rm|corsair cv|msi mag a|cooler master mwe|deepcool pk|deepcool pn|fsp|seasonic|super flower)/.test(lower)) return 2200;
+  if (/(vga|card|rtx|gtx|radeon|rx |arc |geforce|quadro)/.test(lower)) return 1600;
+  if (/(tản nhiệt|cooler|aio|liquid|thermalright|deepcool ak|deepcool le|deepcool lt|noctua|id-cooling)/.test(lower)) return 1400;
+  if (/(mainboard|bo mạch|motherboard|b760|z790|b650|x670|x870|z890|h610|a520|b550|b450)/.test(lower)) return 1300;
+  if (/(hdd|seagate|wd blue|bàn phím|keyboard|akko|keychron)/.test(lower)) return 850;
+  if (/(cpu|vi xử lý|core i|core ultra|ryzen|epyc|threadripper|pentium|athlon)/.test(lower)) return 450;
+  if (/(ram|ddr4|ddr5|ssd|nvme|m\.2|chuột|mouse|keo tản|cáp|fan)/.test(lower)) return 250;
+  return 600;
+}
+
 export function useLiveCheckout() {
   const { data, user, cartLoading, cartError, cartBusy, reloadCart, notify } =
     useStore();
@@ -90,22 +105,7 @@ export function useLiveCheckout() {
     setWardCode("");
   }, [districtId]);
 
-  useEffect(() => {
-    if (!districtId || !wardCode || deliveryType !== "shipping") {
-      setShippingFee(0);
-      return;
-    }
-    setCalculatingFee(true);
-    shippingApi
-      .calculateFee(Number(districtId), wardCode, 1000)
-      .then((res) => {
-        setShippingFee(res.totalFee || 21000);
-      })
-      .catch(() => {
-        setShippingFee(25000);
-      })
-      .finally(() => setCalculatingFee(false));
-  }, [districtId, wardCode, deliveryType]);
+
 
   const handleDeliveryTypeChange = (type) => {
     setDeliveryType(type);
@@ -175,6 +175,33 @@ export function useLiveCheckout() {
     }
     return lines.reduce((sum, line) => sum + line.quantity * line.unitPrice, 0);
   }, [cart, selectedVariantIds, lines]);
+
+  const totalWeightGram = useMemo(() => {
+    if (!lines || lines.length === 0) return 500;
+    const itemsWeight = lines.reduce((sum, line) => {
+      const qty = Number(line.quantity) || 1;
+      return sum + estimateHardwareWeightGram(line.name) * qty;
+    }, 0);
+    return Math.min(Math.max(itemsWeight + 300, 300), 30000);
+  }, [lines]);
+
+  useEffect(() => {
+    if (!districtId || !wardCode || deliveryType !== "shipping") {
+      setShippingFee(0);
+      return;
+    }
+    setCalculatingFee(true);
+    shippingApi
+      .calculateFee(Number(districtId), wardCode, totalWeightGram)
+      .then((res) => {
+        setShippingFee(res.totalFee || 22000);
+      })
+      .catch(() => {
+        const extraKg = Math.max(0, Math.ceil((totalWeightGram - 1000) / 1000));
+        setShippingFee(22000 + extraKg * 5000);
+      })
+      .finally(() => setCalculatingFee(false));
+  }, [districtId, wardCode, deliveryType, totalWeightGram]);
 
   async function apply() {
     const code = inputCode.trim();
@@ -402,6 +429,7 @@ export function useLiveCheckout() {
     setAddressDetail,
     shippingFee,
     calculatingFee,
+    totalWeightGram,
     error: error || validationError || cartError,
     placing,
     applying,

@@ -14,7 +14,12 @@ function orderView(order) {
     discount: order.discountAmount,
     final: order.finalAmount,
     promotion: order.promotionCode,
-    method: order.methodType === "cash" ? "store" : order.methodType,
+    method:
+      order.methodType === "cod" || (order.deliveryType === "shipping" && order.methodType === "cash")
+        ? "cod"
+        : order.methodType === "cash"
+        ? "store"
+        : order.methodType,
     payment: order.paymentStatus,
     createdAt: order.createdAt,
     paidAt: order.paidAt,
