@@ -283,6 +283,120 @@ export function CustomerAIChatbox() {
   const messagesContainerRef = useRef(null);
   const lastStaffMsgIdRef = useRef(0);
 
+  // Vị trí nút Chatbot có thể kéo thả (Draggable)
+  const [btnPosition, setBtnPosition] = useState(() => {
+    try {
+      const saved = localStorage.getItem("cyberbot_btn_pos");
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
+  const [isDragging, setIsDragging] = useState(false);
+  const dragRef = useRef({
+    isPointerDown: false,
+    hasDragged: false,
+    startX: 0,
+    startY: 0,
+    initialBtnX: 0,
+    initialBtnY: 0,
+  });
+  const buttonRef = useRef(null);
+  const justDraggedRef = useRef(false);
+
+  // Đảm bảo nút không bị lọt ra ngoài màn hình khi resize trình duyệt
+  useEffect(() => {
+    const handleResize = () => {
+      setBtnPosition((prev) => {
+        if (!prev) return prev;
+        const btnSize = 54;
+        const clampedX = Math.max(8, Math.min(window.innerWidth - btnSize - 8, prev.x));
+        const clampedY = Math.max(8, Math.min(window.innerHeight - btnSize - 8, prev.y));
+        if (clampedX !== prev.x || clampedY !== prev.y) {
+          return { x: clampedX, y: clampedY };
+        }
+        return prev;
+      });
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  const handlePointerDown = (e) => {
+    if (e.button !== 0 && e.pointerType === "mouse") return;
+    const btn = buttonRef.current;
+    if (!btn) return;
+
+    const rect = btn.getBoundingClientRect();
+    dragRef.current = {
+      isPointerDown: true,
+      hasDragged: false,
+      startX: e.clientX,
+      startY: e.clientY,
+      initialBtnX: rect.left,
+      initialBtnY: rect.top,
+    };
+
+    const handlePointerMove = (moveEvent) => {
+      if (!dragRef.current.isPointerDown) return;
+      const deltaX = moveEvent.clientX - dragRef.current.startX;
+      const deltaY = moveEvent.clientY - dragRef.current.startY;
+
+      if (!dragRef.current.hasDragged && Math.hypot(deltaX, deltaY) > 4) {
+        dragRef.current.hasDragged = true;
+        setIsDragging(true);
+      }
+
+      if (dragRef.current.hasDragged) {
+        const btnWidth = rect.width || 54;
+        const btnHeight = rect.height || 54;
+        let nextX = dragRef.current.initialBtnX + deltaX;
+        let nextY = dragRef.current.initialBtnY + deltaY;
+
+        nextX = Math.max(8, Math.min(window.innerWidth - btnWidth - 8, nextX));
+        nextY = Math.max(8, Math.min(window.innerHeight - btnHeight - 8, nextY));
+
+        setBtnPosition({ x: nextX, y: nextY });
+      }
+    };
+
+    const handlePointerUp = () => {
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", handlePointerUp);
+      window.removeEventListener("pointercancel", handlePointerUp);
+
+      const wasDragged = dragRef.current.hasDragged;
+      dragRef.current.isPointerDown = false;
+      dragRef.current.hasDragged = false;
+      setIsDragging(false);
+
+      if (wasDragged) {
+        justDraggedRef.current = true;
+        setTimeout(() => {
+          justDraggedRef.current = false;
+        }, 120);
+
+        setBtnPosition((currentPos) => {
+          if (currentPos) {
+            try {
+              localStorage.setItem("cyberbot_btn_pos", JSON.stringify(currentPos));
+            } catch {}
+          }
+          return currentPos;
+        });
+      }
+    };
+
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", handlePointerUp);
+    window.addEventListener("pointercancel", handlePointerUp);
+  };
+
+  const handleToggleClick = () => {
+    if (justDraggedRef.current) return;
+    setIsOpen(true);
+  };
+
   useEffect(() => {
     sessionStorage.setItem("cyberbot_open", isOpen ? "true" : "false");
   }, [isOpen]);
@@ -498,18 +612,30 @@ export function CustomerAIChatbox() {
 
   return (
     <>
-      {/* Floating Toggle Button */}
+      {/* Floating Toggle Button (Hình tròn, chỉ giữ icon bot, có thể kéo thả) */}
       {!isOpen && (
         <button
-          className="cyberbot-toggle-btn"
-          onClick={() => setIsOpen(true)}
-          title="Mở trợ lý AI TechZone"
+          ref={buttonRef}
+          className={`cyberbot-toggle-btn ${isDragging ? "is-dragging" : ""}`}
+          style={
+            btnPosition
+              ? {
+                  left: `${btnPosition.x}px`,
+                  top: `${btnPosition.y}px`,
+                  bottom: "auto",
+                  right: "auto",
+                }
+              : undefined
+          }
+          onPointerDown={handlePointerDown}
+          onClick={handleToggleClick}
+          title="Trợ lý AI TechZone (Bấm để mở, giữ để kéo di chuyển)"
+          aria-label="Mở trợ lý AI TechZone"
         >
           <div className="cyberbot-toggle-icon">
             <Icon name="bot" />
             <span className="cyberbot-pulse-dot" />
           </div>
-          <span>Trợ lý AI TechZone</span>
         </button>
       )}
 

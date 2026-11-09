@@ -43,14 +43,6 @@ export function CartSummary({
             </span>
           </div>
 
-          <div className="cart-summary-row">
-            <span className="cart-perk-free">
-              Công lắp ráp bộ PC
-              <span className="badge-free">FREE</span>
-            </span>
-            <span className="cart-perk-val">0 đ</span>
-          </div>
-
         </div>
 
         {/* Total Calculation */}
@@ -69,7 +61,7 @@ export function CartSummary({
             state={{ selectedVariantIds: Array.from(selectedIds || []) }}
             className="cart-btn-checkout"
           >
-            Tiếp tục đặt hàng →
+            Tiếp tục đặt hàng
           </Link>
         ) : (
           <button type="button" className="cart-btn-checkout disabled" disabled>

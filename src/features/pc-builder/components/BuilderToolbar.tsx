@@ -32,7 +32,7 @@ export function BuilderToolbar({
     <div className="builder-toolbar">
       <div className="toolbar-grid two">
         <div className="field-group">
-          <label htmlFor="inputBudget">Ngân sách dự chi (₫) *</label>
+          <label htmlFor="inputBudget">Ngân sách dự chi (đ)</label>
           <input
             id="inputBudget"
             type="number"
@@ -50,7 +50,7 @@ export function BuilderToolbar({
           </small>
         </div>
         <div className="field-group">
-          <label htmlFor="inputNeed">Bạn dùng máy để làm gì? *</label>
+          <label htmlFor="inputNeed">Nhu cầu sử dụng</label>
           <textarea
             id="inputNeed"
             className="field-input field-textarea"
