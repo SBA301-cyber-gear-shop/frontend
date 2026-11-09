@@ -86,8 +86,6 @@ export function MainLayout() {
           </NavLink>
           <NavLink to="/cua-hang">Trang chủ</NavLink>
           <NavLink to="/san-pham?category=parts">Linh kiện PC</NavLink>
-          <NavLink to="/don-hang">Đơn hàng của tôi</NavLink>
-          <NavLink to="/bao-hanh">Bảo hành</NavLink>
         </nav>
       </header>
       <main id="main-content" className="wrap main">

@@ -59,7 +59,7 @@ export function CartSummary({
             state={{ selectedVariantIds: Array.from(selectedIds || []) }}
             className="cart-btn-checkout"
           >
-            Tiếp tục đặt hàng ({selectedCount}) →
+            Tiếp tục đặt hàng
           </Link>
         ) : (
           <button type="button" className="cart-btn-checkout disabled" disabled>

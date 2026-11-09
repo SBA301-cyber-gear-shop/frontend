@@ -294,6 +294,43 @@ export function useLiveCheckout() {
       fullShippingAddress = `${addressDetail.trim()}, ${wardName}, ${distName}, ${provName}`;
     }
 
+    let pcGroups = [];
+    if (!pendingAttempt) {
+      let sets;
+      try {
+        sets = JSON.parse(localStorage.getItem("techzone_pc_build_sets") || "[]");
+        if (!Array.isArray(sets)) throw new Error();
+      } catch {
+        setError("Không đọc được thông tin bộ PC. Vui lòng kiểm tra lại giỏ hàng.");
+        return;
+      }
+      const cartIds = new Set(data.cart.map((line) => Number(line.id)));
+      const chosen = new Set(lines.map((line) => Number(line.id)));
+      const claimed = new Set();
+      for (const set of sets) {
+        const ids = (set.itemVariantIds || []).map(Number);
+        if (ids.filter((id) => cartIds.has(id)).length < 2 || !ids.some((id) => chosen.has(id))) continue;
+        const parts = (set.parts || []).map((part) => ({
+          variantId: Number(part.id ?? part.variantId),
+          quantity: Number(part.qty ?? part.quantity),
+          role: String(part.category || "COMPONENT").slice(0, 50),
+        }));
+        const totals = new Map();
+        for (const part of parts) totals.set(part.variantId, (totals.get(part.variantId) || 0) + part.quantity);
+        if (!ids.length || ids.some((id) => !chosen.has(id)) || totals.size !== new Set(ids).size ||
+            ids.some((id) => !totals.has(id)) || [...totals].some(([id, qty]) =>
+              claimed.has(id) || !Number.isInteger(qty) || qty <= 0 ||
+              lines.find((line) => Number(line.id) === id)?.quantity !== qty)) {
+          setError("Bộ PC chưa được chọn đầy đủ hoặc có linh kiện trùng hàng mua lẻ. Vui lòng kiểm tra giỏ hàng.");
+          return;
+        }
+        for (const id of totals.keys()) claimed.add(id);
+        pcGroups.push({ parts: [...totals].map(([variantId, quantity]) => ({
+          variantId, quantity, role: parts.find((part) => part.variantId === variantId).role,
+        })) });
+      }
+    }
+
     const submission = pendingAttempt || {
       key: checkoutKey,
       payload: {
@@ -305,6 +342,7 @@ export function useLiveCheckout() {
         expectedTotal: total,
         expectedDiscount: discount,
         itemVariantIds: selectedVariantIds || undefined,
+        pcGroups,
         deliveryType,
         shippingFee: deliveryType === "shipping" ? shippingFee : 0,
         shippingAddress: fullShippingAddress || undefined,
@@ -320,6 +358,14 @@ export function useLiveCheckout() {
     try {
       sessionStorage.setItem(attemptStorageKey, JSON.stringify(submission));
       const order = await ordersApi.place(submission.payload, submission.key);
+      if (submission.payload.pcGroups?.length) {
+        const purchased = new Set(submission.payload.pcGroups.flatMap((group) => group.parts.map((part) => part.variantId)));
+        try {
+          const sets = JSON.parse(localStorage.getItem("techzone_pc_build_sets") || "[]");
+          localStorage.setItem("techzone_pc_build_sets", JSON.stringify(sets.filter((set) =>
+            !(set.itemVariantIds || []).some((id) => purchased.has(Number(id))))));
+        } catch { /* Đơn đã được tạo; không được gửi lại chỉ vì lỗi lưu trình duyệt. */ }
+      }
       sessionStorage.removeItem(attemptStorageKey);
       sessionStorage.removeItem("techzone-checkout-key-" + user.id);
       sessionStorage.removeItem("techzone_checkout_selected_ids");

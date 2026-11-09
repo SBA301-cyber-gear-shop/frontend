@@ -1,5 +1,12 @@
 import { expect, test } from "vitest";
-import { groupRequestsByIntake, stepButtons, warrantyRemainingText } from "../src/features/warranty/domain/requests";
+import { groupByPc, groupRequestsByIntake, stepButtons, warrantyRemainingText } from "../src/features/warranty/domain/requests";
+
+test("nhóm riêng từng bộ PC và các linh kiện mua lẻ", () => {
+  const groups = groupByPc([{ id: 1, pcCustomId: null }, { id: 2, pcCustomId: 7 },
+    { id: 3, pcCustomId: 8 }, { id: 4, pcCustomId: 7 }, { id: 5 }]);
+  expect(groups.map((g) => [g.id, g.items.map((item) => item.id)]))
+    .toEqual([[7, [2, 4]], [8, [3]], [null, [1, 5]]]);
+});
 
 test("gom linh kiện theo lần tiếp nhận và giữ cả nhóm khi lọc trạng thái", () => {
   const rows = [

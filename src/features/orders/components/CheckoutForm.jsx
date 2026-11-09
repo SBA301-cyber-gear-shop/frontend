@@ -83,8 +83,8 @@ export function CheckoutForm() {
           <KV label="Thành tiền">
             {money(
               pendingAttempt.payload.expectedTotal +
-                (pendingAttempt.payload.shippingFee || 0) -
-                pendingAttempt.payload.expectedDiscount,
+              (pendingAttempt.payload.shippingFee || 0) -
+              pendingAttempt.payload.expectedDiscount,
             )}
           </KV>
         </Panel>
@@ -130,29 +130,29 @@ export function CheckoutForm() {
   const paymentOptions =
     deliveryType === "shipping"
       ? [
-          [
-            "cod",
-            "Thanh toán khi nhận hàng (COD)",
-            "Nhân viên giao hàng GHN sẽ thu tiền mặt khi giao hàng tận nơi.",
-          ],
-          [
-            "vnpay",
-            "Cổng thanh toán VNPAY",
-            "Quét mã VNPAY-QR hoặc thanh toán qua thẻ ATM / Internet Banking (Tiền COD = 0đ).",
-          ],
-        ]
+        [
+          "cod",
+          "Thanh toán khi nhận hàng (COD)",
+          "Nhân viên giao hàng GHN sẽ thu tiền mặt khi giao hàng tận nơi.",
+        ],
+        [
+          "vnpay",
+          "Cổng thanh toán VNPAY",
+          "Quét mã VNPAY-QR hoặc thanh toán qua thẻ ATM / Internet Banking (Tiền COD = 0đ).",
+        ],
+      ]
       : [
-          [
-            "store",
-            "Thanh toán tại cửa hàng",
-            "Thu đủ tiền khi bạn đến nhận hàng tại quầy TechZone.",
-          ],
-          [
-            "vnpay",
-            "Cổng thanh toán VNPAY",
-            "Thanh toán trước qua VNPAY, chỉ cần đến đối chiếu và nhận hàng.",
-          ],
-        ];
+        [
+          "store",
+          "Thanh toán tại cửa hàng",
+          "Thu đủ tiền khi bạn đến nhận hàng tại quầy TechZone.",
+        ],
+        [
+          "vnpay",
+          "Cổng thanh toán VNPAY",
+          "Thanh toán trước qua VNPAY, chỉ cần đến đối chiếu và nhận hàng.",
+        ],
+      ];
 
   return (
     <>
@@ -322,8 +322,8 @@ export function CheckoutForm() {
                     {calculatingFee
                       ? "Đang tính phí vận chuyển GHN từ kho Quận 12..."
                       : shippingFee > 0
-                      ? `Phí vận chuyển GHN: ${money(shippingFee)} (Thời gian giao dự kiến 2 - 3 ngày)`
-                      : "Vui lòng chọn Phường/Xã để tính cước phí vận chuyển GHN."}
+                        ? `Phí vận chuyển GHN: ${money(shippingFee)} (Thời gian giao dự kiến 2 - 3 ngày)`
+                        : "Vui lòng chọn Phường/Xã để tính cước phí vận chuyển GHN."}
                   </Notice>
                 </div>
               )}
@@ -448,9 +448,9 @@ export function CheckoutForm() {
                 Hình thức:{" "}
                 {deliveryType === "shipping"
                   ? "Giao tận nơi GHN · " +
-                    (method === "cod" ? "Thu tiền khi nhận (COD)" : "VNPAY Online")
+                  (method === "cod" ? "Thu tiền khi nhận (COD)" : "VNPAY Online")
                   : "Tại cửa hàng · " +
-                    (method === "store" ? "Thu tiền tại quầy" : "VNPAY Online")}
+                  (method === "store" ? "Thu tiền tại quầy" : "VNPAY Online")}
               </p>
 
               {error && (
@@ -469,8 +469,8 @@ export function CheckoutForm() {
                   {method === "vnpay"
                     ? "Sau khi bấm đặt hàng, bạn sẽ được chuyển sang cổng thanh toán trực tuyến VNPAY để quét mã VNPAY-QR hoặc thanh toán thẻ ATM / Mobile Banking an toàn."
                     : deliveryType === "shipping"
-                    ? "Nhân viên giao hàng GHN Express sẽ thu tiền mặt khi giao hàng tận nơi cho bạn."
-                    : "Bạn thanh toán tiền mặt hoặc quẹt thẻ tại quầy khi đến nhận linh kiện."}
+                      ? "Nhân viên giao hàng GHN Express sẽ thu tiền mặt khi giao hàng tận nơi cho bạn."
+                      : "Bạn thanh toán tiền mặt hoặc quẹt thẻ tại quầy khi đến nhận linh kiện."}
                 </Notice>
               </div>
 
@@ -482,8 +482,8 @@ export function CheckoutForm() {
                 {placing
                   ? "Đang đặt hàng…"
                   : method === "vnpay"
-                  ? "Tiến hành thanh toán VNPAY →"
-                  : "Xác nhận đặt hàng →"}
+                    ? "Tiến hành thanh toán VNPAY"
+                    : "Xác nhận đặt hàng"}
               </Button>
             </Panel>
           </aside>

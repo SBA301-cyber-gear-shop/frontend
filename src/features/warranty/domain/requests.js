@@ -58,6 +58,16 @@ export function warrantyRemainingText(card) {
 }
 // Ngày hôm nay theo giờ máy, dạng YYYY-MM-DD, làm giới hạn dưới cho ô chọn ngày hẹn trả.
 export const today = () => new Date().toLocaleDateString("en-CA");
+export function groupByPc(items) {
+  const groups = new Map();
+  for (const item of items) {
+    const id = item.pcCustomId ?? null;
+    if (!groups.has(id)) groups.set(id, []);
+    groups.get(id).push(item);
+  }
+  return [...groups].sort(([a], [b]) => (a === null ? 1 : b === null ? -1 : 0))
+    .map(([id, items]) => ({ id, label: id === null ? "Mua lẻ" : `Bộ PC (cấu hình #${id})`, items }));
+}
 // Mỗi lần tiếp nhận là một nhóm riêng, kể cả khi nhiều lần thuộc cùng đơn hàng.
 export function groupRequestsByIntake(rows, status = "") {
   const groups = new Map();
