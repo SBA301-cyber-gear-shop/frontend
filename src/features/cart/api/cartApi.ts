@@ -18,10 +18,18 @@ export const cartApi = {
       available: item.available !== false,
     }));
   },
-  async add(productVariantId: string, quantity: number) {
+  async add(productVariantId: string | number, quantity: number) {
     await axiosClient.post(`${endpoints.cart}/items`, {
       productVariantId: Number(productVariantId),
       quantity,
+    });
+  },
+  async addBatch(items: { productVariantId: string | number; quantity: number }[]) {
+    await axiosClient.post(`${endpoints.cart}/items/batch`, {
+      items: items.map((i) => ({
+        productVariantId: Number(i.productVariantId),
+        quantity: i.quantity || 1,
+      })),
     });
   },
   async update(cartItemId: number, quantity: number) {

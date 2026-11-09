@@ -21,6 +21,7 @@ import { shippingApi } from "../api/shippingApi";
 import { ordersApi } from "../api/ordersApi";
 import { CashCollectionModal } from "./CashCollectionModal";
 import { CancelOrderModal } from "./CancelOrderModal";
+import { EditShippingAddressModal } from "./EditShippingAddressModal";
 
 export function OrderOperations({ handover = false }) {
   const {
@@ -62,6 +63,7 @@ export function OrderOperations({ handover = false }) {
   const { notify } = useStore();
   const [copied, setCopied] = useState(false);
   const [shippingActionBusy, setShippingActionBusy] = useState(false);
+  const [editAddressOpen, setEditAddressOpen] = useState(false);
   const [trackingInfo, setTrackingInfo] = useState(null);
   const [warranties, setWarranties] = useState({ order: null, cards: [], error: null, loading: false });
 
@@ -321,7 +323,22 @@ export function OrderOperations({ handover = false }) {
               ))}
             </Panel>
 
-            <Panel title="Thông tin nhận hàng">
+            <Panel
+              title="Thông tin nhận hàng"
+              action={
+                selected.deliveryType === "shipping" &&
+                !selected.trackingCode &&
+                !["completed", "canceled"].includes(selected.status) && (
+                  <Button
+                    size="small"
+                    variant="outline"
+                    onClick={() => setEditAddressOpen(true)}
+                  >
+                    ✏️ Sửa địa chỉ
+                  </Button>
+                )
+              }
+            >
               <div className="two-col">
                 <KV label="Người nhận">{selected.pickupName}</KV>
                 <KV label="Điện thoại">{selected.pickupPhone}</KV>
@@ -562,12 +579,14 @@ export function OrderOperations({ handover = false }) {
               {selected.shippingFee > 0 && (
                 <KV label="Phí giao hàng (GHN)">{money(selected.shippingFee)}</KV>
               )}
-              <KV label="Hình thức">
+              <KV label="Thanh toán">
                 {selected.method === "cod"
                   ? "COD (Thu tiền khi giao)"
                   : selected.method === "vnpay"
                     ? "VNPay"
-                    : "Tại quầy"}
+                    : selected.method === "cash"
+                      ? "Tiền mặt"
+                      : "Tại quầy"}
               </KV>
               <KV label="Thành tiền">{money(selected.final)}</KV>
               {selected.payment !== "SUCCESS" &&
@@ -741,6 +760,16 @@ export function OrderOperations({ handover = false }) {
       )}
       {cancelConfirm && selected && (
         <CancelOrderModal key={selected.id} orderId={selected.id} busy={busy} onClose={() => setCancelConfirm(false)} onConfirm={(reason) => update("cancel", reason)} />
+      )}
+      {editAddressOpen && selected && (
+        <EditShippingAddressModal
+          key={selected.id}
+          order={selected}
+          onClose={() => setEditAddressOpen(false)}
+          onSuccess={() => {
+            refresh();
+          }}
+        />
       )}
     </>
   );

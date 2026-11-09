@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { money } from "@/utils";
 import {
   Button,
@@ -125,6 +126,14 @@ export function CheckoutForm() {
     );
 
   const finalAmount = total - discount + (deliveryType === "shipping" ? shippingFee : 0);
+  const MAX_COD_AMOUNT = 20_000_000;
+  const isCodOverLimit = deliveryType === "shipping" && finalAmount > MAX_COD_AMOUNT;
+
+  useEffect(() => {
+    if (isCodOverLimit && method === "cod") {
+      setMethod("vnpay");
+    }
+  }, [isCodOverLimit, method, setMethod]);
 
   const paymentOptions =
     deliveryType === "shipping"
@@ -132,12 +141,16 @@ export function CheckoutForm() {
           [
             "cod",
             "Thanh toán khi nhận hàng (COD)",
-            "Nhân viên giao hàng GHN sẽ thu tiền mặt khi giao hàng tận nơi.",
+            isCodOverLimit
+              ? "Đơn hàng trên 20.000.000đ không hỗ trợ thu hộ COD. Vui lòng thanh toán qua VNPAY."
+              : "Nhân viên giao hàng GHN sẽ thu tiền mặt khi giao hàng tận nơi (tối đa 20.000.000đ).",
+            isCodOverLimit
           ],
           [
             "vnpay",
             "Cổng thanh toán VNPAY",
             "Quét mã VNPAY-QR hoặc thanh toán qua thẻ ATM / Internet Banking (Tiền COD = 0đ).",
+            false
           ],
         ]
       : [
@@ -145,11 +158,13 @@ export function CheckoutForm() {
             "store",
             "Thanh toán tại cửa hàng",
             "Thu đủ tiền khi bạn đến nhận hàng tại quầy TechZone.",
+            false
           ],
           [
             "vnpay",
             "Cổng thanh toán VNPAY",
             "Thanh toán trước qua VNPAY, chỉ cần đến đối chiếu và nhận hàng.",
+            false
           ],
         ];
 
@@ -349,20 +364,24 @@ export function CheckoutForm() {
 
             {/* 02 · PHƯƠNG THỨC THANH TOÁN */}
             <Panel title="02 · Phương thức thanh toán">
-              {paymentOptions.map(([value, label, desc]) => (
+              {paymentOptions.map(([value, label, desc, disabled]) => (
                 <label
                   className={
                     "selection " + (method === value ? "selected" : "")
                   }
                   key={value}
-                  style={{ cursor: "pointer" }}
+                  style={{
+                    cursor: disabled ? "not-allowed" : "pointer",
+                    opacity: disabled ? 0.6 : 1,
+                  }}
                 >
                   <input
                     type="radio"
                     name="payment"
                     value={value}
+                    disabled={disabled}
                     checked={method === value}
-                    onChange={() => setMethod(value)}
+                    onChange={() => !disabled && setMethod(value)}
                   />
                   <div style={{ display: "flex", alignItems: "flex-start", gap: "10px" }}>
                     <div style={{ marginTop: "2px", color: method === value ? "var(--red)" : "var(--muted)" }}>
@@ -370,11 +389,21 @@ export function CheckoutForm() {
                     </div>
                     <div>
                       <b>{label}</b>
+                      {disabled && (
+                        <span style={{ marginLeft: "8px", fontSize: "12px", color: "var(--red)", fontWeight: "normal" }}>
+                          (Vượt hạn mức COD)
+                        </span>
+                      )}
                       <p className="small muted">{desc}</p>
                     </div>
                   </div>
                 </label>
               ))}
+              {isCodOverLimit && (
+                <Notice tone="warning" style={{ marginTop: "12px" }}>
+                  ⚠️ Đơn hàng có giá trị trên 20.000.000đ ({money(finalAmount)}) vượt hạn mức thu hộ tiền mặt khi giao hàng (COD). Quý khách vui lòng chọn Cổng thanh toán trực tuyến VNPAY.
+                </Notice>
+              )}
             </Panel>
 
             {/* 03 · KIỂM TRA SẢN PHẨM */}
