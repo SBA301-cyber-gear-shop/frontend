@@ -367,6 +367,8 @@ test("admin promotion → customer order → staff collection and handover → w
     }
     if (path === "/api/promotions")
       return respond(promotions.filter((p) => p.active && p.bannerActive));
+    if (path === "/api/me/vouchers")
+      return respond(promotions.map((promotion) => ({ ...promotion, status: "AVAILABLE" })));
     if (path === "/api/admin/promotions" && req.method() === "GET")
       return respond(promotions);
     if (path === "/api/admin/promotions" && req.method() === "POST") {
@@ -448,6 +450,16 @@ test("admin promotion → customer order → staff collection and handover → w
     if (path === "/api/operations/orders")
       return respond(newerOrder ? [newerOrder, ...orders] : orders);
     if (path === "/api/orders/TZ-PICKUP-TEST") return respond(orders[0]);
+    if (path === "/api/operations/orders/TZ-PICKUP-TEST/cash-collection") {
+      return respond({
+        collectorUserId: 43,
+        collectorName: "Nhân viên thu ngân",
+        collectedAt: orders[0].paidAt,
+        receivedAmount: 3000000,
+        changeAmount: 700000,
+        reference: null,
+      });
+    }
     if (path.endsWith("/status")) {
       orders[0].status = payload.status;
       return respond(orders[0]);
@@ -456,7 +468,7 @@ test("admin promotion → customer order → staff collection and handover → w
       if (path !== "/api/operations/orders/TZ-PICKUP-TEST/collect")
         return respond({ message: "Thu tiền nhầm đơn." }, 400);
       if (payload.receivedAmount < 2300000 || payload.reference === "TEST-RETRY") {
-        newerOrder = { ...orders[0], id: 2, orderCode: "TZ-NEWER-ORDER" };
+        newerOrder = { ...orders[0], id: 2, orderCode: "TZ-NEWER-ORDER", deliveryType: "shipping" };
         return respond({ message: "Chưa nhận đủ tiền." }, 400);
       }
       orders[0].paymentStatus = "SUCCESS";
@@ -599,12 +611,15 @@ test("admin promotion → customer order → staff collection and handover → w
   await page.getByRole("button", { name: "Mua ngay" }).click();
   await expect(page).toHaveURL(/gio-hang/);
   await page.getByRole("link", { name: "Tiếp tục đặt hàng" }).click();
+  await page.getByRole("button", { name: "Xem tất cả voucher của tôi" }).click();
+  const voucherDialog = page.getByRole("dialog", { name: "Voucher của tôi" });
+  await expect(voucherDialog).toBeVisible();
+  await expect(page).toHaveURL(/thanh-toan/);
+  await voucherDialog.getByRole("button", { name: "Dùng mã" }).click();
+  await expect(voucherDialog).not.toBeVisible();
+  await expect(page.getByRole("textbox", { name: "Mã giảm giá", exact: true })).toHaveValue("SAVE");
   await page
-    .getByRole("textbox", { name: "Mã giảm giá", exact: true })
-    .fill("SAVE");
-  await page.getByRole("button", { name: "Áp dụng", exact: true }).click();
-  await page
-    .getByRole("button", { name: "Xác nhận đặt hàng →", exact: true })
+    .getByRole("button", { name: "Xác nhận đặt hàng", exact: true })
     .click();
   await expect(page).toHaveURL(/don-hang\/TZ-PICKUP-TEST/);
   await expect(
@@ -668,7 +683,13 @@ test("admin promotion → customer order → staff collection and handover → w
   await page
     .getByRole("button", { name: "Đã thu đủ tiền", exact: true })
     .click();
+  await expect(page.getByText("Nhân viên thu ngân", { exact: true })).toBeVisible();
+  await expect(page.getByText(/700\.000/)).toBeVisible();
   expect(calls.filter((call) => call.path.endsWith("/collect")).at(-1).payload.receivedAmount).toBe(3000000);
+  await page.getByRole("button", { name: /TZ-NEWER-ORDER/ }).click();
+  await expect(page.getByText("COD (Thu tiền khi giao)", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Xác nhận đã thu đủ", exact: true })).toHaveCount(0);
+  await page.getByRole("button", { name: /TZ-PICKUP-TEST/ }).click();
   await page.getByRole("button", { name: "Tiếp tục bàn giao" }).click();
   await page.getByLabel(/Thiết bị 1/).fill("DEVICE-A");
   await page.getByLabel(/Thiết bị 2/).fill("DEVICE-B");

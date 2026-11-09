@@ -1,6 +1,5 @@
 import { Link } from "react-router-dom";
 import { money } from "@/utils";
-import { Button } from "@/components/ui";
 
 export function CartSummary({
   selectedCount,
@@ -8,7 +7,6 @@ export function CartSummary({
   selectedLooseCount,
   selectedTotalAmount,
   selectedIds,
-  hasSelectedPcSet,
   cartBusy,
   cartLoading,
 }) {

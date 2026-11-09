@@ -9,3 +9,4 @@
 .checkout-voucher-option p { margin: 5px 0 0; overflow-wrap: anywhere; }
 .checkout-voucher-option .btn { flex-shrink: 0; }
 .checkout-voucher-option.is-selected { border: 1px solid #de1935; }
+.checkout-voucher-modal { width: min(720px, calc(100vw - 32px)); max-height: min(85vh, 850px); overflow-y: auto; }

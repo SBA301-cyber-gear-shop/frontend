@@ -64,9 +64,32 @@ export function OrderOperations({ handover = false }) {
   const [shippingActionBusy, setShippingActionBusy] = useState(false);
   const [trackingInfo, setTrackingInfo] = useState(null);
   const [warranties, setWarranties] = useState({ order: null, cards: [], error: null, loading: false });
+  const [cashCollection, setCashCollection] = useState(null);
 
   const selectedCode = selected?.id;
   const selectedStatus = selected?.status;
+  const isCounterCash =
+    (selected?.deliveryType ?? "store") === "store" && selected?.method === "store";
+  const canCollect =
+    isCounterCash && selected?.payment === "PENDING" &&
+    !["canceled", "completed"].includes(selectedStatus);
+  const showCashCollection =
+    !demoMode && isCounterCash && selected?.payment === "SUCCESS" && selected.final > 0;
+  const collection = cashCollection?.code === selectedCode ? cashCollection : null;
+
+  useEffect(() => {
+    if (!showCashCollection || !selectedCode) return;
+    const controller = new AbortController();
+    ordersApi.cashCollection(selectedCode, controller.signal).then(
+      (receipt) => {
+        if (!controller.signal.aborted) setCashCollection({ code: selectedCode, receipt });
+      },
+      () => {
+        if (!controller.signal.aborted) setCashCollection({ code: selectedCode, error: true });
+      },
+    );
+    return () => controller.abort();
+  }, [selectedCode, showCashCollection]);
 
   useEffect(() => {
     if (selected?.deliveryType === "shipping" && selected?.trackingCode) {
@@ -552,7 +575,7 @@ export function OrderOperations({ handover = false }) {
               >
                 {PAYMENT_STATUS[selected.payment]}
               </Badge>
-              <p className="small muted section">Cần thanh toán đủ</p>
+              <p className="small muted section">Tổng thanh toán</p>
               <div className="price">{money(selected.final)}</div>
               <div className="divider" />
               <KV label="Tiền hàng">{money(selected.total)}</KV>
@@ -570,8 +593,33 @@ export function OrderOperations({ handover = false }) {
                     : "Tại quầy"}
               </KV>
               <KV label="Thành tiền">{money(selected.final)}</KV>
-              {selected.payment !== "SUCCESS" &&
-                !["canceled", "completed"].includes(selected.status) && (
+              {showCashCollection && (
+                <>
+                  <div className="divider" />
+                  {collection?.receipt ? (
+                    <>
+                      <KV label="Người xác nhận">
+                        {collection.receipt.collectorName || `Tài khoản #${collection.receipt.collectorUserId}`}
+                      </KV>
+                      <KV label="Thời điểm thu">{dateTime(collection.receipt.collectedAt)}</KV>
+                      <KV label="Thực nhận">{money(collection.receipt.receivedAmount)}</KV>
+                      <KV label="Tiền thối">{money(collection.receipt.changeAmount)}</KV>
+                      {collection.receipt.reference && (
+                        <KV label="Mã chứng từ">{collection.receipt.reference}</KV>
+                      )}
+                    </>
+                  ) : (
+                    <p className="tiny muted section">
+                      {!collection
+                        ? "Đang tải thông tin thu tiền…"
+                        : collection.error
+                          ? "Không tải được thông tin thu tiền."
+                          : "Đơn này chưa có bản ghi người xác nhận thu tiền."}
+                    </p>
+                  )}
+                </>
+              )}
+              {canCollect && (
                   <>
                     <Button
                       className="full"
@@ -725,7 +773,7 @@ export function OrderOperations({ handover = false }) {
           </aside>
         </div>
       )}
-      {confirm && selected && (
+      {confirm && canCollect && (
         <CashCollectionModal
           key={selected.id}
           order={selected}
