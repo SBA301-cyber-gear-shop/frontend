@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
 
 export function ScrollToTop() {
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
   useEffect(() => {
     window.scrollTo(0, 0);
     document.title =
@@ -10,6 +10,6 @@ export function ScrollToTop() {
       (pathname === "/"
         ? "Hiệu năng mang dấu ấn của bạn"
         : decodeURIComponent(pathname.split("/")[1]).replaceAll("-", " "));
-  }, [pathname]);
+  }, [pathname, search]);
   return null;
 }

@@ -280,6 +280,7 @@ export function CustomerAIChatbox() {
   });
 
   const messagesEndRef = useRef(null);
+  const messagesContainerRef = useRef(null);
   const lastStaffMsgIdRef = useRef(0);
 
   useEffect(() => {
@@ -315,7 +316,11 @@ export function CustomerAIChatbox() {
   }, [chatMode]);
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+    } else {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
   };
 
   useEffect(() => {
@@ -587,7 +592,7 @@ export function CustomerAIChatbox() {
           )}
 
           {/* Messages Area */}
-          <div className="cyberbot-messages">
+          <div className="cyberbot-messages" ref={messagesContainerRef}>
             {messages.map((msg) => (
               <div
                 key={msg.id}
