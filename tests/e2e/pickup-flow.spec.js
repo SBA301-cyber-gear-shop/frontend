@@ -367,6 +367,8 @@ test("admin promotion → customer order → staff collection and handover → w
     }
     if (path === "/api/promotions")
       return respond(promotions.filter((p) => p.active && p.bannerActive));
+    if (path === "/api/me/vouchers")
+      return respond(promotions.map((promotion) => ({ ...promotion, status: "AVAILABLE" })));
     if (path === "/api/admin/promotions" && req.method() === "GET")
       return respond(promotions);
     if (path === "/api/admin/promotions" && req.method() === "POST") {
@@ -609,12 +611,15 @@ test("admin promotion → customer order → staff collection and handover → w
   await page.getByRole("button", { name: "Mua ngay" }).click();
   await expect(page).toHaveURL(/gio-hang/);
   await page.getByRole("link", { name: "Tiếp tục đặt hàng" }).click();
+  await page.getByRole("button", { name: "Xem tất cả voucher của tôi" }).click();
+  const voucherDialog = page.getByRole("dialog", { name: "Voucher của tôi" });
+  await expect(voucherDialog).toBeVisible();
+  await expect(page).toHaveURL(/thanh-toan/);
+  await voucherDialog.getByRole("button", { name: "Dùng mã" }).click();
+  await expect(voucherDialog).not.toBeVisible();
+  await expect(page.getByRole("textbox", { name: "Mã giảm giá", exact: true })).toHaveValue("SAVE");
   await page
-    .getByRole("textbox", { name: "Mã giảm giá", exact: true })
-    .fill("SAVE");
-  await page.getByRole("button", { name: "Áp dụng", exact: true }).click();
-  await page
-    .getByRole("button", { name: "Xác nhận đặt hàng →", exact: true })
+    .getByRole("button", { name: "Xác nhận đặt hàng", exact: true })
     .click();
   await expect(page).toHaveURL(/don-hang\/TZ-PICKUP-TEST/);
   await expect(
