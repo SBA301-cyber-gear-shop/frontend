@@ -111,8 +111,9 @@ export function useLiveCheckout() {
   const handleDeliveryTypeChange = (type) => {
     setDeliveryType(type);
     setError("");
+    const curFinal = total - discount + (type === "shipping" ? shippingFee : 0);
     if (type === "shipping" && method === "store") {
-      setMethod("cod");
+      setMethod(curFinal > 20000000 ? "vnpay" : "cod");
     } else if (type === "store" && method === "cod") {
       setMethod("store");
     }
@@ -285,6 +286,11 @@ export function useLiveCheckout() {
 
     let fullShippingAddress = "";
     if (deliveryType === "shipping") {
+      const finalAmt = total - discount + shippingFee;
+      if (method === "cod" && finalAmt > 20000000) {
+        setError("Phương thức COD chỉ áp dụng cho đơn hàng tối đa 20.000.000đ. Quý khách vui lòng chọn Cổng thanh toán VNPAY.");
+        return;
+      }
       if (!provinceId || !districtId || !wardCode || !addressDetail.trim()) {
         setError("Vui lòng chọn Tỉnh/Thành, Quận/Huyện, Phường/Xã và nhập số nhà/tên đường cụ thể.");
         return;

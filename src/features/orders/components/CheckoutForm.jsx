@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { money } from "@/utils";
 import {
   Button,
@@ -11,7 +12,6 @@ import {
 } from "@/components/ui";
 import { Field } from "@/components/form";
 import { OrderLines } from "@/features/products";
-import { CheckoutVoucherPicker } from "@/features/promotions";
 import { useCheckout } from "../hooks/useCheckout";
 
 export function CheckoutForm() {
@@ -83,8 +83,8 @@ export function CheckoutForm() {
           <KV label="Thành tiền">
             {money(
               pendingAttempt.payload.expectedTotal +
-              (pendingAttempt.payload.shippingFee || 0) -
-              pendingAttempt.payload.expectedDiscount,
+                (pendingAttempt.payload.shippingFee || 0) -
+                pendingAttempt.payload.expectedDiscount,
             )}
           </KV>
         </Panel>
@@ -126,33 +126,47 @@ export function CheckoutForm() {
     );
 
   const finalAmount = total - discount + (deliveryType === "shipping" ? shippingFee : 0);
+  const MAX_COD_AMOUNT = 20_000_000;
+  const isCodOverLimit = deliveryType === "shipping" && finalAmount > MAX_COD_AMOUNT;
+
+  useEffect(() => {
+    if (isCodOverLimit && method === "cod") {
+      setMethod("vnpay");
+    }
+  }, [isCodOverLimit, method, setMethod]);
 
   const paymentOptions =
     deliveryType === "shipping"
       ? [
-        [
-          "cod",
-          "Thanh toán khi nhận hàng (COD)",
-          "Nhân viên giao hàng GHN sẽ thu tiền mặt khi giao hàng tận nơi.",
-        ],
-        [
-          "vnpay",
-          "Cổng thanh toán VNPAY",
-          "Quét mã VNPAY-QR hoặc thanh toán qua thẻ ATM / Internet Banking (Tiền COD = 0đ).",
-        ],
-      ]
+          [
+            "cod",
+            "Thanh toán khi nhận hàng (COD)",
+            isCodOverLimit
+              ? "Đơn hàng trên 20.000.000đ không hỗ trợ thu hộ COD. Vui lòng thanh toán qua VNPAY."
+              : "Nhân viên giao hàng GHN sẽ thu tiền mặt khi giao hàng tận nơi (tối đa 20.000.000đ).",
+            isCodOverLimit
+          ],
+          [
+            "vnpay",
+            "Cổng thanh toán VNPAY",
+            "Quét mã VNPAY-QR hoặc thanh toán qua thẻ ATM / Internet Banking (Tiền COD = 0đ).",
+            false
+          ],
+        ]
       : [
-        [
-          "store",
-          "Thanh toán tại cửa hàng",
-          "Thu đủ tiền khi bạn đến nhận hàng tại quầy TechZone.",
-        ],
-        [
-          "vnpay",
-          "Cổng thanh toán VNPAY",
-          "Thanh toán trước qua VNPAY, chỉ cần đến đối chiếu và nhận hàng.",
-        ],
-      ];
+          [
+            "store",
+            "Thanh toán tại cửa hàng",
+            "Thu đủ tiền khi bạn đến nhận hàng tại quầy TechZone.",
+            false
+          ],
+          [
+            "vnpay",
+            "Cổng thanh toán VNPAY",
+            "Thanh toán trước qua VNPAY, chỉ cần đến đối chiếu và nhận hàng.",
+            false
+          ],
+        ];
 
   return (
     <>
@@ -322,8 +336,8 @@ export function CheckoutForm() {
                     {calculatingFee
                       ? "Đang tính phí vận chuyển GHN từ kho Quận 12..."
                       : shippingFee > 0
-                        ? `Phí vận chuyển GHN: ${money(shippingFee)} (Thời gian giao dự kiến 2 - 3 ngày)`
-                        : "Vui lòng chọn Phường/Xã để tính cước phí vận chuyển GHN."}
+                      ? `Phí vận chuyển GHN: ${money(shippingFee)} (Thời gian giao dự kiến 2 - 3 ngày)`
+                      : "Vui lòng chọn Phường/Xã để tính cước phí vận chuyển GHN."}
                   </Notice>
                 </div>
               )}
@@ -350,20 +364,24 @@ export function CheckoutForm() {
 
             {/* 02 · PHƯƠNG THỨC THANH TOÁN */}
             <Panel title="02 · Phương thức thanh toán">
-              {paymentOptions.map(([value, label, desc]) => (
+              {paymentOptions.map(([value, label, desc, disabled]) => (
                 <label
                   className={
                     "selection " + (method === value ? "selected" : "")
                   }
                   key={value}
-                  style={{ cursor: "pointer" }}
+                  style={{
+                    cursor: disabled ? "not-allowed" : "pointer",
+                    opacity: disabled ? 0.6 : 1,
+                  }}
                 >
                   <input
                     type="radio"
                     name="payment"
                     value={value}
+                    disabled={disabled}
                     checked={method === value}
-                    onChange={() => setMethod(value)}
+                    onChange={() => !disabled && setMethod(value)}
                   />
                   <div style={{ display: "flex", alignItems: "flex-start", gap: "10px" }}>
                     <div style={{ marginTop: "2px", color: method === value ? "var(--red)" : "var(--muted)" }}>
@@ -371,11 +389,21 @@ export function CheckoutForm() {
                     </div>
                     <div>
                       <b>{label}</b>
+                      {disabled && (
+                        <span style={{ marginLeft: "8px", fontSize: "12px", color: "var(--red)", fontWeight: "normal" }}>
+                          (Vượt hạn mức COD)
+                        </span>
+                      )}
                       <p className="small muted">{desc}</p>
                     </div>
                   </div>
                 </label>
               ))}
+              {isCodOverLimit && (
+                <Notice tone="warning" style={{ marginTop: "12px" }}>
+                  ⚠️ Đơn hàng có giá trị trên 20.000.000đ ({money(finalAmount)}) vượt hạn mức thu hộ tiền mặt khi giao hàng (COD). Quý khách vui lòng chọn Cổng thanh toán trực tuyến VNPAY.
+                </Notice>
+              )}
             </Panel>
 
             {/* 03 · KIỂM TRA SẢN PHẨM */}
@@ -423,7 +451,6 @@ export function CheckoutForm() {
                   <Notice tone="danger">{promoError}</Notice>
                 </div>
               )}
-              {!demoMode && <CheckoutVoucherPicker applied={applied} disabled={placing || applying || validating || Boolean(error)} onSelect={apply} />}
               <p className="tiny muted section">
                 Một mã mỗi đơn · Mỗi khách dùng một lần.
               </p>
@@ -448,9 +475,9 @@ export function CheckoutForm() {
                 Hình thức:{" "}
                 {deliveryType === "shipping"
                   ? "Giao tận nơi GHN · " +
-                  (method === "cod" ? "Thu tiền khi nhận (COD)" : "VNPAY Online")
+                    (method === "cod" ? "Thu tiền khi nhận (COD)" : "VNPAY Online")
                   : "Tại cửa hàng · " +
-                  (method === "store" ? "Thu tiền tại quầy" : "VNPAY Online")}
+                    (method === "store" ? "Thu tiền tại quầy" : "VNPAY Online")}
               </p>
 
               {error && (
@@ -469,8 +496,8 @@ export function CheckoutForm() {
                   {method === "vnpay"
                     ? "Sau khi bấm đặt hàng, bạn sẽ được chuyển sang cổng thanh toán trực tuyến VNPAY để quét mã VNPAY-QR hoặc thanh toán thẻ ATM / Mobile Banking an toàn."
                     : deliveryType === "shipping"
-                      ? "Nhân viên giao hàng GHN Express sẽ thu tiền mặt khi giao hàng tận nơi cho bạn."
-                      : "Bạn thanh toán tiền mặt hoặc quẹt thẻ tại quầy khi đến nhận linh kiện."}
+                    ? "Nhân viên giao hàng GHN Express sẽ thu tiền mặt khi giao hàng tận nơi cho bạn."
+                    : "Bạn thanh toán tiền mặt hoặc quẹt thẻ tại quầy khi đến nhận linh kiện."}
                 </Notice>
               </div>
 
@@ -482,8 +509,8 @@ export function CheckoutForm() {
                 {placing
                   ? "Đang đặt hàng…"
                   : method === "vnpay"
-                    ? "Tiến hành thanh toán VNPAY"
-                    : "Xác nhận đặt hàng"}
+                  ? "Tiến hành thanh toán VNPAY →"
+                  : "Xác nhận đặt hàng →"}
               </Button>
             </Panel>
           </aside>

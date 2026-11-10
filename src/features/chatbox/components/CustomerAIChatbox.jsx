@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useSession } from "@/features/auth";
+import { useCart } from "@/features/cart";
 import { Icon } from "@/components/ui";
 import { chatboxApi } from "../api/chatboxApi";
 import "../chatbox.css";
@@ -231,8 +232,127 @@ function ProductCardsCarousel({ products, navigate }) {
   );
 }
 
+function QuickChipsBar({ suggestions, onSelect }) {
+  const chipsRef = useRef(null);
+  const isDragging = useRef(false);
+  const startX = useRef(0);
+  const scrollLeftStart = useRef(0);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+
+  const checkScroll = useCallback(() => {
+    const el = chipsRef.current;
+    if (!el) return;
+    const max = el.scrollWidth - el.clientWidth;
+    setCanScrollLeft(el.scrollLeft > 6);
+    setCanScrollRight(el.scrollLeft < max - 6);
+  }, []);
+
+  useEffect(() => {
+    const el = chipsRef.current;
+    if (!el) return;
+    checkScroll();
+
+    const onWheel = (e) => {
+      if (e.deltaY === 0) return;
+      const max = el.scrollWidth - el.clientWidth;
+      if (max <= 0) return;
+      e.preventDefault();
+      e.stopPropagation();
+      el.scrollLeft += e.deltaY * 1.25;
+      checkScroll();
+    };
+
+    el.addEventListener("wheel", onWheel, { passive: false });
+    window.addEventListener("resize", checkScroll);
+    return () => {
+      el.removeEventListener("wheel", onWheel);
+      window.removeEventListener("resize", checkScroll);
+    };
+  }, [checkScroll, suggestions]);
+
+  const handleMouseDown = (e) => {
+    const el = chipsRef.current;
+    if (!el) return;
+    isDragging.current = true;
+    startX.current = e.pageX - el.offsetLeft;
+    scrollLeftStart.current = el.scrollLeft;
+  };
+
+  const handleMouseMove = (e) => {
+    if (!isDragging.current) return;
+    const el = chipsRef.current;
+    if (!el) return;
+    e.preventDefault();
+    const x = e.pageX - el.offsetLeft;
+    const walk = (x - startX.current) * 1.5;
+    el.scrollLeft = scrollLeftStart.current - walk;
+    checkScroll();
+  };
+
+  const handleMouseUpOrLeave = () => {
+    isDragging.current = false;
+  };
+
+  const scrollBy = (amount) => {
+    if (chipsRef.current) {
+      chipsRef.current.scrollBy({ left: amount, behavior: "smooth" });
+      setTimeout(checkScroll, 200);
+    }
+  };
+
+  return (
+    <div className="cyberbot-quick-chips-wrapper">
+      {canScrollLeft && (
+        <button
+          type="button"
+          className="cyberbot-chips-nav-btn cyberbot-chips-nav-left"
+          onClick={() => scrollBy(-160)}
+          aria-label="Cuộn sang trái"
+          title="Cuộn sang trái"
+        >
+          ‹
+        </button>
+      )}
+      <div
+        className="cyberbot-quick-chips"
+        ref={chipsRef}
+        onScroll={checkScroll}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUpOrLeave}
+        onMouseLeave={handleMouseUpOrLeave}
+      >
+        {suggestions.map((item, idx) => (
+          <button
+            key={idx}
+            type="button"
+            className="cyberbot-chip"
+            onClick={() => onSelect(item)}
+          >
+            <Icon name={item.icon} />
+            <span>{item.label}</span>
+          </button>
+        ))}
+      </div>
+      {canScrollRight && (
+        <button
+          type="button"
+          className="cyberbot-chips-nav-btn cyberbot-chips-nav-right"
+          onClick={() => scrollBy(160)}
+          aria-label="Cuộn sang phải"
+          title="Cuộn sang phải"
+        >
+          ›
+        </button>
+      )}
+    </div>
+  );
+}
+
 export function CustomerAIChatbox() {
   const { user } = useSession();
+  const { addMultipleToCart } = useCart();
   const navigate = useNavigate();
 
   const [isOpen, setIsOpen] = useState(() => {
@@ -279,123 +399,9 @@ export function CustomerAIChatbox() {
     }
   });
 
-  const messagesEndRef = useRef(null);
   const messagesContainerRef = useRef(null);
+  const messagesEndRef = useRef(null);
   const lastStaffMsgIdRef = useRef(0);
-
-  // Vị trí nút Chatbot có thể kéo thả (Draggable)
-  const [btnPosition, setBtnPosition] = useState(() => {
-    try {
-      const saved = localStorage.getItem("cyberbot_btn_pos");
-      return saved ? JSON.parse(saved) : null;
-    } catch {
-      return null;
-    }
-  });
-  const [isDragging, setIsDragging] = useState(false);
-  const dragRef = useRef({
-    isPointerDown: false,
-    hasDragged: false,
-    startX: 0,
-    startY: 0,
-    initialBtnX: 0,
-    initialBtnY: 0,
-  });
-  const buttonRef = useRef(null);
-  const justDraggedRef = useRef(false);
-
-  // Đảm bảo nút không bị lọt ra ngoài màn hình khi resize trình duyệt
-  useEffect(() => {
-    const handleResize = () => {
-      setBtnPosition((prev) => {
-        if (!prev) return prev;
-        const btnSize = 54;
-        const clampedX = Math.max(8, Math.min(window.innerWidth - btnSize - 8, prev.x));
-        const clampedY = Math.max(8, Math.min(window.innerHeight - btnSize - 8, prev.y));
-        if (clampedX !== prev.x || clampedY !== prev.y) {
-          return { x: clampedX, y: clampedY };
-        }
-        return prev;
-      });
-    };
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
-
-  const handlePointerDown = (e) => {
-    if (e.button !== 0 && e.pointerType === "mouse") return;
-    const btn = buttonRef.current;
-    if (!btn) return;
-
-    const rect = btn.getBoundingClientRect();
-    dragRef.current = {
-      isPointerDown: true,
-      hasDragged: false,
-      startX: e.clientX,
-      startY: e.clientY,
-      initialBtnX: rect.left,
-      initialBtnY: rect.top,
-    };
-
-    const handlePointerMove = (moveEvent) => {
-      if (!dragRef.current.isPointerDown) return;
-      const deltaX = moveEvent.clientX - dragRef.current.startX;
-      const deltaY = moveEvent.clientY - dragRef.current.startY;
-
-      if (!dragRef.current.hasDragged && Math.hypot(deltaX, deltaY) > 4) {
-        dragRef.current.hasDragged = true;
-        setIsDragging(true);
-      }
-
-      if (dragRef.current.hasDragged) {
-        const btnWidth = rect.width || 54;
-        const btnHeight = rect.height || 54;
-        let nextX = dragRef.current.initialBtnX + deltaX;
-        let nextY = dragRef.current.initialBtnY + deltaY;
-
-        nextX = Math.max(8, Math.min(window.innerWidth - btnWidth - 8, nextX));
-        nextY = Math.max(8, Math.min(window.innerHeight - btnHeight - 8, nextY));
-
-        setBtnPosition({ x: nextX, y: nextY });
-      }
-    };
-
-    const handlePointerUp = () => {
-      window.removeEventListener("pointermove", handlePointerMove);
-      window.removeEventListener("pointerup", handlePointerUp);
-      window.removeEventListener("pointercancel", handlePointerUp);
-
-      const wasDragged = dragRef.current.hasDragged;
-      dragRef.current.isPointerDown = false;
-      dragRef.current.hasDragged = false;
-      setIsDragging(false);
-
-      if (wasDragged) {
-        justDraggedRef.current = true;
-        setTimeout(() => {
-          justDraggedRef.current = false;
-        }, 120);
-
-        setBtnPosition((currentPos) => {
-          if (currentPos) {
-            try {
-              localStorage.setItem("cyberbot_btn_pos", JSON.stringify(currentPos));
-            } catch {}
-          }
-          return currentPos;
-        });
-      }
-    };
-
-    window.addEventListener("pointermove", handlePointerMove);
-    window.addEventListener("pointerup", handlePointerUp);
-    window.addEventListener("pointercancel", handlePointerUp);
-  };
-
-  const handleToggleClick = () => {
-    if (justDraggedRef.current) return;
-    setIsOpen(true);
-  };
 
   useEffect(() => {
     sessionStorage.setItem("cyberbot_open", isOpen ? "true" : "false");
@@ -429,17 +435,25 @@ export function CustomerAIChatbox() {
     sessionStorage.setItem("cyberbot_mode", chatMode);
   }, [chatMode]);
 
-  const scrollToBottom = () => {
+  const scrollToBottom = (behavior = "smooth") => {
     if (messagesContainerRef.current) {
-      messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
-    } else {
-      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      messagesContainerRef.current.scrollTo({
+        top: messagesContainerRef.current.scrollHeight,
+        behavior: behavior,
+      });
     }
+    messagesEndRef.current?.scrollIntoView({ behavior, block: "end" });
   };
 
   useEffect(() => {
     if (isOpen) {
-      scrollToBottom();
+      scrollToBottom("auto");
+      const t1 = setTimeout(() => scrollToBottom("smooth"), 80);
+      const t2 = setTimeout(() => scrollToBottom("smooth"), 320);
+      return () => {
+        clearTimeout(t1);
+        clearTimeout(t2);
+      };
     }
   }, [messages, loading, isOpen]);
 
@@ -559,6 +573,10 @@ export function CustomerAIChatbox() {
         setActiveStaff(null);
       }
 
+      if (data.messageType === "cart_action" && data.products && data.products.length > 0) {
+        addMultipleToCart(data.products);
+      }
+
       if (data.messageType === "staff_sent" || (!data.message && data.messageType !== "navigate")) {
         return;
       }
@@ -591,7 +609,33 @@ export function CustomerAIChatbox() {
     }
   };
 
-  const handleActionClick = (action) => {
+  const handleActionClick = (action, currentMsg) => {
+    if (action.action === "add_all_to_cart") {
+      const prods = currentMsg?.products && currentMsg.products.length > 0
+        ? currentMsg.products
+        : messages.slice().reverse().find((m) => m.products && m.products.length > 0)?.products;
+
+      if (prods && prods.length > 0) {
+        addMultipleToCart(prods);
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: Date.now().toString(),
+            sender: "bot",
+            text: `Dạ, CyberBot đã thêm trọn bộ **${prods.length} linh kiện** vào giỏ hàng của bạn thành công! 🎉\n\nBạn có thể kiểm tra giỏ hàng hoặc tiến hành thanh toán ngay nhé!`,
+            quickActions: [
+              { label: "🛒 Xem giỏ hàng", action: "navigate", route: "/gio-hang" },
+              { label: "💳 Thanh toán ngay", action: "navigate", route: "/thanh-toan" },
+              { label: "💬 Nhờ chuyên viên hỗ trợ", action: "connect_staff" },
+            ],
+          },
+        ]);
+      } else {
+        handleSend("thêm tất cả linh kiện vào giỏ hàng");
+      }
+      setTimeout(() => scrollToBottom("smooth"), 60);
+      return;
+    }
     if (action.action === "connect_staff") {
       handleSend("connect_staff");
     } else if (action.action === "end_staff_session") {
@@ -601,6 +645,7 @@ export function CustomerAIChatbox() {
     } else if (action.action === "ask" || action.route) {
       handleSend(action.route || action.label);
     }
+    setTimeout(() => scrollToBottom("smooth"), 60);
   };
 
   const handleKeyDown = (e) => {
@@ -612,30 +657,18 @@ export function CustomerAIChatbox() {
 
   return (
     <>
-      {/* Floating Toggle Button (Hình tròn, chỉ giữ icon bot, có thể kéo thả) */}
+      {/* Floating Toggle Button */}
       {!isOpen && (
         <button
-          ref={buttonRef}
-          className={`cyberbot-toggle-btn ${isDragging ? "is-dragging" : ""}`}
-          style={
-            btnPosition
-              ? {
-                  left: `${btnPosition.x}px`,
-                  top: `${btnPosition.y}px`,
-                  bottom: "auto",
-                  right: "auto",
-                }
-              : undefined
-          }
-          onPointerDown={handlePointerDown}
-          onClick={handleToggleClick}
-          title="Trợ lý AI TechZone (Bấm để mở, giữ để kéo di chuyển)"
-          aria-label="Mở trợ lý AI TechZone"
+          className="cyberbot-toggle-btn"
+          onClick={() => setIsOpen(true)}
+          title="Mở trợ lý AI TechZone"
         >
           <div className="cyberbot-toggle-icon">
             <Icon name="bot" />
             <span className="cyberbot-pulse-dot" />
           </div>
+          <span>Trợ lý AI TechZone</span>
         </button>
       )}
 
@@ -749,7 +782,7 @@ export function CustomerAIChatbox() {
                         <button
                           key={actIdx}
                           className="cyberbot-action-btn"
-                          onClick={() => handleActionClick(act)}
+                          onClick={() => handleActionClick(act, msg)}
                         >
                           <span>{act.label}</span>
                           <span className="cyberbot-action-arrow">→</span>
@@ -780,25 +813,18 @@ export function CustomerAIChatbox() {
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Quick Suggestions Chips */}
-          <div className="cyberbot-quick-chips">
-            {(chatMode === "staff" ? STAFF_SUGGESTIONS : QUICK_SUGGESTIONS).map((item, idx) => (
-              <button
-                key={idx}
-                className="cyberbot-chip"
-                onClick={() => {
-                  if (item.query === "end_staff_session") {
-                    handleSend("end_staff_session");
-                  } else {
-                    handleSend(item.query);
-                  }
-                }}
-              >
-                <Icon name={item.icon} />
-                <span>{item.label}</span>
-              </button>
-            ))}
-          </div>
+          {/* Quick Suggestions Chips with Drag & Wheel Scroll */}
+          <QuickChipsBar
+            suggestions={chatMode === "staff" ? STAFF_SUGGESTIONS : QUICK_SUGGESTIONS}
+            onSelect={(item) => {
+              if (item.query === "end_staff_session") {
+                handleSend("end_staff_session");
+              } else {
+                handleSend(item.query);
+              }
+              setTimeout(() => scrollToBottom("smooth"), 60);
+            }}
+          />
 
           {/* Input Area */}
           <div className="cyberbot-input-area">
