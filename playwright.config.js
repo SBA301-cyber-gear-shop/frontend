@@ -19,7 +19,7 @@ export default defineConfig({
     { name: "demo", testMatch: "flows.spec.js" },
     {
       name: "api",
-      testMatch: ["api-flow.spec.js", "pickup-flow.spec.js", "technician-device-history.spec.js", "intake-accessories.spec.js"],
+      testMatch: ["api-flow.spec.js", "pickup-flow.spec.js", "technician-device-history.spec.js", "intake-accessories.spec.js", "payment-summary.spec.js", "product-details.spec.js", "checkout-hooks.spec.js", "customer-orders.spec.js", "voucher-wallet.spec.js"],
       use: { baseURL: "http://127.0.0.1:4176" },
     },
   ],

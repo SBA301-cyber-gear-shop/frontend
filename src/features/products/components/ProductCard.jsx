@@ -2,29 +2,28 @@ import { Link } from "react-router-dom";
 import { Art } from "@/components/ui";
 import { money } from "@/utils";
 import { ProductFeedback } from "./ProductFeedback";
+import "./ProductCard.css";
 
 export function ProductCard({ product: p }) {
+  const price = Number(p.price);
+  const originalPrice = Number(p.originalPrice);
+  const discount = Number.isFinite(price) && Number.isFinite(originalPrice) && price >= 0 && originalPrice > price
+    ? (originalPrice - price) * 100 / originalPrice
+    : 0;
+  const discountLabel = discount < 0.01 ? "<0,01" : new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 2 }).format(discount);
   return (
     <article className="product-card">
+      {discount > 0 && <span className="product-card-discount">Giảm {discountLabel}%</span>}
       <Link to={"/san-pham/" + p.id}>
-        <Art type={p.category} image={p.image} name={p.name} />
+        <div className="product-card-image">
+          <Art type={p.category} image={p.image} name={p.name} />
+        </div>
         <div className="category">{p.brand}</div>
         <h3>{p.name}</h3>
       </Link>
       <p className="variant">{p.variant}</p>
       <ProductFeedback product={p} />
-      <div className="chips">
-        {Object.values(p.specs)
-          .slice(0, 3)
-          .map((s, i) => (
-            <span className="chip" key={i}>
-              {s}
-            </span>
-          ))}
-      </div>
-      <p className="stock">
-        {p.stock > 0 ? "● Còn hàng" : "Hết hàng"} · Bảo hành {p.warranty} tháng
-      </p>
+      {p.stock <= 0 && <span className="product-card-out-of-stock">Hết hàng</span>}
       <div className="buy">
         <div>
           {Number(p.originalPrice) > Number(p.price) && <span className="old-price">{money(p.originalPrice)}</span>}

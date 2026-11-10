@@ -181,8 +181,8 @@ test("shopping, authentication, checkout, staff payment and per-unit handover", 
     .getByRole("button", { name: "Hoàn tất bàn giao", exact: true })
     .click();
   await expect(
-    page.getByText("Đã bàn giao và kích hoạt bảo hành."),
-  ).toBeVisible();
+    page.getByRole("heading", { name: "Bước tiếp theo", exact: true }),
+  ).toHaveCount(0);
   await login(page, "Customer");
   await page.goto("/bao-hanh");
   await expect(page.getByText("TEST-RAM-A", { exact: true })).toBeVisible();

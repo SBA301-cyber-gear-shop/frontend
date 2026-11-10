@@ -14,6 +14,8 @@ import { Quantity } from "@/components/form";
 import { useProductDetails } from "../hooks/useProductDetails";
 import { ProductFeedback } from "./ProductFeedback";
 import { ReviewMediaGallery } from "@/features/reviews";
+import { ramCapacity } from "../domain/ramCapacity";
+import "./ProductDetails.css";
 
 export function ProductDetails({ addCart }) {
   const {
@@ -26,7 +28,6 @@ export function ProductDetails({ addCart }) {
     p,
     variants,
     reviews,
-    primary,
     catalogLoading,
     catalogError,
     reviewError,
@@ -39,6 +40,7 @@ export function ProductDetails({ addCart }) {
         action={<Button to="/san-pham">Xem sản phẩm khác</Button>}
       />
     );
+  const capacity = p.category === "ram" ? ramCapacity(p) : null;
   return (
     <>
       <div className="breadcrumb">
@@ -60,7 +62,7 @@ export function ProductDetails({ addCart }) {
             Hình ảnh minh họa · Phiên bản {p.variant}
           </p>
         </div>
-        <div>
+        <div className="product-purchase">
           <div className="eyebrow">
             {p.brand} / {p.category}
           </div>
@@ -73,12 +75,11 @@ export function ProductDetails({ addCart }) {
             <div className="price">{money(p.price)}</div>
             {Number(p.originalPrice) > Number(p.price) && <span className="old-price">{money(p.originalPrice)}</span>}
           </div>
-          <p className="small green-text section">
-            {p.stock > 0 ? "● Còn " + p.stock + " sản phẩm" : "Hết hàng"} · Nhận
-            tại cửa hàng
+          <p className={`product-availability ${p.stock > 0 ? "in-stock" : "out-of-stock"}`}>
+            {p.stock > 0 ? "● Còn " + p.stock + " sản phẩm" : "Hết hàng"}
           </p>
-          <div className="section">
-            <b className="small">Xem chi tiết</b>
+          {variants.length > 1 && <div className="product-purchase-section">
+            <b className="product-purchase-label">Chọn phiên bản</b>
             <div className="variant-select">
               {variants.map((v) => (
                 <button
@@ -98,17 +99,10 @@ export function ProductDetails({ addCart }) {
                 </button>
               ))}
             </div>
-          </div>
-          <div className="chips">
-            {Object.entries(p.specs)
-              .filter(([k]) => !primary || primary.includes(k))
-              .map(([k, v]) => (
-                <span className="chip" key={k}>
-                  {v}
-                </span>
-              ))}
-          </div>
-          <div className="row section">
+          </div>}
+          <div className="product-purchase-section">
+            <b className="product-purchase-label">Số lượng</b>
+            <div className="row product-quantity-row">
             <Quantity
               value={quantity}
               onChange={setQuantity}
@@ -116,12 +110,12 @@ export function ProductDetails({ addCart }) {
             />
             {p.category === "ram" && (
               <span className="small">
-                {quantity} thanh × {p.tech?.capacity || "?"}GB ={" "}
-                <b>{quantity * (p.tech?.capacity || 0)}GB</b>
+                {capacity ? <>{quantity} sản phẩm × {capacity}GB = <b>{quantity * capacity}GB</b></> : "Chưa có thông tin dung lượng RAM"}
               </span>
             )}
+            </div>
           </div>
-          <div className="row wrap-row section">
+          <div className="row wrap-row product-purchase-actions">
             <Button disabled={!p.stock} onClick={() => addCart(p.id, quantity)}>
               <Icon name="cart" />
               Thêm vào giỏ
@@ -135,11 +129,6 @@ export function ProductDetails({ addCart }) {
             >
               Mua ngay →
             </Button>
-          </div>
-          <div className="section">
-            <Notice tone="neutral">
-              Giá, ảnh và thông số theo phiên bản. Thêm vào giỏ chưa giữ hàng.
-            </Notice>
           </div>
         </div>
       </div>
