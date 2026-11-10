@@ -76,6 +76,63 @@ export function useCart() {
     }
   }
 
+  async function addMultipleToCart(items) {
+    if (!items || !items.length) return false;
+    if (!demoMode) {
+      if (!user) {
+        notify("Vui lòng đăng nhập để thêm linh kiện vào giỏ hàng.", "warning");
+        navigate("/dang-nhap", {
+          state: { from: location.pathname + location.search },
+        });
+        return false;
+      }
+      const success = await remoteChange(async () => {
+        const batchPayload = items
+          .map((item) => {
+            const vid = item.variantId || item.id;
+            return vid ? { productVariantId: Number(vid), quantity: item.quantity || 1 } : null;
+          })
+          .filter(Boolean);
+
+        if (batchPayload.length === 0) return;
+
+        try {
+          await cartApi.addBatch(batchPayload);
+        } catch (e) {
+          for (const item of batchPayload) {
+            await cartApi.add(item.productVariantId, item.quantity);
+          }
+        }
+      });
+      if (success) notify(`Đã thêm ${items.length} linh kiện vào giỏ hàng thành công.`);
+      return success;
+    }
+    try {
+      commit((current) => {
+        const cart = [...current.cart];
+        for (const item of items) {
+          const id = String(item.variantId || item.id);
+          const quantity = item.quantity || 1;
+          const old = cart.find((l) => String(l.id) === id);
+          if (old) {
+            cart[cart.indexOf(old)] = {
+              ...old,
+              quantity: old.quantity + quantity,
+            };
+          } else {
+            cart.push({ id, quantity });
+          }
+        }
+        return { ...current, cart };
+      });
+      notify(`Đã thêm ${items.length} linh kiện vào giỏ hàng thành công.`);
+      return true;
+    } catch (error) {
+      notify(error.message, "danger");
+      return false;
+    }
+  }
+
   function updateQuantity(id, quantity) {
     if (!demoMode) {
       const line = data.cart.find((item) => String(item.id) === String(id));
@@ -137,6 +194,7 @@ export function useCart() {
     totalAmount,
     hasRam,
     addToCart,
+    addMultipleToCart,
     updateQuantity,
     removeFromCart,
     removeMultiple,

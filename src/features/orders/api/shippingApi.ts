@@ -109,4 +109,21 @@ export const shippingApi = {
     );
     return data.data;
   },
+
+  async updateAddress(
+    orderCode: string,
+    payload: {
+      pickupName?: string;
+      pickupPhone?: string;
+      shippingAddress?: string;
+      toProvinceId?: number;
+      toDistrictId?: number;
+      toWardCode?: string;
+    },
+  ): Promise<void> {
+    await axiosClient.patch(
+      `/api/shipping/orders/${encodeURIComponent(orderCode)}/address`,
+      payload,
+    );
+  },
 };
