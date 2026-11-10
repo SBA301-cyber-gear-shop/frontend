@@ -146,6 +146,7 @@ export function ApiCustomerWarranty() {
                   {sent.length > 0 && (
                     <>
                       <h3 className="section">Lần gửi bảo hành</h3>
+                      <div className="customer-intakes">
                       {sent.map((i) => (
                         <button
                           className="ticket-preview intake-row full"
@@ -153,8 +154,8 @@ export function ApiCustomerWarranty() {
                           onClick={() => setSelected(i)}
                         >
                           <b className="mono">{i.intakeCode}</b>
-                          <span className="small">{dateTime(i.createdAt)}</span>
-                          <span className="small">
+                          <span className="small intake-date">{dateTime(i.createdAt)}</span>
+                          <span className="small intake-count">
                             {i.components.length} linh kiện
                           </span>
                           <span className="state">
@@ -163,6 +164,7 @@ export function ApiCustomerWarranty() {
                           <span className="small go">Xem tiến trình →</span>
                         </button>
                       ))}
+                      </div>
                     </>
                   )}
                   <Link

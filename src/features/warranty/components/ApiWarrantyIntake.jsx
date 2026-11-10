@@ -75,17 +75,13 @@ function OrderIntake({
   order: o,
   open,
   onToggle,
-  preselected,
   onHistory,
   onOpenIntake,
   onCreate,
   receipts,
 }) {
-  const [selected, setSelected] = useState(() => new Set(preselected)),
+  const [selected, setSelected] = useState(() => new Set()),
     [extra, setExtra] = useState(() => new Set()),
-    // Phụ kiện nhận giữ: linh kiện quầy giữ lại, và pcCustomId của từng bộ PC nhận nguyên bộ.
-    [kept, setKept] = useState(() => new Set(preselected)),
-    [fullPc, setFullPc] = useState(() => new Set()),
     [form, setForm] = useState(() => ({
       ...EMPTY_INTAKE,
       contactName: o.pickupName || "",
@@ -93,8 +89,6 @@ function OrderIntake({
     })),
     [verified, setVerified] = useState(false);
   const orderCards = o.groups.flatMap((g) => g.cards);
-  // Chỉ nhóm bộ PC mới có lựa chọn nhận nguyên bộ; nhóm mua lẻ thì không.
-  const pcGroups = o.groups.filter((g) => g.pcId);
   const historyCount = orderCards.reduce(
     (n, c) => n + (c.requests || []).length,
     0,
@@ -109,12 +103,8 @@ function OrderIntake({
   function toggle(setter, current, card) {
     const on = !current.has(card.id);
     setter((prev) => flip(prev, card.id, on));
-    // Linh kiện tick ở đơn là thiết bị khách để lại, nên tự chọn luôn ở phụ kiện nhận giữ.
-    setKept((prev) => flip(prev, card.id, on));
-    // Bỏ một linh kiện thì bộ PC chứa nó không còn là nguyên bộ.
-    if (!on) setFullPc((prev) => flip(prev, card.pcCustomId, false));
   }
-  // Chọn hoặc bỏ cả bộ PC: tick mọi linh kiện của bộ và ghi "nguyên bộ PC" ở phụ kiện nhận giữ.
+  // Chọn hoặc bỏ các linh kiện đủ điều kiện tiếp nhận trong bộ PC.
   function pickPc(g, on) {
     const apply = (prev, pred) => {
       const next = new Set(prev);
@@ -125,19 +115,9 @@ function OrderIntake({
     };
     setSelected((prev) => apply(prev, selectable));
     setExtra((prev) => apply(prev, extraable));
-    setKept((prev) => apply(prev, () => true));
-    setFullPc((prev) => flip(prev, g.pcId, on));
   }
-  // Ghi chú phụ kiện gửi lên API được ghép từ lựa chọn trong dropdown.
-  const accessories =
-    [
-      ...pcGroups
-        .filter((g) => fullPc.has(g.pcId))
-        .map((g) => "Nguyên bộ PC #" + g.pcId),
-      ...orderCards
-        .filter((c) => kept.has(c.id) && !fullPc.has(c.pcCustomId))
-        .map((c) => c.productName + " (" + c.serialNumber + ")"),
-    ].join(", ") || "Không có";
+  const keptCards = orderCards.filter((c) => selected.has(c.id) && selectable(c));
+  const accessories = keptCards.map((c) => c.productName + " (" + c.serialNumber + ")").join(", ") || "Không có";
   function submit(e) {
     e.preventDefault();
     onCreate({
@@ -150,7 +130,8 @@ function OrderIntake({
   const pcPick = (g) => (
     <input
       type="checkbox"
-      checked={fullPc.has(g.pcId)}
+      checked={g.cards.some((c) => selectable(c) || extraable(c)) && g.cards.filter((c) => selectable(c) || extraable(c)).every((c) => selected.has(c.id) || extra.has(c.id))}
+      disabled={!g.cards.some((c) => selectable(c) || extraable(c))}
       onChange={(e) => pickPc(g, e.target.checked)}
     />
   );
@@ -289,25 +270,11 @@ function OrderIntake({
                 <details className="intake-dropdown">
                   <summary className="input">{accessories}</summary>
                   <div className="intake-dropdown-menu">
-                    {pcGroups.map((g) => (
-                      <label className="filter-option" key={g.key}>
-                        {pcPick(g)}
-                        <b>Nhận nguyên bộ PC #{g.pcId}</b>
-                      </label>
-                    ))}
-                    {orderCards.map((c) => (
-                      <label className="filter-option" key={c.id}>
-                        <input
-                          type="checkbox"
-                          disabled={fullPc.has(c.pcCustomId)}
-                          checked={kept.has(c.id)}
-                          onChange={() =>
-                            setKept((prev) => flip(prev, c.id, !prev.has(c.id)))
-                          }
-                        />
+                    {keptCards.map((c) => (
+                      <div className="filter-option" key={c.id}>
                         {c.productName}
                         <small className="mono">{c.serialNumber}</small>
-                      </label>
+                      </div>
                     ))}
                   </div>
                 </details>
@@ -370,7 +337,6 @@ export function ApiWarrantyIntake() {
     [asked, setAsked] = useState(""),
     [cards, setCards] = useState(null),
     // Linh kiện chọn sẵn khi tra đúng serial; mỗi đơn đọc phần của mình khi dựng lại.
-    [preselect, setPreselect] = useState(() => new Set()),
     // Đơn nào mở thì tự mở, không ảnh hưởng đơn khác; mỗi lần tra cứu dựng lại các đơn bằng round.
     [openOrders, setOpenOrders] = useState(
       () =>
@@ -418,15 +384,6 @@ export function ApiWarrantyIntake() {
       );
       setAsked(q);
       setCards(found);
-      // Chọn sẵn thẻ khớp trực tiếp (ví dụ đúng serial khách mang tới), chỉ khi chúng cùng một đơn.
-      const pick = found.filter((c) => c.matched && selectable(c));
-      setPreselect(
-        new Set(
-          new Set(pick.map((c) => c.orderId)).size === 1
-            ? pick.map((c) => c.id)
-            : [],
-        ),
-      );
       setRound((r) => r + 1);
       // Tra ra đúng một đơn thì mở sẵn; tải lại sau thao tác hoặc tải lại trang thì giữ nguyên các đơn đang mở.
       if (keepIntakeId == null && !keepOpen)
@@ -548,10 +505,6 @@ export function ApiWarrantyIntake() {
               order={o}
               open={openOrders.has(o.orderId)}
               onToggle={() => toggleOrder(o.orderId)}
-              preselected={o.groups
-                .flatMap((g) => g.cards)
-                .filter((c) => preselect.has(c.id))
-                .map((c) => c.id)}
               onHistory={() => setHistory(o)}
               onOpenIntake={(id) =>
                 openIntake(id).catch((err) => notify(err.message, "danger"))
