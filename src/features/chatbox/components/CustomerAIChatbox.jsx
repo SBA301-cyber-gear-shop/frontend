@@ -394,6 +394,23 @@ export function CustomerAIChatbox() {
   const [isOpen, setIsOpen] = useState(() => {
     return sessionStorage.getItem("cyberbot_open") === "true";
   });
+  const [chatMode, setChatMode] = useState(() => {
+    return sessionStorage.getItem("cyberbot_mode") || "ai";
+  });
+  const [conversationId, setConversationId] = useState(() => {
+    return sessionStorage.getItem("cyberbot_conv_id") || "";
+  });
+  const [activeStaff, setActiveStaff] = useState(() => {
+    try {
+      const saved = sessionStorage.getItem("cyberbot_staff");
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
+  const [loading, setLoading] = useState(false);
+  const [navCountdown, setNavCountdown] = useState(null);
+  const [input, setInput] = useState("");
   const [messages, setMessages] = useState(() => {
     try {
       const saved = sessionStorage.getItem("cyberbot_messages");
@@ -417,7 +434,6 @@ export function CustomerAIChatbox() {
       },
     ];
   });
-  const [input, setInput] = useState("");
 
   const prevUserIdRef = useRef(user?.id ?? null);
   useEffect(() => {
@@ -456,22 +472,6 @@ export function CustomerAIChatbox() {
     }
     return QUICK_SUGGESTIONS;
   }, [chatMode, isProductDetailPage]);
-  const [loading, setLoading] = useState(false);
-  const [conversationId, setConversationId] = useState(() => {
-    return sessionStorage.getItem("cyberbot_conv_id") || "";
-  });
-  const [navCountdown, setNavCountdown] = useState(null);
-  const [chatMode, setChatMode] = useState(() => {
-    return sessionStorage.getItem("cyberbot_mode") || "ai";
-  });
-  const [activeStaff, setActiveStaff] = useState(() => {
-    try {
-      const saved = sessionStorage.getItem("cyberbot_staff");
-      return saved ? JSON.parse(saved) : null;
-    } catch {
-      return null;
-    }
-  });
 
   const messagesContainerRef = useRef(null);
   const messagesEndRef = useRef(null);
