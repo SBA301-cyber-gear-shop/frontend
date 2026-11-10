@@ -1,6 +1,7 @@
 export const endpoints = {
   auth: { login: "/api/auth/login", register: "/api/auth/register", me: "/api/auth/me" },
   pcBuilder: {
+    config: "/api/pc-build/config",
     analyze: "/api/pc-build/requirements/analyze",
     auto: "/api/pc-build/builds/auto",
     validate: "/api/pc-build/builds/validate",
@@ -16,6 +17,10 @@ export const endpoints = {
     specifications: "/api/admin/specifications",
     categories: "/api/admin/categories",
     brands: "/api/admin/brands",
+    aiConfigs: "/api/admin/ai-configs",
+    aiConfig: (id: number | string) => `/api/admin/ai-configs/${id}`,
+    aiConfigToggle: (id: number | string) => `/api/admin/ai-configs/${id}/toggle-active`,
+    aiConfigTest: "/api/admin/ai-configs/test",
   },
   products: "/api/products",
   cart: "/api/orders/cart",

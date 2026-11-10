@@ -14,6 +14,7 @@ const menu = [
   ["/quan-tri/san-pham", "grid", "Sản phẩm & phiên bản", ["Admin"]],
   ["/quan-tri/thong-so", "layers", "Danh mục & thông số", ["Admin"]],
   ["/quan-tri/khuyen-mai", "spark", "Khuyến mãi & banner", ["Admin"]],
+  ["/quan-tri/cau-hinh-ai", "spark", "Cấu hình AI & Prompt", ["Admin"]],
 ];
 
 export function AdminLayout() {

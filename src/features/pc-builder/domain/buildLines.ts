@@ -45,9 +45,10 @@ export const MAX_BUDGET = 9_999_999_999;
 export const MAX_MESSAGE_LENGTH = 500;
 
 /** Kiểm tra form trước khi gọi /requirements/analyze; trả câu báo lỗi hoặc null. */
-export function checkInput(budget: number, message: string): string | null {
+export function checkInput(budget: number, message: string, maxLimit?: number | null): string | null {
   if (!Number.isInteger(budget) || budget <= 0) return "Vui lòng nhập ngân sách là số đồng nguyên lớn hơn 0.";
-  if (budget > MAX_BUDGET) return `Ngân sách tối đa là ${MAX_BUDGET.toLocaleString("vi-VN")} ₫.`;
+  const max = maxLimit && maxLimit > 0 ? maxLimit : MAX_BUDGET;
+  if (budget > max) return `Ngân sách tối đa của shop hiện tại là ${max.toLocaleString("vi-VN")} ₫.`;
   const text = message.trim();
   if (!text) return "Vui lòng mô tả nhu cầu sử dụng của bạn.";
   if (text.length > MAX_MESSAGE_LENGTH) return `Mô tả nhu cầu tối đa ${MAX_MESSAGE_LENGTH} ký tự.`;
