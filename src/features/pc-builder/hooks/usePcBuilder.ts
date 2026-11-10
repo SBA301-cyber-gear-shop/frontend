@@ -228,7 +228,7 @@ export function usePcBuilder() {
     void requests.suggest(call, { onSuccess: applyOutcome, onError: applyError });
   }
 
-  /** Bấm "Đề xuất": analyze, rồi tự gọi /builds/auto khi READY hoặc BUDGET_WARNING. */
+  /** Bấm "Đề xuất": analyze, rồi tự gọi /builds/auto khi READY. */
   function submit(budgetOverride?: number) {
     if (requests.isSuggesting) return;
     const value = budgetOverride ?? numericBudget;
