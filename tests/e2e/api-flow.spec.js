@@ -473,8 +473,6 @@ test("customer sees PC and loose groups on cards and intake results", async ({ p
       minBudget: 16000000,
       maxBuildPrice: 200000000,
       suggestedPurposes: [],
-      explanation: "Với 25 triệu, máy chơi mượt game eSports ở 1080p.",
-      suggestedBudget: null,
       notes: [],
       ...overrides,
     };
@@ -558,7 +556,6 @@ test("customer sees PC and loose groups on cards and intake results", async ({ p
       );
       await suggestFrom(page);
       await expect(page.locator("#analysisPanel")).toContainText("Shop đã hiểu nhu cầu của bạn");
-      await expect(page.locator("#analysisPanel")).toContainText("Với 25 triệu");
       await expect(page.locator("#aiBuildReasoning")).toContainText("Dạ, Shop tư vấn cho bạn bộ PC chơi game");
       await expect(partRows(page)).toHaveCount(1);
       await expect(page.locator("#buildTotal")).toContainText("2.400.000");
@@ -594,7 +591,6 @@ test("customer sees PC and loose groups on cards and intake results", async ({ p
             status: "NEED_CLARIFICATION",
             message: "Bạn dùng máy chủ yếu để chơi game, làm đồ họa hay làm văn phòng ạ?",
             requirement: { budget: 25000000, purpose: null },
-            explanation: null,
           }),
         },
       }),
@@ -614,7 +610,6 @@ test("customer sees PC and loose groups on cards and intake results", async ({ p
             status: "BUDGET_TOO_LOW",
             message: "Mức nhu cầu tối thiểu cho PC chơi game là 16.000.000đ. Với 13.000.000đ, bạn có thể thử PC văn phòng, bạn có đồng ý không ạ?",
             requirement: { budget: 13000000, purpose: "GAMING" },
-            explanation: null,
             suggestedPurposes: [
               { purpose: "OFFICE", label: "PC văn phòng", description: "Văn phòng, học tập", minBudget: 12500000 },
             ],

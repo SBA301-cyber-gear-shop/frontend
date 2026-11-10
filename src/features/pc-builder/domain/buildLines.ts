@@ -54,10 +54,10 @@ export function checkInput(budget: number, message: string): string | null {
   return null;
 }
 
-/** READY và BUDGET_WARNING có đủ {budget, purpose} để gọi /builds/auto; trạng thái khác thì khách phải chọn tiếp. */
+/** Chỉ READY có đủ {budget, purpose} để gọi /builds/auto; trạng thái khác thì khách phải chọn tiếp. */
 export function buildableRequirement(analysis: AnalyzeResponse): AutoBuildRequest | null {
   const requirement = analysis.requirement;
-  if (analysis.status !== "READY" && analysis.status !== "BUDGET_WARNING") return null;
+  if (analysis.status !== "READY") return null;
   if (!requirement?.purpose || !requirement.budget) return null;
   return { budget: requirement.budget, purpose: requirement.purpose };
 }
