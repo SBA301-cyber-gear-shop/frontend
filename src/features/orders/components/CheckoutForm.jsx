@@ -62,6 +62,16 @@ export function CheckoutForm() {
     pendingAttempt,
   } = useCheckout();
 
+  const finalAmount = (total || 0) - (discount || 0) + (deliveryType === "shipping" ? (shippingFee || 0) : 0);
+  const MAX_COD_AMOUNT = 20_000_000;
+  const isCodOverLimit = deliveryType === "shipping" && finalAmount > MAX_COD_AMOUNT;
+
+  useEffect(() => {
+    if (isCodOverLimit && method === "cod") {
+      setMethod("vnpay");
+    }
+  }, [isCodOverLimit, method, setMethod]);
+
   if (!demoMode && pendingAttempt)
     return (
       <div className="stack">
@@ -126,15 +136,7 @@ export function CheckoutForm() {
       />
     );
 
-  const finalAmount = total - discount + (deliveryType === "shipping" ? shippingFee : 0);
-  const MAX_COD_AMOUNT = 20_000_000;
-  const isCodOverLimit = deliveryType === "shipping" && finalAmount > MAX_COD_AMOUNT;
 
-  useEffect(() => {
-    if (isCodOverLimit && method === "cod") {
-      setMethod("vnpay");
-    }
-  }, [isCodOverLimit, method, setMethod]);
 
   const paymentOptions =
     deliveryType === "shipping"
