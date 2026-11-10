@@ -17,6 +17,7 @@ import { REQUEST_RESOLUTION, REQUEST_STATUS } from "../constants";
 import { cardBadge, day, groupByPc, today, warrantyRemainingText } from "../domain/requests";
 import { useAftersales } from "../hooks/useAftersales";
 import { RequestDetail, RequestHistory } from "./RequestHistory";
+import { deviceChain, historyCounts } from "../domain/deviceHistory";
 
 const EMPTY_INTAKE = {
   issueDescription: "",
@@ -26,9 +27,9 @@ const EMPTY_INTAKE = {
   expectedReturnDate: "",
 };
 // Linh kiện tạo được phiếu: thẻ còn hoạt động, còn hạn, chưa có phiếu đang mở.
-const selectable = (c) => c.status === "active" && c.valid && !c.openRequest;
+const selectable = (c) => c.status === "active" && c.valid && !c.openRequest && !c.replacementPendingReturn;
 // Linh kiện hết hạn được tiếp nhận để kiểm tra ngoài bảo hành.
-const extraable = (c) => c.status === "active" && !c.valid && !c.openRequest;
+const extraable = (c) => c.status === "active" && !c.valid && !c.openRequest && !c.replacementPendingReturn;
 
 // Nhóm kết quả tra cứu theo đơn hàng; trong mỗi đơn, linh kiện cùng cấu hình PC gom thành "Bộ PC", còn lại là "Mua lẻ".
 function groupByOrder(cards) {
@@ -237,6 +238,7 @@ function OrderIntake({
                     </div>
                     <div className="intake-part-status">
                       <Badge tone={cardBadge(c)[0]}>{cardBadge(c)[1]}</Badge>
+                      {c.replacementPendingReturn && <span>Thiết bị thay thế chưa trả khách; chưa thể tiếp nhận mới.</span>}
                       <span>Hạn {day(c.endDate)} · {warrantyRemainingText(c)}</span>
                       {c.openRequest && (
                         <button
@@ -739,6 +741,14 @@ export function ApiWarrantyIntake() {
                   {c.productName} ·{" "}
                   <span className="mono">{c.serialNumber}</span>
                 </h3>
+                {(() => {
+                  const all = history.groups.flatMap((g) => g.cards);
+                  const chain = deviceChain(all, c);
+                  const own = historyCounts([c]);
+                  const total = historyCounts(chain);
+                  return <p className="small">Serial này: {own.received} lần tiếp nhận · {own.repaired} lần sửa · {own.replaced} lần đổi<br />
+                    Chuỗi {chain.map((item) => item.serialNumber).join(" → ")}: {total.received} lần tiếp nhận · {total.repaired} lần sửa · {total.replaced} lần đổi</p>;
+                })()}
                 {c.repairedCount >= 3 && (
                   <Notice tone="warning">
                     Thiết bị đã sửa {c.repairedCount} lần. Cân nhắc đổi thiết bị

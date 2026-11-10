@@ -79,6 +79,10 @@ export const ordersApi = {
     );
     return orderView(data);
   },
+  async shippingSerials(code: string, devices: { orderItemId: number; serialNumber: string }[]) {
+    const { data } = await axiosClient.post(`${codePath(endpoints.orderOperations, code)}/shipping-serials`, { devices });
+    return orderView(data);
+  },
   async collect(code: string, receivedAmount: number, reference: string) {
     const { data } = await axiosClient.post(
       `${codePath(endpoints.orderOperations, code)}/collect`,

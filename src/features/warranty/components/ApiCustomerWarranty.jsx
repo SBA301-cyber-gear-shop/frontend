@@ -15,6 +15,7 @@ import { CUSTOMER_RESOLUTION, CUSTOMER_STATUS } from "../constants";
 import { useAftersales } from "../hooks/useAftersales";
 import { RequestRoadmap } from "./RequestRoadmap";
 import { groupByPc } from "../domain/requests";
+import { deviceChain, historyCounts } from "../domain/deviceHistory";
 
 // Roadmap của cả lần gửi: trạng thái chung kèm tiến trình gộp của mọi linh kiện, mốc mới nhất thắng.
 const intakeRoadmap = (intake) => ({
@@ -115,6 +116,16 @@ export function ApiCustomerWarranty() {
                         <div className="name">
                           <b>{c.productName}</b>
                           <p className="small mono">{c.serialNumber}</p>
+                          {(() => {
+                            const chain = deviceChain(cards || [], c);
+                            const own = historyCounts([c]);
+                            const total = historyCounts(chain);
+                            return <details className="small"><summary>Lịch sử thiết bị</summary>
+                              <p>Serial này: {own.received} lần tiếp nhận · {own.repaired} lần sửa · {own.replaced} lần đổi</p>
+                              <p>Chuỗi {chain.map((item) => item.serialNumber).join(" → ")}: {total.received} lần tiếp nhận · {total.repaired} lần sửa · {total.replaced} lần đổi</p>
+                              {chain.flatMap((item) => (item.requests || []).map((r) => <p key={r.id}>{item.serialNumber} · {r.requestCode} · {CUSTOMER_STATUS[r.status]}{r.resolution ? " · " + CUSTOMER_RESOLUTION[r.resolution] : ""}</p>))}
+                            </details>;
+                          })()}
                           {c.replacedBySerialNumber && (
                             <p className="small muted">
                               Đã đổi sang serial{" "}

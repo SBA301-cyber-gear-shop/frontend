@@ -14,6 +14,7 @@ import {
 import { Field } from "@/components/form";
 import { REQUEST_RESOLUTION, REQUEST_STATUS } from "../constants";
 import { cardBadge, day, groupByPc, groupRequestsByIntake, stepButtons, today } from "../domain/requests";
+import { deviceChain, historyCounts } from "../domain/deviceHistory";
 import { useAftersales } from "../hooks/useAftersales";
 import { RequestHistory, Timeline } from "./RequestHistory";
 
@@ -153,6 +154,7 @@ function ApiTicketEditor({ ticket: t, svc, onChanged }) {
     [publicNote, setPublicNote] = useState(""),
     [expected, setExpected] = useState(""),
     [orderCards, setOrderCards] = useState([]),
+    [historyState, setHistoryState] = useState("loading"),
     [intake, setIntake] = useState(null),
     [target, setTarget] = useState(""),
     [addTarget, setAddTarget] = useState(""),
@@ -170,11 +172,18 @@ function ApiTicketEditor({ ticket: t, svc, onChanged }) {
   // Các thẻ cùng đơn hàng và các linh kiện cùng lần tiếp nhận: khách mang cả bộ máy, lỗi có thể nằm ở linh kiện khác.
   useEffect(() => {
     let alive = true;
+    setHistoryState("loading");
     if (orderCode)
       svc
         .searchCards(orderCode)
-        .then((found) => alive && setOrderCards(found))
-        .catch(() => {});
+        .then((found) => {
+          if (alive) {
+            setOrderCards(found);
+            setHistoryState(found.some((card) => card.id === cardId) ? "ready" : "error");
+          }
+        })
+        .catch(() => alive && setHistoryState("error"));
+    else setHistoryState("error");
     svc
       .getIntake(t.intakeId)
       .then((found) => alive && setIntake(found))
@@ -182,13 +191,13 @@ function ApiTicketEditor({ ticket: t, svc, onChanged }) {
     return () => {
       alive = false;
     };
-  }, [svc, orderCode, t.intakeId, t.version]);
+  }, [svc, orderCode, cardId, t.intakeId, t.version]);
   const siblings = orderCards.filter(
-    (c) => c.id !== cardId && c.status === "active",
+    (c) => c.id !== cardId && c.status === "active" && !c.replacementPendingReturn,
   );
   // Chỉ thêm thiết bị đã được khách mang tới và chưa có phiếu đang mở.
   const addable = orderCards.filter(
-    (c) => c.status === "active" && !c.openRequest,
+    (c) => c.status === "active" && !c.openRequest && !c.replacementPendingReturn,
   );
   const rest =
     intake?.requests.filter(
@@ -210,7 +219,8 @@ function ApiTicketEditor({ ticket: t, svc, onChanged }) {
       setBusy(false);
     }
   }
-  const others = t.card.requests.filter((r) => r.id !== t.id);
+  const chain = historyState === "ready" ? deviceChain(orderCards, t.card) : [];
+  const counts = historyCounts(chain);
   return (
     <fieldset className="stack plain-fieldset" disabled={busy}>
       <Panel
@@ -573,11 +583,18 @@ function ApiTicketEditor({ ticket: t, svc, onChanged }) {
       <Panel title="Lịch sử xử lý">
         <Timeline events={t.events} />
       </Panel>
-      {others.length > 0 && (
-        <Panel title="Các phiếu trước của thiết bị">
-          <RequestHistory requests={others} />
-        </Panel>
-      )}
+      <Panel title="Lịch sử linh kiện trong đơn">
+        {historyState === "loading" && <p>Đang tải lịch sử linh kiện...</p>}
+        {historyState === "error" && <Notice tone="danger">Không tải được lịch sử linh kiện. Vui lòng làm mới và thử lại.</Notice>}
+        {historyState === "ready" && <>
+          <p>Chuỗi serial: {chain.map((card) => card.serialNumber).join(" → ")}</p>
+          <p>{counts.received} lần tiếp nhận · {counts.repaired} lần sửa · {counts.replaced} lần đổi</p>
+          {chain.map((card) => <div key={card.id} className="section">
+            <h4>Serial {card.serialNumber}{card.id === cardId ? " (phiếu hiện tại)" : ""}</h4>
+            <RequestHistory requests={card.requests || []} />
+          </div>)}
+        </>}
+      </Panel>
       <Notice tone="neutral">
         Ghi chú nội bộ không hiển thị ở trang khách. Trả cả bộ máy cho khách
         thực hiện ở màn hình Tiếp nhận bảo hành.
