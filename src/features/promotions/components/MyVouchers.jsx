@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useStore } from "@/store";
-import { Badge, Button, Empty, Heading, Notice } from "@/components/ui";
+import { Badge, Button, Heading, Notice } from "@/components/ui";
 import { money, dateTime } from "@/utils";
 import { promotionsApi } from "../api/promotionsApi";
 import "./MyVouchers.css";
@@ -29,11 +29,15 @@ export function MyVouchers({ embedded = false, onSelect = () => {}, applied = ""
     try { await navigator.clipboard.writeText(code); setCopied(code); setCopyError(""); }
     catch { setCopyError("Không sao chép được. Bạn có thể chọn và sao chép mã hiển thị trên thẻ."); }
   }
-  return <div className="my-vouchers stack">
+  return <div className={`my-vouchers stack ${embedded ? "is-embedded" : "is-page"}`}>
     {!embedded && <Heading title="Voucher của tôi" sub="Ưu đãi được cấp cho bạn và lịch sử voucher đã sử dụng. Mỗi mã dùng một lần cho mỗi tài khoản." />}
     {!resource ? <Notice>Đang tải voucher…</Notice> : resource.error ? <Notice tone="danger">{resource.error} <Button tone="secondary" onClick={() => setVersion((value) => value + 1)}>Tải lại voucher</Button></Notice> : <>
-      <div className="voucher-wallet-tabs" role="group" aria-label="Trạng thái voucher của tôi">{[["ALL", "Tất cả"], ["AVAILABLE", "Có thể dùng"], ["USED", "Đã dùng"], ["EXPIRED", "Hết hạn"]].map(([value, label]) => <Button key={value} tone={tab === value ? "primary" : "secondary"} aria-pressed={tab === value} onClick={() => setTab(value)}>{label} ({items.filter((item) => matches(item, value)).length})</Button>)}</div>
+      <div className="voucher-wallet-filters">
       <input className="input" aria-label="Tìm voucher của tôi" placeholder="Tìm theo mã voucher hoặc tên ưu đãi…" maxLength={100} value={search} onChange={(event) => setSearch(event.target.value)} />
+      <select className="input" aria-label="Trạng thái voucher của tôi" value={tab} onChange={(event) => setTab(event.target.value)}>
+        {[["ALL", "Tất cả trạng thái"], ["AVAILABLE", "Có thể dùng"], ["USED", "Đã dùng"], ["EXPIRED", "Hết hạn"]].map(([value, label]) => <option key={value} value={value}>{label} ({items.filter((item) => matches(item, value)).length})</option>)}
+      </select>
+      </div>
       {copyError && <Notice tone="danger">{copyError}</Notice>}
       <div className="voucher-wallet-list">{visible.length ? visible.map((item) => <article key={item.id} className={`voucher-wallet-card ${item.status === "AVAILABLE" ? "" : "is-unavailable"}`}>
         <div className="voucher-wallet-discount"><span aria-hidden="true">🎟</span><strong>{item.type === "percentage" || item.type === "percent" ? `${item.value}%` : money(item.value)}</strong><span>Giảm đơn hàng</span></div>
@@ -48,7 +52,11 @@ export function MyVouchers({ embedded = false, onSelect = () => {}, applied = ""
             {!embedded && item.orderCode && <Button tone="ghost" to={`/don-hang/${encodeURIComponent(item.orderCode)}`}>Xem đơn hàng</Button>}
           </div>
         </div>
-      </article>) : <Empty title={items.length ? "Không có voucher phù hợp" : "Bạn chưa có voucher"} description={items.length ? "Thử chọn trạng thái khác hoặc thay đổi từ khóa." : "Voucher sẽ xuất hiện khi cửa hàng cấp ưu đãi cho tài khoản của bạn."} />}</div>
+      </article>) : <div className="voucher-wallet-empty">
+        <span className="voucher-wallet-empty-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v3a2 2 0 0 0 0 4v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-3a2 2 0 0 0 0-4V7Z"/><path d="M10 8v.01M10 12v.01M10 16v.01"/></svg></span>
+        <h2>{items.length ? "Không có voucher phù hợp" : "Bạn chưa có voucher"}</h2>
+        <p>{items.length ? "Thử chọn trạng thái khác hoặc thay đổi từ khóa." : "Voucher sẽ xuất hiện khi cửa hàng cấp ưu đãi cho tài khoản của bạn."}</p>
+      </div>}</div>
     </>}
   </div>;
 }
