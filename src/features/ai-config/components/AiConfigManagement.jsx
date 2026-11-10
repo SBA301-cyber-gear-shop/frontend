@@ -1,5 +1,4 @@
-import { useState } from "react";
-import { Badge, Button } from "@/components/ui";
+import { Badge, Button, Icon, Toast } from "@/components/ui";
 import { useAiConfigManagement } from "../hooks";
 import { AiConfigModal } from "./AiConfigModal";
 
@@ -10,6 +9,7 @@ export function AiConfigManagement() {
     loading,
     error,
     notice,
+    dismissNotice,
     setFilter,
     filter,
     modalMode,
@@ -40,31 +40,38 @@ export function AiConfigManagement() {
 
   return (
     <div className="ai-config-management">
-      {/* Header tối giản: Tiêu đề + Nút Thêm */}
-      <div className="ai-config-header row between">
-        <h1>Cấu hình AI</h1>
+      {/* 1. Header chuẩn TechZone Pro */}
+      <div className="page-head between">
+        <div>
+          <div className="eyebrow">QUẢN TRỊ / CẤU HÌNH AI & PROMPT</div>
+          <h1>Cấu hình AI & Prompt</h1>
+          <p className="muted">
+            Quản lý các mô hình ngôn ngữ lớn (LLM), API Key và System Prompt cho các tính năng thông minh
+          </p>
+        </div>
         <Button tone="primary" onClick={openCreateModal}>
-          + Thêm cấu hình
+          <Icon name="plus" />
+          <span>Thêm cấu hình</span>
         </Button>
       </div>
 
-      {/* Thông báo dạng Toast nổi ở góc dưới màn hình */}
+      {/* 2. Thông báo dạng Toast chính thức của hệ thống */}
       {notice && (
-        <div className={`ai-toast-corner ${notice.tone}`}>
-          <span className="toast-icon">
-            {notice.tone === "error" ? "✕" : "✓"}
-          </span>
-          <span className="toast-message">{notice.message}</span>
-        </div>
+        <Toast
+          message={notice.message}
+          type={notice.tone === "warn" ? "info" : notice.tone}
+          onClose={dismissNotice}
+        />
       )}
 
-      {/* Thanh tìm kiếm & lọc tinh gọn */}
+      {/* 3. Thanh tìm kiếm & lọc tinh gọn */}
       <div className="ai-toolbar-minimal row between wrap-row">
-        <div className="search-input-wrap">
+        <div className="search-box-wrap">
+          <Icon name="search" />
           <input
             type="text"
-            className="input"
-            placeholder="Tìm theo tên, mã key, model..."
+            className="input search-input"
+            placeholder="Tìm theo tên chức năng, mã định danh, model..."
             value={filter.search}
             onChange={(e) =>
               setFilter((prev) => ({ ...prev, search: e.target.value }))
@@ -88,11 +95,12 @@ export function AiConfigManagement() {
         </select>
       </div>
 
-      {/* Bảng dữ liệu tối giản: Không thông tin trùng lặp, không nút trùng chức năng */}
+      {/* 4. Bảng dữ liệu đồng bộ chuẩn TechZone */}
       <div className="ai-table-card">
         {loading ? (
-          <div className="ai-empty-state">
-            <p>Đang tải danh sách...</p>
+          <div className="loading-state" style={{ padding: "48px 0", textAlign: "center" }}>
+            <div className="spinner" style={{ margin: "0 auto 12px" }}></div>
+            <p className="muted">Đang tải danh sách cấu hình AI...</p>
           </div>
         ) : error ? (
           <div className="ai-empty-state">
@@ -115,11 +123,16 @@ export function AiConfigManagement() {
               </thead>
               <tbody>
                 {filteredConfigs.map((config) => (
-                  <tr key={config.id}>
-                    {/* Cột 1: Gom Tên + Mã Key vào 1 chỗ để không dàn trải */}
+                  <tr key={config.id} className="ai-config-row">
+                    {/* Cột 1: Tên + Icon Spark + Mã Key */}
                     <td>
                       <div className="config-identity-cell">
-                        <span className="config-name-text">{config.configName}</span>
+                        <div className="config-title-row">
+                          <span className="ai-icon-chip">
+                            <Icon name="spark" />
+                          </span>
+                          <span className="config-name-text">{config.configName}</span>
+                        </div>
                         <span className="code-badge">{config.configKey}</span>
                       </div>
                     </td>
@@ -130,7 +143,7 @@ export function AiConfigManagement() {
                         <span className={getProviderBadgeClass(config.provider)}>
                           {config.provider}
                         </span>
-                        <span className="code-font">{config.modelName}</span>
+                        <span className="model-name-text">{config.modelName}</span>
                       </div>
                     </td>
 
@@ -140,7 +153,7 @@ export function AiConfigManagement() {
                         type="button"
                         className="toggle-switch-btn"
                         onClick={() => handleToggleActive(config)}
-                        title="Bấm để đổi trạng thái"
+                        title="Bấm để đổi trạng thái kích hoạt"
                       >
                         <Badge tone={config.isActive ? "success" : "muted"}>
                           {config.isActive ? "Hoạt động" : "Tạm dừng"}
@@ -148,22 +161,26 @@ export function AiConfigManagement() {
                       </button>
                     </td>
 
-                    {/* Cột 4: Thao tác duy nhất (Căn giữa cân đối) */}
+                    {/* Cột 4: Thao tác với icon Sửa / Xóa chuẩn TechZone */}
                     <td style={{ textAlign: "center" }}>
                       <div className="action-buttons-wrap">
                         <button
                           type="button"
-                          className="btn-icon-action"
+                          className="btn-action-icon"
+                          title="Sửa cấu hình AI"
                           onClick={() => openEditModal(config)}
                         >
-                          Sửa
+                          <Icon name="edit" />
+                          <span>Sửa</span>
                         </button>
                         <button
                           type="button"
-                          className="btn-icon-action danger"
+                          className="btn-action-icon danger"
+                          title="Xóa cấu hình"
                           onClick={() => handleDelete(config)}
                         >
-                          Xóa
+                          <Icon name="trash" />
+                          <span>Xóa</span>
                         </button>
                       </div>
                     </td>
@@ -175,7 +192,7 @@ export function AiConfigManagement() {
         )}
       </div>
 
-      {/* Modal duy nhất: Xem, chỉnh sửa và thử nghiệm prompt trọn gói */}
+      {/* Modal chỉnh sửa & thêm cấu hình AI */}
       <AiConfigModal
         isOpen={modalMode !== null}
         mode={modalMode}

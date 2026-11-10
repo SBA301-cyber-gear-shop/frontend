@@ -15,6 +15,7 @@ const menu = [
   ["/quan-tri/thong-so", "layers", "Danh mục & thông số", ["Admin"]],
   ["/quan-tri/khuyen-mai", "spark", "Khuyến mãi & banner", ["Admin"]],
   ["/quan-tri/cau-hinh-ai", "spark", "Cấu hình AI & Prompt", ["Admin"]],
+  ["/quan-tri/pc-builder-metadata", "chip", "Metadata AI PC Builder", ["Admin"]],
 ];
 
 export function AdminLayout() {

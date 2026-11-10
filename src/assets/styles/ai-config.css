@@ -1,54 +1,73 @@
 /* ==============================================================================
-   AI CONFIG MANAGEMENT — CLEAN & MINIMALIST STYLES
+   AI CONFIG MANAGEMENT — SYNCHRONIZED TECHZONE DESIGN SYSTEM
    Centralized in frontend/src/assets/styles/ai-config.css
    ============================================================================== */
 
 .ai-config-management {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 20px;
+  font-family: var(--font, "Be Vietnam Pro", sans-serif);
 }
 
-/* Header */
-.ai-config-header h1 {
-  font-size: 22px;
-  font-weight: 750;
-  color: var(--ink);
-}
-
-/* Toolbar tối giản */
+/* Toolbar tối giản chuẩn TechZone */
 .ai-toolbar-minimal {
   gap: 12px;
   align-items: center;
 }
 
-.search-input-wrap {
+.search-box-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
   min-width: 280px;
-  max-width: 380px;
+  max-width: 420px;
   flex: 1;
 }
 
-.search-input-wrap .input {
-  width: 100%;
+.search-box-wrap .icon {
+  position: absolute;
+  left: 12px;
+  width: 16px;
+  height: 16px;
+  color: var(--muted, #657185);
+  pointer-events: none;
 }
 
-.filter-select {
-  height: 42px;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  padding: 0 12px;
-  background: #ffffff;
-  color: var(--ink);
+.search-box-wrap .search-input {
+  width: 100%;
+  padding-left: 38px;
+  height: 40px;
   font-size: 14px;
 }
 
-/* Table Card */
+.filter-select {
+  height: 40px;
+  border: 1px solid var(--line, #e2e7ed);
+  border-radius: 7px;
+  padding: 0 14px;
+  background: #ffffff;
+  color: var(--ink, #152237);
+  font-size: 14px;
+  font-family: var(--font, "Be Vietnam Pro", sans-serif);
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.filter-select:focus {
+  outline: none;
+  border-color: var(--red, #d91f31);
+  box-shadow: 0 0 0 3px rgba(217, 31, 49, 0.1);
+}
+
+/* Table Card đồng bộ với bảng metadata */
 .ai-table-card {
   background: #ffffff;
-  border: 1px solid var(--line);
-  border-radius: 8px;
+  border: 1px solid var(--line, #e2e7ed);
+  border-radius: var(--radius, 12px);
   overflow: hidden;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+  box-shadow: 0 1px 3px rgba(21, 34, 55, 0.04);
 }
 
 .table-responsive {
@@ -61,51 +80,92 @@
   border-collapse: collapse;
   text-align: left;
   font-size: 14px;
+  font-family: var(--font, "Be Vietnam Pro", sans-serif);
 }
 
 .ai-table th {
-  background: #f8fafc;
-  color: #475569;
-  font-weight: 600;
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--line);
+  background: #f7f9fb;
+  color: #718094;
+  font-size: 11px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  font-weight: 650;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--line, #e2e7ed);
   white-space: nowrap;
 }
 
 .ai-table td {
-  padding: 14px 16px;
-  border-bottom: 1px solid var(--line);
+  padding: 14px 18px;
+  border-bottom: 1px solid #eaf0f5;
   vertical-align: middle;
+  color: var(--ink, #152237);
+  font-family: var(--font, "Be Vietnam Pro", sans-serif);
 }
 
-.ai-table tbody tr:hover {
-  background: #fbfcfe;
+.ai-table tbody tr:hover td {
+  background: #fafbfd;
 }
 
-/* Cột Chức năng & Mã định danh gộp chung */
+.ai-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* Cột Chức năng & Mã định danh */
 .config-identity-cell {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 5px;
+}
+
+.config-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ai-icon-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: var(--soft-red, #fff0f2);
+  color: var(--red, #d91f31);
+  border: 1px solid #ffd0d5;
+  flex-shrink: 0;
+  transition: all 0.15s ease;
+}
+
+.ai-icon-chip .icon {
+  width: 14px;
+  height: 14px;
+}
+
+.ai-config-row:hover .ai-icon-chip {
+  background: var(--red, #d91f31);
+  color: #ffffff;
+  border-color: var(--red, #d91f31);
 }
 
 .config-name-text {
-  font-weight: 600;
-  color: var(--ink);
+  font-weight: 650;
+  color: var(--ink, #152237);
   font-size: 14px;
 }
 
 .code-badge {
   display: inline-block;
   align-self: flex-start;
-  background: #f1f5f9;
-  color: #334155;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  background: var(--bg, #f5f7fa);
+  color: var(--muted, #657185);
   font-size: 11px;
   font-weight: 600;
-  padding: 1px 6px;
+  padding: 2px 8px;
   border-radius: 4px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--line, #e2e7ed);
+  letter-spacing: 0.2px;
 }
 
 /* Badges Nhà cung cấp */
@@ -114,9 +174,10 @@
   align-items: center;
   font-size: 11px;
   font-weight: 700;
-  padding: 2px 7px;
-  border-radius: 4px;
+  padding: 3px 8px;
+  border-radius: 5px;
   text-transform: uppercase;
+  letter-spacing: 0.3px;
 }
 
 .provider-badge.gemini {
@@ -140,56 +201,80 @@
 }
 
 .provider-badge.custom {
-  background: #f1f5f9;
-  color: #475569;
+  background: var(--bg, #f5f7fa);
+  color: var(--muted, #657185);
+  border: 1px solid var(--line, #e2e7ed);
 }
 
-.code-font {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+.model-name-text {
   font-size: 13px;
-  color: #475569;
+  color: var(--ink, #152237);
+  font-weight: 600;
+  letter-spacing: 0.1px;
 }
 
 /* Cột Mô hình AI thẳng hàng */
 .model-identity-cell {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   flex-wrap: wrap;
 }
 
-/* Action Buttons căn giữa cân đối */
+/* Action Buttons chuẩn TechZone Admin */
 .action-buttons-wrap {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 6px;
 }
 
-.btn-icon-action {
-  background: #f8fafc;
-  border: 1px solid var(--line);
+.btn-action-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 5px 11px;
   border-radius: 6px;
-  padding: 5px 12px;
-  font-size: 13px;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: var(--font, "Be Vietnam Pro", sans-serif);
+  border: 1px solid var(--line, #e2e7ed);
+  background: #ffffff;
+  color: var(--ink, #152237);
   cursor: pointer;
-  color: var(--ink);
   transition: all 0.15s ease;
-  font-weight: 500;
+  line-height: 1.3;
 }
 
-.btn-icon-action:hover {
-  background: #f1f5f9;
+.btn-action-icon:hover {
+  background: var(--bg, #f5f7fa);
   border-color: #cbd5e1;
 }
 
-.btn-icon-action.danger {
-  color: var(--red);
+.btn-action-icon.danger {
+  color: var(--danger, #b52337);
 }
 
-.btn-icon-action.danger:hover {
-  background: #fee2e2;
+.btn-action-icon.danger:hover {
+  background: var(--soft-red, #fff0f2);
   border-color: #fca5a5;
+}
+
+.btn-action-icon.primary {
+  background: var(--red, #d91f31);
+  color: #ffffff;
+  border-color: var(--red, #d91f31);
+}
+
+.btn-action-icon.primary:hover {
+  background: #bc192a;
+  border-color: #bc192a;
+}
+
+.btn-action-icon .icon {
+  width: 13px;
+  height: 13px;
 }
 
 .toggle-switch-btn {
@@ -202,82 +287,9 @@
   justify-content: center;
 }
 
-/* Toast thông báo ở góc dưới bên phải màn hình */
-.ai-toast-corner {
-  position: fixed;
-  bottom: 24px;
-  right: 24px;
-  z-index: 1000;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 18px;
-  border-radius: 10px;
-  font-size: 14px;
-  font-weight: 500;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
-  animation: toast-corner-in 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-  max-width: min(480px, calc(100vw - 32px));
-}
-
-.ai-toast-corner.success {
-  background: #0f172a;
-  color: #ffffff;
-  border-left: 4px solid #10b981;
-}
-
-.ai-toast-corner.success .toast-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  background: #10b981;
-  color: #ffffff;
-  font-size: 12px;
-  font-weight: bold;
-  flex-shrink: 0;
-}
-
-.ai-toast-corner.error {
-  background: #0f172a;
-  color: #ffffff;
-  border-left: 4px solid #ef4444;
-}
-
-.ai-toast-corner.error .toast-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  background: #ef4444;
-  color: #ffffff;
-  font-size: 12px;
-  font-weight: bold;
-  flex-shrink: 0;
-}
-
-.ai-toast-corner .toast-message {
-  line-height: 1.4;
-}
-
-@keyframes toast-corner-in {
-  from {
-    opacity: 0;
-    transform: translateY(20px) scale(0.95);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-
 .ai-empty-state {
   text-align: center;
-  padding: 36px 20px;
+  padding: 44px 20px;
 }
 
 /* ==============================================================================
@@ -289,53 +301,23 @@
   width: min(860px, calc(100% - 32px)) !important;
   max-height: 94vh;
   padding: 24px 28px;
-}
-
-/* Modal Header & Close Button */
-.ai-config-form-modal > .between {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 14px;
-}
-
-.ai-config-form-modal .icon-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 6px;
-  border: 1px solid var(--line);
-  background: #f8fafc;
-  color: #64748b;
-  font-size: 20px;
-  line-height: 1;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.ai-config-form-modal .icon-button:hover {
-  background: #fee2e2;
-  color: var(--red);
-  border-color: #fca5a5;
+  font-family: var(--font, "Be Vietnam Pro", sans-serif);
 }
 
 .ai-config-form {
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  margin-top: 4px;
+  gap: 16px;
+  margin-top: 6px;
 }
 
 .grid-2-col {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 14px;
+  gap: 16px;
   align-items: start;
 }
 
-/* Triệt tiêu margin-top: 18px do selector .field + .field từ global css (app.css / reference.css) gây lệch cột */
 .ai-config-form .field,
 .ai-config-form .field + .field,
 .grid-2-col > .field,
@@ -347,9 +329,9 @@
   display: block;
   font-size: 13px;
   font-weight: 650;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
   line-height: 1.4;
-  color: var(--ink);
+  color: var(--ink, #152237);
 }
 
 .ai-config-form input.input,
@@ -361,49 +343,29 @@
   font-size: 14px;
 }
 
-/* Ẩn triệt để mũi tên picker mặc định của trình duyệt trên các ô input */
-.ai-config-form input::-webkit-calendar-picker-indicator {
-  display: none !important;
-  opacity: 0 !important;
-  pointer-events: none !important;
-}
-
-.ai-config-form textarea.input {
-  min-height: 100px;
-  height: auto;
-}
-
-@media (max-width: 600px) {
-  .grid-2-col {
-    grid-template-columns: 1fr;
-  }
-}
-
 .req {
-  color: var(--red);
+  color: var(--red, #d91f31);
   font-weight: bold;
 }
 
 .input-group {
   display: flex;
   align-items: stretch;
-  border: 1px solid var(--line, #dbe1e9);
+  border: 1px solid var(--line, #e2e7ed);
   border-radius: 7px;
   background: #ffffff;
   overflow: hidden;
   box-sizing: border-box;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease, outline 0.15s ease;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
-/* Khi focus vào bất kỳ phần tử nào bên trong input-group, bóng xanh bao phủ toàn bộ khung chứa cả input và nút ẩn/hiện */
 .input-group:focus-within {
-  border-color: var(--focus, #246dd0);
-  outline: 3px solid var(--focus, #246dd0);
-  outline-offset: 3px;
+  border-color: var(--red, #d91f31);
+  box-shadow: 0 0 0 3px rgba(217, 31, 49, 0.1);
 }
 
 .input-group.has-error {
-  border-color: var(--red, #e53e3e);
+  border-color: var(--danger, #b52337);
 }
 
 .input-group .input,
@@ -419,26 +381,18 @@
   height: 42px;
 }
 
-.input-group .input:focus,
-.input-group .input:focus-visible,
-.ai-config-form .input-group input.input:focus,
-.ai-config-form .input-group input.input:focus-visible {
-  outline: none !important;
-  box-shadow: none !important;
-}
-
 .input-group-btn {
-  background: #f8fafc;
+  background: var(--bg, #f5f7fa);
   border: none !important;
-  border-left: 1px solid var(--line, #dbe1e9) !important;
+  border-left: 1px solid var(--line, #e2e7ed) !important;
   outline: none !important;
   box-shadow: none !important;
   border-radius: 0 !important;
   padding: 0 16px;
   cursor: pointer;
   font-size: 13px;
-  font-weight: 500;
-  color: var(--ink);
+  font-weight: 600;
+  color: var(--ink, #152237);
   height: 42px;
   box-sizing: border-box;
   display: inline-flex;
@@ -448,15 +402,9 @@
   white-space: nowrap;
 }
 
-.input-group-btn:focus,
-.input-group-btn:focus-visible {
-  outline: none !important;
-  box-shadow: none !important;
-}
-
 .input-group-btn:hover {
-  background: #f1f5f9;
-  color: var(--focus, #246dd0);
+  background: var(--line, #e2e7ed);
+  color: var(--red, #d91f31);
 }
 
 .textarea-field {
@@ -467,9 +415,9 @@
 }
 
 .prompt-textarea {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  min-height: 120px;
+  background: #fafbfd;
   font-size: 13px;
-  background: #fbfcfe;
 }
 
 .field-checkbox {
@@ -482,60 +430,61 @@
   align-items: center;
   gap: 8px;
   cursor: pointer;
-  font-weight: 500;
+  font-weight: 550;
   font-size: 14px;
+  color: var(--ink, #152237);
 }
 
 .switch-label input[type="checkbox"] {
-  width: 16px;
-  height: 16px;
+  width: 17px;
+  height: 17px;
   cursor: pointer;
-  accent-color: var(--green);
+  accent-color: var(--red, #d91f31);
 }
 
-/* Modal Actions Buttons (Hủy & Lưu cấu hình đều đặn) */
+/* Modal Actions Buttons */
 .ai-config-modal-actions {
   display: flex;
   align-items: center;
   justify-content: flex-end;
   gap: 12px;
   margin-top: 14px;
-  padding-top: 12px;
-  border-top: 1px solid var(--line);
+  padding-top: 14px;
+  border-top: 1px solid var(--line, #e2e7ed);
 }
 
 .ai-config-modal-actions .btn {
   height: 40px;
-  min-width: 120px;
-  padding: 0 20px;
+  min-width: 110px;
+  padding: 0 18px;
   font-size: 14px;
-  font-weight: 600;
-  border-radius: 8px;
+  font-weight: 650;
+  border-radius: 7px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 8px;
   box-sizing: border-box;
 }
 
 .ai-config-modal-actions .btn-secondary {
   background: #ffffff;
-  border: 1px solid var(--line);
-  color: var(--ink);
+  border: 1px solid var(--line, #e2e7ed);
+  color: var(--ink, #152237);
 }
 
 .ai-config-modal-actions .btn-secondary:hover {
-  background: #f1f5f9;
+  background: var(--bg, #f5f7fa);
   border-color: #cbd5e1;
 }
 
 .ai-config-modal-actions .btn-primary {
-  background: #dc2626;
-  border: 1px solid #dc2626;
+  background: var(--red, #d91f31);
+  border: 1px solid var(--red, #d91f31);
   color: #ffffff;
 }
 
 .ai-config-modal-actions .btn-primary:hover:not(:disabled) {
-  background: #b91c1c;
-  border-color: #b91c1c;
+  background: #bc192a;
+  border-color: #bc192a;
 }
-

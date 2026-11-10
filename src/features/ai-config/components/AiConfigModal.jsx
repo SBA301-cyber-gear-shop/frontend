@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Modal, Button } from "@/components/ui";
+import { Modal, Button, Icon } from "@/components/ui";
 
 const CONFIG_KEY_OPTIONS = [
   { value: "PC_BUILD_ANA", label: "PC_BUILD_ANA — Phân tích nhu cầu PC" },
@@ -87,13 +87,16 @@ export function AiConfigModal({
     if (!validate()) return;
     onSave({
       ...formData,
-      systemPrompt: formData.configKey === "EMBEDDING_CONFIG" && !formData.systemPrompt.trim() ? null : formData.systemPrompt,
+      systemPrompt:
+        formData.configKey === "EMBEDDING_CONFIG" && !formData.systemPrompt.trim()
+          ? null
+          : formData.systemPrompt,
     });
   };
 
   return (
     <Modal
-      title={mode === "create" ? "Thêm cấu hình AI" : "Chỉnh sửa cấu hình AI"}
+      title={mode === "create" ? "Thêm cấu hình AI mới" : "Chỉnh sửa cấu hình AI"}
       onClose={onClose}
       className="ai-config-form-modal"
     >
@@ -126,7 +129,7 @@ export function AiConfigModal({
             </label>
             <select
               id="cfg-key"
-              className="input code-font"
+              className="input"
               value={formData.configKey}
               onChange={(e) =>
                 setFormData((prev) => ({ ...prev, configKey: e.target.value }))
@@ -175,7 +178,7 @@ export function AiConfigModal({
             <input
               id="cfg-model"
               type="text"
-              className="input code-font"
+              className="input"
               value={formData.modelName}
               onChange={(e) =>
                 setFormData((prev) => ({ ...prev, modelName: e.target.value }))
@@ -197,7 +200,7 @@ export function AiConfigModal({
             <input
               id="cfg-apikey"
               type={showApiKey ? "text" : "password"}
-              className="input code-font"
+              className="input"
               value={formData.apiKey}
               onChange={(e) =>
                 setFormData((prev) => ({ ...prev, apiKey: e.target.value }))
@@ -265,7 +268,8 @@ export function AiConfigModal({
             Hủy
           </Button>
           <Button type="submit" tone="primary" disabled={isSubmitting}>
-            {isSubmitting ? "Đang lưu..." : "Lưu cấu hình"}
+            <Icon name="check" />
+            <span>{isSubmitting ? "Đang lưu..." : "Lưu cấu hình"}</span>
           </Button>
         </div>
       </form>

@@ -228,6 +228,7 @@ export function useAiConfigManagement() {
     loading,
     error,
     notice,
+    dismissNotice: () => setNotice(null),
     filter,
     setFilter,
     stats,

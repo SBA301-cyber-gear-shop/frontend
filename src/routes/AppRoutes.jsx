@@ -24,6 +24,7 @@ const AdminProduct = lazy(() => import("@/pages/AdminProduct"));
 const AdminSpecs = lazy(() => import("@/pages/AdminSpecs"));
 const AdminPromotion = lazy(() => import("@/pages/AdminPromotion"));
 const AdminAiConfig = lazy(() => import("@/pages/AdminAiConfig"));
+const AdminPcBuildMetadata = lazy(() => import("@/pages/AdminPcBuildMetadata"));
 const Exceptions = lazy(() => import("@/pages/Exceptions"));
 const Login = lazy(() => import("@/pages/Login"));
 const Register = lazy(() => import("@/pages/Register"));
@@ -113,6 +114,7 @@ export function AppRoutes() {
             <Route path="/quan-tri/thong-so" element={<AdminSpecs />} />
             <Route path="/quan-tri/khuyen-mai" element={<AdminPromotion />} />
             <Route path="/quan-tri/cau-hinh-ai" element={<AdminAiConfig />} />
+            <Route path="/quan-tri/pc-builder-metadata" element={<AdminPcBuildMetadata />} />
           </Route>
         </Route>
         {Object.entries(legacyAliases).map(([from, to]) => (
