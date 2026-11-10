@@ -48,6 +48,7 @@ export function PcBuilder() {
         onSubmit={() => builder.submit()}
         isBusy={builder.isBusy}
         disabled={builder.demoMode}
+        maxBuildPrice={builder.config?.maxBuildPrice}
       />
 
       {phase === "loading" && <AiLoadingBox step={builder.step} />}

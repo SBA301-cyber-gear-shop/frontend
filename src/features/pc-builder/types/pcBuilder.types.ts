@@ -17,6 +17,11 @@ export type SlotCode =
 
 // ---- Bước 1–3: phân tích nhu cầu ----
 
+export interface PcBuildConfig {
+  maxBuildPrice: number;
+  lowestMinBudget: number;
+}
+
 export interface AnalyzeRequest {
   budget: number;
   message: string;

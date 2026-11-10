@@ -22,6 +22,7 @@ import type {
   BuildItem,
   BuildItemRequest,
   BuildResult,
+  PcBuildConfig,
   PurposeOption,
   ReplacementOption,
 } from "../types/pcBuilder.types";
@@ -118,6 +119,7 @@ export function usePcBuilder() {
   // Form
   const [budget, setBudget] = useState<number | "">(draft?.budget ?? cartItems?.budget ?? "");
   const [message, setMessage] = useState(draft?.message ?? "");
+  const [config, setConfig] = useState<PcBuildConfig | null>(null);
 
   // Kết quả
   const [phase, setPhase] = useState<BuilderPhase>(draft ? "done" : cartItems ? "loading" : "idle");
@@ -145,6 +147,21 @@ export function usePcBuilder() {
   const numericBudget = typeof budget === "number" ? budget : Number(budget) || 0;
 
   useEffect(() => () => requests.cancelAll(), [requests]);
+
+  useEffect(() => {
+    let active = true;
+    pcBuilderApi
+      .getConfig()
+      .then((data) => {
+        if (active) setConfig(data);
+      })
+      .catch((err) => {
+        console.warn("[PC Builder] Không lấy được cấu hình PC:", err);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (!draft) return;
@@ -233,7 +250,7 @@ export function usePcBuilder() {
     if (requests.isSuggesting) return;
     const value = budgetOverride ?? numericBudget;
     const text = message.trim();
-    const invalid = checkInput(value, text);
+    const invalid = checkInput(value, text, config?.maxBuildPrice);
     if (invalid) {
       notify(invalid, "danger");
       return;
@@ -503,6 +520,7 @@ export function usePcBuilder() {
   }
 
   return {
+    config,
     demoMode,
     budget,
     setBudget,
