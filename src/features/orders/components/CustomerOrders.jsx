@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import { useState } from "react";
 import { useStore } from "@/store";
 import { ReviewComposer, ReviewViewer } from "@/features/reviews";
-import { dateTime, money, formatShortOrderCode } from "@/utils";
+import { money, formatShortOrderCode } from "@/utils";
 import { ORDER_STATUS, PAYMENT_STATUS } from "../constants";
 import {
   Art,
@@ -15,6 +15,8 @@ import {
   Notice,
 } from "@/components/ui";
 import { useCustomerOrders } from "../hooks/useCustomerOrders";
+import { paymentDateTime } from "./paymentDisplay";
+import "./CustomerOrders.css";
 
 export function CustomerOrders() {
   const [reviewOrder, setReviewOrder] = useState(null);
@@ -71,8 +73,8 @@ export function CustomerOrders() {
       <div className="stack">
         {orders.length ? (
           orders.map((o) => (
-            <Panel key={o.id}>
-              <div className="between">
+            <Panel key={o.id} className="customer-order-card">
+              <div className="customer-order-header">
                 <div>
                   <Link
                     className="red"
@@ -81,7 +83,7 @@ export function CustomerOrders() {
                   >
                     <b>{formatShortOrderCode(o.id)}</b>
                   </Link>
-                  <p className="small muted">{dateTime(o.createdAt)}</p>
+                  <p className="small muted">{paymentDateTime(o.createdAt)}</p>
                 </div>
                 <Badge
                   tone={
@@ -92,15 +94,17 @@ export function CustomerOrders() {
                         : "info"
                   }
                 >
-                  {ORDER_STATUS[o.status]}
+                  {o.status === "completed" && o.deliveryType !== "shipping" ? "Đã nhận hàng" : ORDER_STATUS[o.status]}
                 </Badge>
               </div>
-              <div className="row section">
+              <div className="customer-order-product">
                 <Art
                   type={
                     data.products.find((p) => p.id === o.lines[0]?.id)?.category
                   }
                   className="mini"
+                  image={data.products.find((p) => p.id === o.lines[0]?.id)?.image}
+                  name={o.lines[0]?.name}
                 />
                 <div>
                   <b>{o.lines[0]?.name}</b>
@@ -113,18 +117,17 @@ export function CustomerOrders() {
                   </p>
                 </div>
               </div>
-              <div className="between section">
+              <div className="customer-order-footer">
                 <Badge tone={o.payment === "SUCCESS" ? "success" : "warning"}>
                   {PAYMENT_STATUS[o.payment]}
                 </Badge>
-                <div className="row wrap-row">
+                <div className="customer-order-actions">
                   <strong className="price">{money(o.final)}</strong>
                   {o.status === "completed" && o.lines.some((line) => !hasReview(o, line)) && (
                     <Button onClick={() => setReviewOrder({ ...o, lines: o.lines.filter((line) => !hasReview(o, line)) })}>
                       Đánh giá
                     </Button>
                   )}
-                  {o.status === "completed" && o.lines.length > 0 && o.lines.every((line) => hasReview(o, line)) && <Badge tone="success">Đã đánh giá</Badge>}
                   {o.status === "completed" && o.lines.some((line) => hasReview(o, line)) && <Button tone="secondary" onClick={() => setViewOrder({ ...o, lines: o.lines.filter((line) => hasReview(o, line)) })}>Xem đánh giá</Button>}
                   <Button to={"/don-hang/" + o.id} tone="secondary">
                     Xem chi tiết →

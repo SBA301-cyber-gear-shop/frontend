@@ -705,8 +705,8 @@ test("admin promotion → customer order → staff collection and handover → w
     .getByRole("button", { name: "Hoàn tất bàn giao", exact: true })
     .click();
   await expect(
-    page.getByText("Đã bàn giao và kích hoạt bảo hành.", { exact: true }),
-  ).toBeVisible();
+    page.getByRole("heading", { name: "Bước tiếp theo", exact: true }),
+  ).toHaveCount(0);
   expect(cards).toHaveLength(2);
   expect(promotions[0]).toMatchObject({ used: 1, reserved: 0 });
   await logout();

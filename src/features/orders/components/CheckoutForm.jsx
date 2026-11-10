@@ -17,7 +17,6 @@ import { useCheckout } from "../hooks/useCheckout";
 export function CheckoutForm() {
   const {
     data,
-    user,
     fromBuild,
     lines,
     total,
@@ -60,6 +59,16 @@ export function CheckoutForm() {
     retryValidation,
     pendingAttempt,
   } = useCheckout();
+
+  const finalAmount = total - discount + (deliveryType === "shipping" ? shippingFee : 0);
+  const MAX_COD_AMOUNT = 20_000_000;
+  const isCodOverLimit = deliveryType === "shipping" && finalAmount > MAX_COD_AMOUNT;
+
+  useEffect(() => {
+    if (isCodOverLimit && method === "cod") {
+      setMethod("vnpay");
+    }
+  }, [isCodOverLimit, method, setMethod]);
 
   if (!demoMode && pendingAttempt)
     return (
@@ -124,16 +133,6 @@ export function CheckoutForm() {
         action={<Button to="/san-pham">Chọn sản phẩm</Button>}
       />
     );
-
-  const finalAmount = total - discount + (deliveryType === "shipping" ? shippingFee : 0);
-  const MAX_COD_AMOUNT = 20_000_000;
-  const isCodOverLimit = deliveryType === "shipping" && finalAmount > MAX_COD_AMOUNT;
-
-  useEffect(() => {
-    if (isCodOverLimit && method === "cod") {
-      setMethod("vnpay");
-    }
-  }, [isCodOverLimit, method, setMethod]);
 
   const paymentOptions =
     deliveryType === "shipping"

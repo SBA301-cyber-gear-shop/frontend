@@ -165,7 +165,7 @@ test("customer sees PC and loose groups on cards and intake results", async ({ p
     await expect(page.locator(".voucher-wallet-card")).toHaveCount(1);
     await expect(page.locator(".voucher-wallet-card")).toContainText("ONLYME");
     await expect(page.getByRole("button", { name: "Sao chép mã", exact: true })).toBeVisible();
-    await page.getByRole("button", { name: "Đã dùng (1)", exact: true }).click();
+    await page.getByLabel("Trạng thái voucher của tôi").selectOption("USED");
     await expect(page.locator(".voucher-wallet-card")).toContainText("PAID");
     await expect(page.getByRole("button", { name: "Sao chép mã", exact: true })).toHaveCount(0);
     await page.getByRole("button", { name: "Hết hạn (1)", exact: true }).click();

@@ -1,0 +1,8 @@
+.product-purchase .product-availability { margin: 16px 0 0; font-size: 14px; font-weight: 600; }
+.product-purchase .product-availability.in-stock { color: var(--green); }
+.product-purchase .product-availability.out-of-stock { color: var(--red); }
+.product-purchase-section { margin-top: 24px; }
+.product-purchase-label { display: block; color: var(--ink); font-size: 14px; margin-bottom: 10px; }
+.product-purchase-section .variant-select { margin-top: 0; }
+.product-quantity-row { gap: 14px; flex-wrap: wrap; }
+.product-purchase-actions { margin-top: 26px; gap: 12px; }
