@@ -473,16 +473,34 @@ export function usePcBuilder() {
     setIsAdding(true);
     let added = 0;
     try {
+      let buildId = savedBuildId;
+      if (!buildId) {
+        try {
+          const res = await pcBuilderApi.save({
+            budget: current.budget,
+            items: toItemRequests(current.items),
+            confirmOverBudget: true,
+          });
+          buildId = res.buildId;
+          setSavedBuildId(buildId);
+        } catch (e) {
+          console.warn("[PC Builder] Không thể tự động lưu cấu hình trước khi thêm vào giỏ:", e);
+        }
+      }
+
       const quantities = new Map<number, number>();
       for (const item of current.items) quantities.set(item.id, (quantities.get(item.id) || 0) + item.qty);
+      const batchItems = Array.from(quantities.entries()).map(([variantId, qty]) => ({
+        productVariantId: variantId,
+        quantity: qty,
+      }));
+
       const updated = await mutateCart(async () => {
-        for (const [variantId, qty] of quantities) {
-          await cartApi.add(String(variantId), qty);
-          added++;
-        }
+        await cartApi.addBatch(batchItems, buildId);
+        added = batchItems.length;
       });
       if (!updated) return;
-      rememberCartSet(current);
+      rememberCartSet(current, buildId);
       notify("Đã thêm các linh kiện vào giỏ hàng.");
       navigate("/gio-hang");
     } catch (err) {
@@ -496,10 +514,10 @@ export function usePcBuilder() {
   }
 
   /** Giỏ hàng gom các linh kiện này thành một bộ PC (chỉ lưu ở trình duyệt). */
-  function rememberCartSet(current: BuildResult) {
+  function rememberCartSet(current: BuildResult, activeBuildId?: number | null) {
     try {
       const set: CartBuildSet & { createdAt: number } = {
-        id: savedBuildId ?? "set_" + Date.now(),
+        id: activeBuildId ?? savedBuildId ?? "set_" + Date.now(),
         name: "Bộ PC AI Build" + (message.trim() ? ": " + message.trim().slice(0, 30) : ""),
         budget: current.budget,
         itemVariantIds: current.items.map((item) => String(item.id)),

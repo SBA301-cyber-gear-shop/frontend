@@ -326,8 +326,8 @@ export function useLiveCheckout() {
         if (!ids.length || ids.some((id) => !chosen.has(id)) || totals.size !== new Set(ids).size ||
             ids.some((id) => !totals.has(id)) || [...totals].some(([id, qty]) =>
               claimed.has(id) || !Number.isInteger(qty) || qty <= 0 ||
-              lines.find((line) => Number(line.id) === id)?.quantity !== qty)) {
-          setError("Bộ PC chưa được chọn đầy đủ hoặc có linh kiện trùng hàng mua lẻ. Vui lòng kiểm tra giỏ hàng.");
+              lines.filter((line) => Number(line.id) === id).reduce((s, l) => s + (l.quantity || 0), 0) < qty)) {
+          setError("Bộ PC chưa được chọn đầy đủ linh kiện. Vui lòng kiểm tra lại giỏ hàng.");
           return;
         }
         for (const id of totals.keys()) claimed.add(id);

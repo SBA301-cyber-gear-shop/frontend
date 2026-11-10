@@ -34,8 +34,8 @@ export function CartSetCard({
     return sum + unitPrice * item.quantity;
   }, 0);
 
-  const allSelected = items.length > 0 && items.every((i) => selectedIds.has(String(i.id)));
-  const someSelected = items.some((i) => selectedIds.has(String(i.id))) && !allSelected;
+  const allSelected = items.length > 0 && items.every((i) => selectedIds.has(String(i.cartItemId ?? i.id)));
+  const someSelected = items.some((i) => selectedIds.has(String(i.cartItemId ?? i.id))) && !allSelected;
 
   return (
     <div className="cart-pc-set-card">

@@ -45,7 +45,7 @@ export function CartView() {
   // Track whether initial cart sync has taken place to avoid premature sessionStorage wipes
   const isCartReadyRef = useRef(false);
 
-  // Track selected product variant IDs (Set of strings) persisted in sessionStorage
+  // Track selected cart item IDs (Set of strings) persisted in sessionStorage
   const [selectedIds, setSelectedIds] = useState(() => {
     try {
       const stored = sessionStorage.getItem(STORAGE_SELECTED_IDS);
@@ -56,7 +56,7 @@ export function CartView() {
         }
       }
     } catch {}
-    return new Set(data.cart ? data.cart.map((line) => String(line.id)) : []);
+    return new Set(data.cart ? data.cart.map((line) => String(line.cartItemId ?? line.id)) : []);
   });
 
   // Keep selectedIds in sync when cart changes (e.g. items added or deleted)
@@ -74,7 +74,7 @@ export function CartView() {
       return;
     }
 
-    const currentIds = new Set(data.cart.map((line) => String(line.id)));
+    const currentIds = new Set(data.cart.map((line) => String(line.cartItemId ?? line.id)));
 
     setSelectedIds((prev) => {
       let storedSet = null;
@@ -123,36 +123,67 @@ export function CartView() {
   const { groupedSets, looseItems } = useMemo(() => {
     const cartLines = data.cart;
     const sets = [];
-    const claimedItemIds = new Set();
+    const claimedCartItemIds = new Set();
 
-    // Check each known PC build set
+    // 1. Nhóm theo pcCustomId từ DB (Nguồn sự thật chuẩn xác nhất từ Backend)
+    const pcGroupMap = new Map();
+    for (const line of cartLines) {
+      if (line.pcCustomId) {
+        if (!pcGroupMap.has(line.pcCustomId)) {
+          pcGroupMap.set(line.pcCustomId, []);
+        }
+        pcGroupMap.get(line.pcCustomId).push(line);
+        claimedCartItemIds.add(String(line.cartItemId ?? line.id));
+      }
+    }
+
+    for (const [pcCustomId, items] of pcGroupMap.entries()) {
+      const matchedLocalMeta = pcBuildSets.find((s) => String(s.id) === String(pcCustomId));
+      sets.push({
+        setMeta: {
+          id: pcCustomId,
+          name: items[0]?.pcCustomName || matchedLocalMeta?.name || `Bộ PC #${pcCustomId}`,
+          itemVariantIds: items.map((i) => String(i.id)),
+          parts: matchedLocalMeta?.parts || [],
+        },
+        items,
+      });
+    }
+
+    // 2. Fallback cho các bộ cũ trong localStorage nếu có
     for (const buildSet of pcBuildSets) {
+      if (sets.some((s) => String(s.setMeta.id) === String(buildSet.id))) continue;
       if (!Array.isArray(buildSet.itemVariantIds) || buildSet.itemVariantIds.length === 0) {
         continue;
       }
       const setVariants = new Set(buildSet.itemVariantIds.map(String));
-      const matchingLines = cartLines.filter((line) => setVariants.has(String(line.id)));
+      const matchingLines = cartLines.filter(
+        (line) => !claimedCartItemIds.has(String(line.cartItemId ?? line.id)) && setVariants.has(String(line.id))
+      );
 
-      // If at least 2 components of this set are present in cart, group them as a PC set
       if (isCartPcSet(buildSet, cartLines)) {
         sets.push({
           setMeta: buildSet,
           items: matchingLines,
         });
-        matchingLines.forEach((l) => claimedItemIds.add(String(l.id)));
+        matchingLines.forEach((l) => claimedCartItemIds.add(String(l.cartItemId ?? l.id)));
       }
     }
 
-    // All other items are loose products
-    const loose = cartLines.filter((line) => !claimedItemIds.has(String(line.id)));
+    // 3. Toàn bộ các dòng còn lại là hàng mua lẻ độc lập
+    const loose = cartLines.filter((line) => !claimedCartItemIds.has(String(line.cartItemId ?? line.id)));
 
     return { groupedSets: sets, looseItems: loose };
   }, [data.cart, pcBuildSets]);
 
   // Calculate selection metrics
   const selectedLines = useMemo(() => {
-    return data.cart.filter((line) => selectedIds.has(String(line.id)));
+    return data.cart.filter((line) => selectedIds.has(String(line.cartItemId ?? line.id)));
   }, [data.cart, selectedIds]);
+
+  const selectedVariantIds = useMemo(() => {
+    return Array.from(new Set(selectedLines.map((line) => Number(line.id))));
+  }, [selectedLines]);
 
   const selectedCount = useMemo(() => {
     return selectedLines.reduce((sum, line) => sum + line.quantity, 0);
@@ -170,17 +201,17 @@ export function CartView() {
 
   // Selected sets breakdown
   const selectedSetsCount = useMemo(() => {
-    return groupedSets.filter((s) => s.items.some((i) => selectedIds.has(String(i.id)))).length;
+    return groupedSets.filter((s) => s.items.some((i) => selectedIds.has(String(i.cartItemId ?? i.id)))).length;
   }, [groupedSets, selectedIds]);
 
   const selectedLooseCount = useMemo(() => {
-    return looseItems.filter((i) => selectedIds.has(String(i.id))).length;
+    return looseItems.filter((i) => selectedIds.has(String(i.cartItemId ?? i.id))).length;
   }, [looseItems, selectedIds]);
 
   // Handlers for Checkbox toggling
   const handleToggleSelectAll = (checked) => {
     if (checked) {
-      setSelectedIds(new Set(data.cart.map((line) => String(line.id))));
+      setSelectedIds(new Set(data.cart.map((line) => String(line.cartItemId ?? line.id))));
     } else {
       setSelectedIds(new Set());
     }
@@ -193,18 +224,19 @@ export function CartView() {
     setSelectedIds((prev) => {
       const next = new Set(prev);
       setObj.items.forEach((item) => {
-        if (checked) next.add(String(item.id));
-        else next.delete(String(item.id));
+        const key = String(item.cartItemId ?? item.id);
+        if (checked) next.add(key);
+        else next.delete(key);
       });
       return next;
     });
   };
 
-  const handleToggleLooseItem = (itemId, checked) => {
+  const handleToggleLooseItem = (cartItemId, checked) => {
     setSelectedIds((prev) => {
       const next = new Set(prev);
-      if (checked) next.add(String(itemId));
-      else next.delete(String(itemId));
+      if (checked) next.add(String(cartItemId));
+      else next.delete(String(cartItemId));
       return next;
     });
   };
@@ -234,6 +266,14 @@ export function CartView() {
       confirmText: "Xác nhận tách mua lẻ",
       tone: "primary",
       onConfirm: async () => {
+        if (!demoMode && Number.isInteger(Number(setMeta.id))) {
+          try {
+            await cartApi.detachPcSet(Number(setMeta.id));
+            await reloadCart();
+          } catch (err) {
+            console.error("[Cart] Lỗi tách bộ PC:", err);
+          }
+        }
         executeUngroupSet(setMeta.id);
       },
     });
@@ -248,8 +288,17 @@ export function CartView() {
       confirmText: "Xóa cả bộ máy",
       tone: "danger",
       onConfirm: async () => {
-        const itemIds = items.map((i) => String(i.id));
-        await removeMultiple(itemIds);
+        if (!demoMode && Number.isInteger(Number(setMeta.id))) {
+          try {
+            await cartApi.removePcSet(Number(setMeta.id));
+            await reloadCart();
+          } catch (err) {
+            console.error("[Cart] Lỗi xóa bộ PC:", err);
+          }
+        } else {
+          const itemIds = items.map((i) => String(i.cartItemId ?? i.id));
+          await removeMultiple(itemIds);
+        }
         executeUngroupSet(setMeta.id);
       },
     });
@@ -263,7 +312,7 @@ export function CartView() {
       confirmText: "Xóa sản phẩm",
       tone: "danger",
       onConfirm: async () => {
-        await removeFromCart(item.id);
+        await removeFromCart(item.cartItemId ?? item.id);
       },
     });
   };
@@ -395,11 +444,11 @@ export function CartView() {
               <div className="cart-loose-list">
                 {looseItems.map((item) => {
                   const product = data.products.find((p) => p.id === item.id);
-                  const isSelected = selectedIds.has(String(item.id));
+                  const isSelected = selectedIds.has(String(item.cartItemId ?? item.id));
 
                   return (
                     <CartLooseItem
-                      key={item.id}
+                      key={item.cartItemId ?? item.id}
                       item={item}
                       product={product}
                       isSelected={isSelected}
@@ -433,7 +482,7 @@ export function CartView() {
           selectedSetsCount={selectedSetsCount}
           selectedLooseCount={selectedLooseCount}
           selectedTotalAmount={selectedTotalAmount}
-          selectedIds={selectedIds}
+          selectedVariantIds={selectedVariantIds}
           hasSelectedPcSet={groupedSets.length > 0}
           cartBusy={cartBusy}
           cartLoading={cartLoading}

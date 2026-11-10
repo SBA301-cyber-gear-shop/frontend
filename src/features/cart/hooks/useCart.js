@@ -135,27 +135,27 @@ export function useCart() {
 
   function updateQuantity(id, quantity) {
     if (!demoMode) {
-      const line = data.cart.find((item) => String(item.id) === String(id));
+      const line = data.cart.find((item) => String(item.cartItemId) === String(id) || String(item.id) === String(id));
       if (!line) return;
       return remoteChange(() => cartApi.update(line.cartItemId, quantity));
     }
     commit((current) => ({
       ...current,
       cart: current.cart.map((line) =>
-        String(line.id) === String(id) ? { ...line, quantity } : line,
+        String(line.cartItemId ?? line.id) === String(id) || String(line.id) === String(id) ? { ...line, quantity } : line,
       ),
     }));
   }
 
   function removeFromCart(id) {
     if (!demoMode) {
-      const line = data.cart.find((item) => String(item.id) === String(id));
+      const line = data.cart.find((item) => String(item.cartItemId) === String(id) || String(item.id) === String(id));
       if (!line) return;
       return remoteChange(() => cartApi.remove(line.cartItemId));
     }
     commit((current) => ({
       ...current,
-      cart: current.cart.filter((line) => String(line.id) !== String(id)),
+      cart: current.cart.filter((line) => String(line.cartItemId ?? line.id) !== String(id) && String(line.id) !== String(id)),
     }));
   }
 
@@ -164,7 +164,7 @@ export function useCart() {
     const idStrings = ids.map(String);
     if (!demoMode) {
       const targetItems = idStrings
-        .map((id) => data.cart.find((item) => String(item.id) === id))
+        .map((id) => data.cart.find((item) => String(item.cartItemId) === id || String(item.id) === id))
         .filter(Boolean);
       if (!targetItems.length) return;
       return remoteChange(async () => {
