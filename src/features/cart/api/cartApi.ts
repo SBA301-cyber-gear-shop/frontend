@@ -9,6 +9,8 @@ export const cartApi = {
     return cart.items.map((item) => ({
       id: String(item.productVariantId),
       cartItemId: item.cartItemId,
+      pcCustomId: item.pcCustomId ?? null,
+      pcCustomName: item.pcCustomName ?? null,
       quantity: item.quantity,
       unitPrice: item.unitPrice,
       name: item.productName,
@@ -18,18 +20,21 @@ export const cartApi = {
       available: item.available !== false,
     }));
   },
-  async add(productVariantId: string | number, quantity: number) {
+  async add(productVariantId: string | number, quantity: number, pcCustomId?: number | null) {
     await axiosClient.post(`${endpoints.cart}/items`, {
       productVariantId: Number(productVariantId),
       quantity,
+      pcCustomId: pcCustomId || undefined,
     });
   },
-  async addBatch(items: { productVariantId: string | number; quantity: number }[]) {
+  async addBatch(items: { productVariantId: string | number; quantity: number }[], pcCustomId?: number | null) {
     await axiosClient.post(`${endpoints.cart}/items/batch`, {
       items: items.map((i) => ({
         productVariantId: Number(i.productVariantId),
         quantity: i.quantity || 1,
+        pcCustomId: pcCustomId || undefined,
       })),
+      pcCustomId: pcCustomId || undefined,
     });
   },
   async update(cartItemId: number, quantity: number) {
@@ -39,5 +44,11 @@ export const cartApi = {
   },
   async remove(cartItemId: number) {
     await axiosClient.delete(`${endpoints.cart}/items/${cartItemId}`);
+  },
+  async removePcSet(pcCustomId: number) {
+    await axiosClient.delete(`${endpoints.cart}/items/pc-build/${pcCustomId}`);
+  },
+  async detachPcSet(pcCustomId: number) {
+    await axiosClient.post(`${endpoints.cart}/items/pc-build/${pcCustomId}/detach`);
   },
 };

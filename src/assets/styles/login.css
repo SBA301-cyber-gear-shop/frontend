@@ -255,16 +255,17 @@
   color: #657185;
   margin: 0 0 30px;
 }
-.input-group {
+/* .input-group và .text-button là tên chung (AI config, tài khoản, bảo hành... cũng dùng): luôn giới hạn trong .form-shell */
+.form-shell .input-group {
   margin-bottom: 17px;
 }
-.input-group > label {
+.form-shell .input-group > label {
   display: block;
   font-size: 13px;
   font-weight: 650;
   margin-bottom: 8px;
 }
-.input-group > label .req {
+.form-shell .input-group > label .req {
   color: #d91f31;
   margin-left: 3px;
   font-weight: 700;
@@ -357,7 +358,7 @@
   font-size: 10px;
   color: #657185;
 }
-.text-button {
+.form-shell .text-button {
   border: 0;
   padding: 8px 0;
   background: transparent;

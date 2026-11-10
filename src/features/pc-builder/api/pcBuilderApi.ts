@@ -11,6 +11,7 @@ import type {
   ReplacementRequest,
   SaveBuildRequest,
   SaveBuildResult,
+  SavedBuild,
   ValidateBuildRequest,
 } from "../types/pcBuilder.types";
 
@@ -145,5 +146,14 @@ export const pcBuilderApi = {
    */
   save(payload: SaveBuildRequest): Promise<SaveBuildResult> {
     return post<SaveBuildResult>(endpoints.pcBuilder.save, payload);
+  },
+
+  /**
+   * Các bộ PC tài khoản đang đăng nhập đã lưu, mới nhất trước (cần đăng nhập, 401 khi thiếu token).
+   * Endpoint: GET /api/pc-build/builds/saved
+   */
+  async listSaved({ signal }: RequestOptions = {}): Promise<SavedBuild[]> {
+    const list = await get<SavedBuild[]>(endpoints.pcBuilder.saved, signal);
+    return Array.isArray(list) ? list : [];
   },
 };
