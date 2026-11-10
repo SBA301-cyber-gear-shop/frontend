@@ -501,6 +501,17 @@ export function OrderOperations({ handover = false }) {
                 <p style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{selected.cancelReason || "Đơn cũ chưa ghi nhận lý do hủy."}</p>
               </Panel>
             )}
+            {!demoMode && selected.deliveryType === "shipping" && selected.status === "completed" && count > 0 && (
+              <Panel title="Serial thiết bị giao hàng">
+                <Notice>Nhập serial thật trên từng thiết bị để kích hoạt bảo hành.</Notice>
+                {warrantyLines.flatMap((line) => Array.from({ length: line.quantity }, () => line)).map((line, index) => (
+                  <Field key={index} label={line.name + " ? " + (index + 1)}
+                    value={serials[selected.id + "-" + index] || ""}
+                    onChange={(e) => setSerials({ ...serials, [selected.id + "-" + index]: e.target.value })} />
+                ))}
+                <Button disabled={busy} onClick={() => update("shippingSerials")}>Lưu serial</Button>
+              </Panel>
+            )}
             {handover && (
               <Panel
                 title={"Serial từng thiết bị · " + count + " thiết bị"}

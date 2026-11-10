@@ -94,6 +94,14 @@ export function useOrderOperations() {
             nextMap[selected.status],
           );
         }
+        else if (action === "shippingSerials") {
+          const units = selected.lines.filter((line) => line.warranty > 0)
+            .flatMap((line) => Array.from({ length: line.quantity }, () => line));
+          result = await ordersApi.shippingSerials(selected.id, units.map((line, index) => ({
+            orderItemId: line.orderItemId,
+            serialNumber: serials[selected.id + "-" + index] || "",
+          })));
+        }
         else if (action === "pay") {
           const value = amounts[selected.id] || "";
           if (!String(value).trim() || !Number.isFinite(Number(value)))

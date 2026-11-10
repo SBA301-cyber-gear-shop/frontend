@@ -1341,7 +1341,7 @@ textarea {
   }
 }
 
-@media (max-width: 850px) {
+@media (max-width: 1100px) {
   .split,
   .split-wide {
     grid-template-columns: minmax(0, 1fr);
@@ -3261,15 +3261,48 @@ textarea {
   font-size: 12px;
   color: var(--muted);
 }
-.intake-row {
+.customer-intakes {
   display: grid;
-  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1.2fr) minmax(0, 1fr) auto auto;
+  gap: 10px;
+}
+.customer-intakes .intake-row {
+  display: grid;
+  grid-template-columns: minmax(145px, 1.3fr) minmax(125px, 1fr) minmax(85px, .8fr) minmax(175px, 1fr) 135px;
   align-items: center;
-  gap: 6px 16px;
+  gap: 8px 16px;
+  margin: 0;
+  padding: 16px 18px;
   text-align: left;
   font: inherit;
   color: inherit;
   cursor: pointer;
+  transition: border-color 0.2s, background-color 0.2s;
+}
+.customer-intakes .intake-row:hover {
+  background: #f1f5f9;
+  border-color: #a9b9cb;
+}
+.customer-intakes .intake-row:focus-visible {
+  outline: 2px solid #315f9c;
+  outline-offset: 2px;
+}
+.customer-intakes .intake-row .go {
+  justify-self: end;
+  white-space: nowrap;
+  font-weight: 600;
+  color: #315f9c;
+}
+@media (max-width: 850px) {
+  .customer-intakes .intake-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .customer-intakes .intake-row > .state {
+    grid-column: 2;
+    grid-row: 1;
+  }
+  .customer-intakes .intake-row > .go {
+    grid-column: 2;
+  }
 }
 @media (max-width: 600px) {
   .warranty-table {
@@ -3279,13 +3312,6 @@ textarea {
     grid-column: 1 / -1;
     border-bottom: 0;
     padding-bottom: 0;
-  }
-  .intake-row {
-    grid-template-columns: minmax(0, 1fr) auto;
-  }
-  .intake-row > .state {
-    grid-column: 2;
-    grid-row: 1;
   }
 }
 

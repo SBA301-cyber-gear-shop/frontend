@@ -4,6 +4,7 @@ import { useStore } from "@/store";
 import { checkoutApi } from "../api/checkoutApi";
 import { ordersApi } from "../api/ordersApi";
 import { shippingApi } from "../api/shippingApi";
+import { isCartPcSet } from "@/features/cart";
 
 export function useLiveCheckout() {
   const { data, user, cartLoading, cartError, cartBusy, reloadCart, notify } =
@@ -304,12 +305,11 @@ export function useLiveCheckout() {
         setError("Không đọc được thông tin bộ PC. Vui lòng kiểm tra lại giỏ hàng.");
         return;
       }
-      const cartIds = new Set(data.cart.map((line) => Number(line.id)));
       const chosen = new Set(lines.map((line) => Number(line.id)));
       const claimed = new Set();
       for (const set of sets) {
         const ids = (set.itemVariantIds || []).map(Number);
-        if (ids.filter((id) => cartIds.has(id)).length < 2 || !ids.some((id) => chosen.has(id))) continue;
+        if (!isCartPcSet(set, data.cart) || !ids.some((id) => chosen.has(id))) continue;
         const parts = (set.parts || []).map((part) => ({
           variantId: Number(part.id ?? part.variantId),
           quantity: Number(part.qty ?? part.quantity),

@@ -6,6 +6,7 @@ import { CartActionBar } from "./CartActionBar";
 import { CartSetCard } from "./CartSetCard";
 import { CartLooseItem } from "./CartLooseItem";
 import { CartSummary } from "./CartSummary";
+import { isCartPcSet } from "../domain/pcBuildSets";
 
 const STORAGE_PC_SETS = "techzone_pc_build_sets";
 const STORAGE_SELECTED_IDS = "techzone_cart_selected_ids";
@@ -133,7 +134,7 @@ export function CartView() {
       const matchingLines = cartLines.filter((line) => setVariants.has(String(line.id)));
 
       // If at least 2 components of this set are present in cart, group them as a PC set
-      if (matchingLines.length >= 2) {
+      if (isCartPcSet(buildSet, cartLines)) {
         sets.push({
           setMeta: buildSet,
           items: matchingLines,
