@@ -531,16 +531,42 @@ export function CustomerAIChatbox() {
     }
   }, [messages, loading, isOpen]);
 
-  // Polling tin nhắn từ Nhân viên khi đang ở chế độ Live Chat
+  // Polling tự động chuyển từ WAITING sang ACTIVE khi Staff bấm Accept
   useEffect(() => {
-    if (chatMode !== "staff" || !conversationId) return;
+    if (!conversationId) return;
+
+    // Polling khi đang ở chế độ staff HOẶC khi đang trong hàng chờ WAITING
+    const isWaiting = messages.some((m) => m.messageType === "staff_waiting");
+    if (chatMode !== "staff" && !isWaiting) return;
 
     const interval = setInterval(async () => {
       try {
         const pollData = await chatboxApi.pollStaffMessages(conversationId, lastStaffMsgIdRef.current);
         if (!pollData) return;
 
-        if (pollData.status === "CLOSED") {
+        // 1. Nếu Staff vừa bấm Accept (Trạng thái chuyển từ WAITING -> ACTIVE)
+        if (pollData.status === "ACTIVE" && chatMode !== "staff") {
+          setChatMode("staff");
+          setActiveStaff({
+            id: 1,
+            name: pollData.assignedStaffName || "Chuyên viên tư vấn",
+            role: "Chuyên viên tư vấn & CSKH TechZone",
+            phone: "1900 8888",
+            status: "online",
+          });
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: "staff-assigned-" + Date.now(),
+              sender: "bot",
+              text: `👨‍💼 **Chuyên viên ${pollData.assignedStaffName || "CSKH"} đã tiếp nhận phiên hỗ trợ và sẵn sàng chat trực tiếp cùng bạn!**`,
+              messageType: "staff_connected",
+            },
+          ]);
+        }
+
+        // 2. Nếu phiên bị đóng (CLOSED)
+        if (pollData.status === "CLOSED" && chatMode === "staff") {
           setChatMode("ai");
           setActiveStaff(null);
           setMessages((prev) => [
@@ -548,7 +574,7 @@ export function CustomerAIChatbox() {
             {
               id: Date.now().toString(),
               sender: "bot",
-              text: "Chuyên viên đã kết thúc phiên hỗ trợ trực tuyến. CyberBot đã sẵn sàng tiếp tục đồng hành cùng bạn!",
+              text: "Chuyên viên đã kết thúc phiên hỗ trợ. CyberBot đã sẵn sàng tiếp tục đồng hành cùng bạn!",
               quickActions: [
                 { label: "Đơn hàng gần nhất", action: "ask", route: "Đơn hàng gần nhất của tôi thế nào?" },
                 { label: "Kiểm tra bảo hành", action: "ask", route: "Linh kiện của tôi còn bảo hành bao lâu?" },
@@ -559,16 +585,7 @@ export function CustomerAIChatbox() {
           return;
         }
 
-        if (pollData.assignedStaffName && (!activeStaff || activeStaff.name !== pollData.assignedStaffName)) {
-          setActiveStaff({
-            id: 1,
-            name: pollData.assignedStaffName,
-            role: "Chuyên viên tư vấn & CSKH TechZone",
-            phone: "1900 8888",
-            status: "online",
-          });
-        }
-
+        // 3. Đọc tin nhắn mới của Staff
         if (pollData.messages && pollData.messages.length > 0) {
           const latestId = Math.max(...pollData.messages.map((m) => m.id));
           lastStaffMsgIdRef.current = latestId;
@@ -595,12 +612,12 @@ export function CustomerAIChatbox() {
           }
         }
       } catch (err) {
-        // im lặng bỏ qua lỗi poll tạm thời
+        // im lặng bỏ qua lỗi poll
       }
     }, 2500);
 
     return () => clearInterval(interval);
-  }, [chatMode, conversationId, activeStaff]);
+  }, [chatMode, conversationId, activeStaff, messages]);
 
   const handleSend = async (textToSend = input) => {
     const query = (textToSend || "").trim();
@@ -839,10 +856,10 @@ export function CustomerAIChatbox() {
                   <div
                     className="cyberbot-msg-avatar"
                     style={{
-                      background: msg.messageType === "staff_reply" || msg.messageType === "staff_connected" ? "#047857" : "#0f172a",
+                      background: msg.messageType === "staff_reply" || msg.messageType === "staff_connected" ? "#047857" : msg.messageType === "staff_waiting" ? "#b45309" : "#0f172a",
                     }}
                   >
-                    <Icon name={msg.messageType === "staff_reply" || msg.messageType === "staff_connected" ? "headset" : "bot"} />
+                    <Icon name={msg.messageType === "staff_reply" || msg.messageType === "staff_connected" ? "headset" : msg.messageType === "staff_waiting" ? "clock" : "bot"} />
                   </div>
                 )}
                 <div className="cyberbot-msg-bubble">
