@@ -9,6 +9,7 @@ const Home = lazy(() => import("@/pages/Home"));
 const Catalog = lazy(() => import("@/pages/Catalog"));
 const Product = lazy(() => import("@/pages/Product"));
 const Builder = lazy(() => import("@/pages/Builder"));
+const SavedBuilds = lazy(() => import("@/pages/SavedBuilds"));
 const Cart = lazy(() => import("@/pages/Cart"));
 const Checkout = lazy(() => import("@/pages/Checkout"));
 const Orders = lazy(() => import("@/pages/Orders"));
@@ -53,6 +54,7 @@ export function AppRoutes() {
           <Route path="/gio-hang" element={<Cart />} />
           <Route path="/trang-thai" element={<Exceptions />} />
           <Route element={<PrivateRoute />}>
+            <Route path="/build-pc/da-luu" element={<SavedBuilds />} />
             <Route path="/tai-khoan" element={<Account />} />
             <Route path="/don-hang" element={<Orders />} />
             <Route path="/don-hang/:id" element={<OrderDetail />} />

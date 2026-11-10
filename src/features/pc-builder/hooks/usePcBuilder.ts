@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { useStore } from "@/store";
 import { cartApi } from "@/features/cart";
 import { money } from "@/utils";
@@ -110,10 +110,14 @@ export function usePcBuilder() {
   const editBuildId = searchParams.get("editBuildId");
   const [requests] = useState(() => createBuildRequests());
   const [draft] = useState(readGuestDraft);
-  // Bộ PC từ giỏ hàng ("Sửa trong bộ lắp ráp"); khôi phục bản nháp sau đăng nhập được ưu tiên
-  const [cartSet] = useState(() =>
-    draft || !editBuildId ? null : readCartSets().find((set) => String(set.id) === editBuildId) ?? null,
-  );
+  // Bộ mở lại từ tab "Cấu hình đã lưu" đi qua router state (dạng CartBuildSet, xem savedBuildToCartSet)
+  const savedSet = (useLocation().state as { savedSet?: CartBuildSet } | null)?.savedSet ?? null;
+  // Bộ PC đã lưu hoặc từ giỏ hàng ("Sửa trong bộ lắp ráp"); khôi phục bản nháp sau đăng nhập được ưu tiên
+  const [cartSet] = useState<CartBuildSet | null>(() => {
+    if (draft) return null;
+    if (savedSet) return savedSet;
+    return editBuildId ? readCartSets().find((set) => String(set.id) === editBuildId) ?? null : null;
+  });
   const [cartItems] = useState(() => itemsFromCartSet(cartSet));
 
   // Form
@@ -186,6 +190,8 @@ export function usePcBuilder() {
       {
         onSuccess: (outcome: Outcome) => {
           applyOutcome(outcome);
+          // Bộ vừa mở từ tab "Cấu hình đã lưu" chưa bị sửa nên vẫn đang là bản đã lưu
+          if (cartSet === savedSet && typeof cartSet.id === "number") setSavedBuildId(cartSet.id);
           notify(`✨ Đã nạp cấu hình "${name}" vào bộ lắp ráp.`, "success");
         },
         onError: applyError,
@@ -430,7 +436,7 @@ export function usePcBuilder() {
         ...(confirmOverBudget ? { confirmOverBudget: true } : {}),
       });
       setSavedBuildId(result.buildId);
-      notify(`💾 Đã lưu cấu hình #${result.buildId} vào tài khoản của bạn.`, "success");
+      notify(`💾 Đã lưu cấu hình #${result.buildId}. Xem lại ở tab "Cấu hình đã lưu".`, "success");
     } catch (err) {
       const apiError = toApiError(err);
       if (apiError.code === "OVER_BUDGET_NOT_CONFIRMED") {

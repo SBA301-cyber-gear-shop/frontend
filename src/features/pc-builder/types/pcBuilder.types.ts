@@ -141,6 +141,15 @@ export interface SaveBuildResult {
   difference: number;
 }
 
+/** Một bộ PC đã lưu (GET /api/pc-build/builds/saved): backend không lưu tên, ngày lưu hay ngân sách. */
+export interface SavedBuild {
+  buildId: number;
+  /** Tổng tiền lúc lưu. */
+  total: number;
+  /** `price` là giá lúc lưu; không có maxQty (mở lại thì /validate trả số thật). */
+  items: Omit<BuildItem, "maxQty">[];
+}
+
 /** Thân lỗi của GlobalExceptionHandler. */
 export interface ApiErrorBody {
   status: number;

@@ -7,6 +7,7 @@ export const endpoints = {
     validate: "/api/pc-build/builds/validate",
     replacements: "/api/pc-build/builds/replacements",
     save: "/api/pc-build/builds/save",
+    saved: "/api/pc-build/builds/saved",
   },
   catalog: {
     products: "/api/catalog/products",

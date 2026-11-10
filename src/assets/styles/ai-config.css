@@ -379,12 +379,13 @@
   }
 }
 
-.req {
+/* .req và .input-group trùng tên với form đăng nhập/đăng ký (login.css): luôn giới hạn trong .ai-config-form */
+.ai-config-form .req {
   color: var(--red);
   font-weight: bold;
 }
 
-.input-group {
+.ai-config-form .input-group {
   display: flex;
   align-items: stretch;
   border: 1px solid var(--line, #dbe1e9);
@@ -396,17 +397,17 @@
 }
 
 /* Khi focus vào bất kỳ phần tử nào bên trong input-group, bóng xanh bao phủ toàn bộ khung chứa cả input và nút ẩn/hiện */
-.input-group:focus-within {
+.ai-config-form .input-group:focus-within {
   border-color: var(--focus, #246dd0);
   outline: 3px solid var(--focus, #246dd0);
   outline-offset: 3px;
 }
 
-.input-group.has-error {
+.ai-config-form .input-group.has-error {
   border-color: var(--red, #e53e3e);
 }
 
-.input-group .input,
+.ai-config-form .input-group .input,
 .ai-config-form .input-group input.input {
   border: none !important;
   outline: none !important;
@@ -419,8 +420,8 @@
   height: 42px;
 }
 
-.input-group .input:focus,
-.input-group .input:focus-visible,
+.ai-config-form .input-group .input:focus,
+.ai-config-form .input-group .input:focus-visible,
 .ai-config-form .input-group input.input:focus,
 .ai-config-form .input-group input.input:focus-visible {
   outline: none !important;
