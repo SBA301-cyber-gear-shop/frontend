@@ -4,6 +4,7 @@ import { slotLabel, slotRows } from "../domain/buildLines";
 import type { BuildItem } from "../types/pcBuilder.types";
 
 interface PartsTableProps {
+  title?: string;
   items: BuildItem[];
   verdict: { label: string; tone: string };
   disabled?: boolean;
@@ -21,14 +22,21 @@ const ReplaceIcon = () => (
 );
 
 /** Bảng linh kiện theo thứ tự slot; ô số lượng khóa theo maxQty server trả. */
-export function PartsTable({ items, verdict, disabled = false, onReplace, onChangeQty }: PartsTableProps) {
+export function PartsTable({
+  title = "Cấu hình linh kiện đề xuất",
+  items,
+  verdict,
+  disabled = false,
+  onReplace,
+  onChangeQty,
+}: PartsTableProps) {
   const rows = slotRows(items);
 
   return (
     <div className="builder-panel">
       <div className="panel-head">
         <div className="panel-head-title">
-          <h2>Cấu hình linh kiện đề xuất</h2>
+          <h2>{title}</h2>
           <p>{items.length} linh kiện · giá lấy từ kho hiện tại</p>
         </div>
         <Badge tone={verdict.tone}>{verdict.label}</Badge>
