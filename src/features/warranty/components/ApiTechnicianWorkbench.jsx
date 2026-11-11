@@ -133,10 +133,11 @@ export function ApiTechnicianWorkbench() {
         </Panel>
         {ticket ? (
           <ApiTicketEditor
-            key={ticket.id + ":" + ticket.version}
+            key={ticket.id}
             ticket={ticket}
             svc={svc}
             onChanged={(updated) => {
+              setSelectedId(activeId);
               if (updated) setDetail(updated);
               reload();
             }}
@@ -212,10 +213,20 @@ function ApiTicketEditor({ ticket: t, svc, onChanged }) {
       ? "Serial này đã có thẻ bảo hành trong đơn."
       : "";
   async function run(action, message) {
-    // Khóa form trong lúc gửi: phiếu được nạp lại khi có kết quả, chữ gõ dở lúc đó sẽ mất.
     setBusy(true);
     try {
       const updated = await action();
+      setNote("");
+      setPublicNote("");
+      setExpected("");
+      setTarget("");
+      setAddTarget("");
+      setSerial("");
+      setSerialTouched(false);
+      setSource("supplier");
+      setSelectedParts([]);
+      setNoFaultNote("");
+      setNoFaultPublicNote("");
       notify(message);
       onChanged(updated);
     } catch (err) {
