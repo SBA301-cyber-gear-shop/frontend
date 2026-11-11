@@ -104,3 +104,24 @@ export async function deleteBudgetProfilePurpose(purpose: string): Promise<void>
   await axiosClient.delete(endpoints.admin.pcBuildMetadata.budgetProfilePurpose(purpose));
 }
 
+/**
+ * Lấy cấu hình PC Builder (bao gồm giá trị bộ PC đắt nhất maxBuildPrice từ hệ thống)
+ * Endpoint: GET /api/pc-build/config
+ */
+export async function getPcBuildConfig(): Promise<{ maxBuildPrice: number; lowestMinBudget: number }> {
+  const response = await axiosClient.get<{
+    data?: { maxBuildPrice: number; lowestMinBudget: number };
+    maxBuildPrice?: number;
+    lowestMinBudget?: number;
+  }>(endpoints.pcBuilder.config);
+  if (response.data && typeof response.data === "object") {
+    if ("data" in response.data && response.data.data) {
+      return response.data.data;
+    }
+    if ("maxBuildPrice" in response.data && typeof response.data.maxBuildPrice === "number") {
+      return response.data as { maxBuildPrice: number; lowestMinBudget: number };
+    }
+  }
+  return { maxBuildPrice: 0, lowestMinBudget: 0 };
+}
+
