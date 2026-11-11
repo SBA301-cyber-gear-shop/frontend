@@ -7,6 +7,7 @@ export function PcBuildMetadataManagement() {
     slots,
     budgetProfiles,
     categoryOptions,
+    maxBuildPrice,
     loading,
     isSaving,
     toast,
@@ -40,6 +41,7 @@ export function PcBuildMetadataManagement() {
           slots={slots}
           profiles={budgetProfiles}
           categoryOptions={categoryOptions}
+          maxBuildPrice={maxBuildPrice}
           onSaveSlot={handleSaveSlot}
           onDeleteSlot={handleDeleteSlot}
           onReorderSlots={handleReorderSlots}

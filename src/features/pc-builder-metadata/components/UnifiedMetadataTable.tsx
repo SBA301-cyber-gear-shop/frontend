@@ -2,6 +2,7 @@ import { useState, useEffect, Fragment } from "react";
 import { Button, Badge, Icon } from "@/components/ui";
 import { money } from "@/utils";
 import { CategoryHardwareIcon } from "./CategoryHardwareIcon";
+import { CreatePurposeModal } from "./CreatePurposeModal";
 import type {
   TemplateSlot,
   BudgetProfilePurpose,
@@ -13,6 +14,7 @@ interface UnifiedMetadataTableProps {
   slots: TemplateSlot[];
   profiles: BudgetProfilePurpose[];
   categoryOptions: MetadataCategoryOptions | null;
+  maxBuildPrice?: number;
   onSaveSlot: (data: TemplateSlotFormData, slotId?: number) => Promise<void>;
   onDeleteSlot: (slot: TemplateSlot) => void;
   onReorderSlots: (orderedSlotIds: number[]) => Promise<void>;
@@ -42,6 +44,7 @@ export function UnifiedMetadataTable({
   slots,
   profiles,
   categoryOptions,
+  maxBuildPrice,
   onSaveSlot,
   onDeleteSlot,
   onReorderSlots,
@@ -80,10 +83,8 @@ export function UnifiedMetadataTable({
     maxQty: 1,
   });
 
-  // State thêm purpose mới inline
+  // State mở modal popup thêm purpose mới
   const [isAddingPurpose, setIsAddingPurpose] = useState(false);
-  const [newPurposeCode, setNewPurposeCode] = useState("");
-  const [newPurposeMinBudget, setNewPurposeMinBudget] = useState<number>(15000000);
 
   const currentProfile = profiles.find((p) => p.purpose === selectedPurpose) || profiles[0];
 
@@ -223,33 +224,14 @@ export function UnifiedMetadataTable({
       alert("Ngân sách tối thiểu phải lớn hơn 0!");
       return;
     }
-    if (!isValidAllocation) {
+    if (maxBuildPrice && maxBuildPrice > 0 && editMinBudget > maxBuildPrice) {
       alert(
-        `Tổng tỷ lệ phân bổ phải đạt chính xác 100%! Hiện tại là ${totalAllocation.toFixed(2)}%`
+        `Ngân sách sàn đề xuất (${money(editMinBudget)}) không được vượt quá giá trị bộ PC đắt nhất hiện tại trong hệ thống (${money(maxBuildPrice)})!`
       );
       return;
     }
     await onUpdatePurpose(currentProfile.purpose, editMinBudget, editShares);
     setIsEditingBudget(false);
-  };
-
-  const handleSaveNewPurpose = async () => {
-    if (!newPurposeCode.trim()) {
-      alert("Vui lòng nhập mã nhu cầu mới!");
-      return;
-    }
-    if (newPurposeMinBudget <= 0) {
-      alert("Ngân sách tối thiểu phải lớn hơn 0!");
-      return;
-    }
-    const initialShares: Record<number, number> = { ...editShares };
-    await onSaveNewPurpose(
-      newPurposeCode.trim().toUpperCase(),
-      newPurposeMinBudget,
-      initialShares
-    );
-    setIsAddingPurpose(false);
-    setSelectedPurpose(newPurposeCode.trim().toUpperCase());
   };
 
   const remainingSlots =
@@ -295,7 +277,7 @@ export function UnifiedMetadataTable({
           </Button>
           <Button
             tone="secondary"
-            onClick={() => setIsAddingPurpose(!isAddingPurpose)}
+            onClick={() => setIsAddingPurpose(true)}
             disabled={isSaving}
           >
             <Icon name="plus" />
@@ -304,63 +286,20 @@ export function UnifiedMetadataTable({
         </div>
       </div>
 
-      {/* Form tạo Purpose mới inline */}
-      {isAddingPurpose && (
-        <div className="inline-add-card mb-16">
-          <div className="row between mb-12">
-            <div className="row gap8">
-              <Icon name="spark" />
-              <strong>Thêm mục đích cấu hình ngân sách mới</strong>
-            </div>
-            <button
-              type="button"
-              className="btn-action-icon"
-              onClick={() => setIsAddingPurpose(false)}
-            >
-              <Icon name="x" />
-              <span>Đóng</span>
-            </button>
-          </div>
-          <div className="purpose-form-grid">
-            <div>
-              <label className="field-label">Mã mục đích (Code)</label>
-              <input
-                type="text"
-                className="input full"
-                placeholder="VD: STREAMING, WORKSTATION..."
-                value={newPurposeCode}
-                onChange={(e) => setNewPurposeCode(e.target.value.toUpperCase())}
-              />
-            </div>
-            <div>
-              <label className="field-label">Ngân sách sàn đề xuất (VNĐ)</label>
-              <input
-                type="number"
-                className="input full"
-                step={500000}
-                value={newPurposeMinBudget}
-                onChange={(e) => setNewPurposeMinBudget(parseInt(e.target.value, 10) || 0)}
-              />
-            </div>
-          </div>
-          <div className="row end gap8 mt-12">
-            <Button
-              tone="secondary"
-              onClick={() => setIsAddingPurpose(false)}
-            >
-              Hủy
-            </Button>
-            <Button
-              tone="primary"
-              onClick={handleSaveNewPurpose}
-              disabled={isSaving}
-            >
-              <Icon name="check" />
-              <span>Tạo mục đích</span>
-            </Button>
-          </div>
-        </div>
-      )}
+      {/* Modal popup tạo mục đích cấu hình ngân sách mới */}
+      <CreatePurposeModal
+        isOpen={isAddingPurpose}
+        slots={slots}
+        existingProfiles={profiles}
+        maxBuildPrice={maxBuildPrice}
+        onClose={() => setIsAddingPurpose(false)}
+        onSave={async (purpose, minBudget, shares) => {
+          await onSaveNewPurpose(purpose, minBudget, shares);
+          setIsAddingPurpose(false);
+          setSelectedPurpose(purpose);
+        }}
+        isSaving={isSaving}
+      />
 
       {/* 2. Khung bảng hợp nhất duy nhất */}
       <div className="unified-table-card">
@@ -434,7 +373,7 @@ export function UnifiedMetadataTable({
                   tone="primary"
                   size="small"
                   onClick={handleSaveBudgetInline}
-                  disabled={isSaving || !isValidAllocation}
+                  disabled={isSaving}
                 >
                   <Icon name="check" />
                   <span>Lưu phân bổ ({totalAllocation.toFixed(1)}%)</span>
@@ -647,7 +586,9 @@ export function UnifiedMetadataTable({
                             <span className="cat-icon-badge">
                               <CategoryHardwareIcon name={slot.categoryName} size={16} />
                             </span>
-                            <span className="cat-name-text">{slot.categoryName}</span>
+                            <div className="cat-name-stack">
+                              <span className="cat-name-text">{slot.categoryName}</span>
+                            </div>
                           </div>
                         </td>
                         <td style={{ textAlign: "center" }}>
@@ -729,9 +670,8 @@ export function UnifiedMetadataTable({
                     ) : (
                       <tr
                         key={slot.id}
-                        className={`unified-slot-row ${
-                          draggedSlotId === slot.id ? "is-dragging" : ""
-                        }`}
+                        className={`unified-slot-row ${draggedSlotId === slot.id ? "is-dragging" : ""
+                          }`}
                         draggable={!isEditingBudget && editingSlotId === null}
                         onDragStart={(e) => handleDragStart(e, slot, index)}
                         onDragOver={(e) => handleDragOverRow(e, index)}
@@ -758,7 +698,9 @@ export function UnifiedMetadataTable({
                             <span className="cat-icon-badge">
                               <CategoryHardwareIcon name={slot.categoryName} size={16} />
                             </span>
-                            <span className="cat-name-text">{slot.categoryName}</span>
+                            <div className="cat-name-stack">
+                              <span className="cat-name-text">{slot.categoryName}</span>
+                            </div>
                           </div>
                         </td>
 
@@ -797,16 +739,25 @@ export function UnifiedMetadataTable({
                               <span className="small muted">%</span>
                             </div>
                           ) : (
-                            <div className="budget-display-cell">
-                              <div className="mini-progress-track">
+                            <div className="budget-capsule-wrap">
+                              <div className="budget-capsule-track">
                                 <div
-                                  className="mini-progress-fill"
-                                  style={{ width: `${Math.min(100, Number(sharePct))}%` }}
+                                  className="budget-capsule-fill"
+                                  style={{ width: `${Math.min(100, Math.max(0, Number(sharePct)))}%` }}
                                 />
+                                <span
+                                  className="budget-capsule-text"
+                                  style={{
+                                    left:
+                                      Number(sharePct) > 55
+                                        ? "12px"
+                                        : `calc(${Math.min(100, Number(sharePct))}% + 8px)`,
+                                    color: Number(sharePct) > 55 ? "#ffffff" : "var(--ink, #152237)",
+                                  }}
+                                >
+                                  {sharePct}%
+                                </span>
                               </div>
-                              <span className="allocation-pct-text">
-                                {sharePct}%
-                              </span>
                             </div>
                           )}
                         </td>

@@ -13,6 +13,7 @@ export function usePcBuildMetadata() {
   const [slots, setSlots] = useState<TemplateSlot[]>([]);
   const [budgetProfiles, setBudgetProfiles] = useState<BudgetProfilePurpose[]>([]);
   const [categoryOptions, setCategoryOptions] = useState<MetadataCategoryOptions | null>(null);
+  const [maxBuildPrice, setMaxBuildPrice] = useState<number>(0);
 
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -38,14 +39,18 @@ export function usePcBuildMetadata() {
     async (silent = false) => {
       if (!silent) setLoading(true);
       try {
-        const [slotsData, profilesData, optionsData] = await Promise.all([
+        const [slotsData, profilesData, optionsData, pcConfig] = await Promise.all([
           api.getTemplateSlots(),
           api.getBudgetProfiles(),
           api.getAvailableCategoryOptions(),
+          api.getPcBuildConfig().catch(() => null),
         ]);
         setSlots(slotsData);
         setBudgetProfiles(profilesData);
         setCategoryOptions(optionsData);
+        if (pcConfig?.maxBuildPrice) {
+          setMaxBuildPrice(pcConfig.maxBuildPrice);
+        }
 
         // Chọn purpose đầu tiên mặc định nếu chưa chọn
         if (profilesData.length > 0) {
@@ -217,6 +222,7 @@ export function usePcBuildMetadata() {
     slots,
     budgetProfiles,
     categoryOptions,
+    maxBuildPrice,
     loading,
     isSaving,
     toast,
