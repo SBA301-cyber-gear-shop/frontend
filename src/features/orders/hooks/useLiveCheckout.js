@@ -48,6 +48,23 @@ export function useLiveCheckout() {
     } catch {}
     return null;
   }, [location.state, fromBuild]);
+
+  const selectedCartItemIds = useMemo(() => {
+    if (fromBuild) return null;
+    if (Array.isArray(location.state?.selectedCartItemIds) && location.state.selectedCartItemIds.length > 0) {
+      return location.state.selectedCartItemIds.map(Number);
+    }
+    try {
+      const stored = sessionStorage.getItem("techzone_checkout_selected_cart_item_ids");
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.map(Number);
+        }
+      }
+    } catch {}
+    return null;
+  }, [location.state, fromBuild]);
   const [name, setName] = useState(user?.name || "");
   const [phone, setPhone] = useState(user?.phone || "");
   const [note, setNote] = useState("");
@@ -133,7 +150,13 @@ export function useLiveCheckout() {
     if (fromBuild || pendingAttempt) return;
     const abort = new AbortController();
     checkoutApi
-      .validate(selectedVariantIds || undefined, abort.signal)
+      .validate(
+        {
+          cartItemIds: selectedCartItemIds || undefined,
+          itemVariantIds: selectedVariantIds || undefined,
+        },
+        abort.signal
+      )
       .then((cart) => {
         if (!abort.signal.aborted)
           setValidation({ source: data.cart, attempt, cart });
@@ -143,7 +166,7 @@ export function useLiveCheckout() {
           setValidation({ source: data.cart, attempt, error: failure.message });
       });
     return () => abort.abort();
-  }, [data.cart, attempt, fromBuild, pendingAttempt, selectedVariantIds]);
+  }, [data.cart, attempt, fromBuild, pendingAttempt, selectedCartItemIds, selectedVariantIds]);
 
   const validationCurrent =
     validation?.source === data.cart && validation?.attempt === attempt;
@@ -160,8 +183,8 @@ export function useLiveCheckout() {
         return {
           id: String(item.productVariantId),
           cartItemId: item.cartItemId ?? inCart?.cartItemId,
-          pcCustomId: item.pcCustomId ?? inCart?.pcCustomId ?? null,
-          pcCustomName: item.pcCustomName ?? inCart?.pcCustomName ?? null,
+          pcCustomId: item.pcCustomId ?? (item.cartItemId ? null : inCart?.pcCustomId) ?? null,
+          pcCustomName: item.pcCustomName ?? (item.cartItemId ? null : inCart?.pcCustomName) ?? null,
           quantity: item.quantity,
           unitPrice: item.unitPrice,
           name: item.productName,
@@ -173,12 +196,16 @@ export function useLiveCheckout() {
     : data.cart;
 
   const lines = useMemo(() => {
+    if (selectedCartItemIds && selectedCartItemIds.length > 0) {
+      const selectedCartSet = new Set(selectedCartItemIds.map(Number));
+      return rawLines.filter((l) => l.cartItemId && selectedCartSet.has(Number(l.cartItemId)));
+    }
     if (!selectedVariantIds || selectedVariantIds.length === 0) {
       return rawLines;
     }
     const selectedSet = new Set(selectedVariantIds.map(Number));
     return rawLines.filter((l) => selectedSet.has(Number(l.id)));
-  }, [rawLines, selectedVariantIds]);
+  }, [rawLines, selectedCartItemIds, selectedVariantIds]);
 
   const total = useMemo(() => {
     if (cart && (!selectedVariantIds || cart.items.length === lines.length)) {
@@ -202,6 +229,7 @@ export function useLiveCheckout() {
         pickupPhone: phone.trim() || user?.phone || "0900000128",
         note: note.trim(),
         promotionCode: code,
+        cartItemIds: selectedCartItemIds || undefined,
         itemVariantIds: selectedVariantIds || undefined,
       });
       const resolvedCode = result.promotionCode || code.toUpperCase();
@@ -325,7 +353,8 @@ export function useLiveCheckout() {
       const claimed = new Set();
       for (const set of sets) {
         const ids = (set.itemVariantIds || []).map(Number);
-        if (!isCartPcSet(set, data.cart) || !ids.some((id) => chosen.has(id))) continue;
+        const setHasItemsInLines = lines.some((l) => l.pcCustomId && String(l.pcCustomId) === String(set.id));
+        if (!setHasItemsInLines) continue;
         const parts = (set.parts || []).map((part) => ({
           variantId: Number(part.id ?? part.variantId),
           quantity: Number(part.qty ?? part.quantity),
@@ -357,6 +386,7 @@ export function useLiveCheckout() {
         method: method,
         expectedTotal: total,
         expectedDiscount: discount,
+        cartItemIds: selectedCartItemIds || undefined,
         itemVariantIds: selectedVariantIds || undefined,
         pcGroups,
         deliveryType,

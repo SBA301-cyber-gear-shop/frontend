@@ -7,6 +7,7 @@ export function CartSummary({
   selectedLooseCount,
   selectedTotalAmount,
   selectedVariantIds,
+  selectedCartItemIds,
   cartBusy,
   cartLoading,
 }) {
@@ -56,7 +57,10 @@ export function CartSummary({
         {isReady ? (
           <Link
             to="/thanh-toan"
-            state={{ selectedVariantIds: selectedVariantIds || [] }}
+            state={{
+              selectedVariantIds: selectedVariantIds || [],
+              selectedCartItemIds: selectedCartItemIds || [],
+            }}
             className="cart-btn-checkout"
           >
             Tiếp tục đặt hàng

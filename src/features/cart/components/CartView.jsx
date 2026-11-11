@@ -116,6 +116,7 @@ export function CartView() {
       const arr = Array.from(selectedIds);
       sessionStorage.setItem(STORAGE_SELECTED_IDS, JSON.stringify(arr));
       sessionStorage.setItem(STORAGE_CHECKOUT_SELECTED, JSON.stringify(arr));
+      sessionStorage.setItem("techzone_checkout_selected_cart_item_ids", JSON.stringify(arr));
     } catch {}
   }, [selectedIds, data.cart]);
 
@@ -150,27 +151,28 @@ export function CartView() {
       });
     }
 
-    // 2. Fallback cho các bộ cũ trong localStorage nếu có
-    for (const buildSet of pcBuildSets) {
-      if (sets.some((s) => String(s.setMeta.id) === String(buildSet.id))) continue;
-      if (!Array.isArray(buildSet.itemVariantIds) || buildSet.itemVariantIds.length === 0) {
-        continue;
-      }
-      const setVariants = new Set(buildSet.itemVariantIds.map(String));
-      const matchingLines = cartLines.filter(
-        (line) => !claimedCartItemIds.has(String(line.cartItemId ?? line.id)) && setVariants.has(String(line.id))
-      );
+    // 2. Fallback duy nhất cho phiên khách vãng lai (không có pcCustomId trong DB)
+    if (pcGroupMap.size === 0) {
+      for (const buildSet of pcBuildSets) {
+        if (!Array.isArray(buildSet.itemVariantIds) || buildSet.itemVariantIds.length === 0) {
+          continue;
+        }
+        const setVariants = new Set(buildSet.itemVariantIds.map(String));
+        const matchingLines = cartLines.filter(
+          (line) => !claimedCartItemIds.has(String(line.cartItemId ?? line.id)) && setVariants.has(String(line.id))
+        );
 
-      if (isCartPcSet(buildSet, cartLines)) {
-        sets.push({
-          setMeta: buildSet,
-          items: matchingLines,
-        });
-        matchingLines.forEach((l) => claimedCartItemIds.add(String(l.cartItemId ?? l.id)));
+        if (matchingLines.length >= buildSet.itemVariantIds.length && matchingLines.length >= 2) {
+          sets.push({
+            setMeta: buildSet,
+            items: matchingLines,
+          });
+          matchingLines.forEach((l) => claimedCartItemIds.add(String(l.cartItemId ?? l.id)));
+        }
       }
     }
 
-    // 3. Toàn bộ các dòng còn lại là hàng mua lẻ độc lập
+    // 3. Toàn bộ các dòng còn lại (kể cả linh kiện có cùng variantId với bộ PC) là hàng mua lẻ độc lập
     const loose = cartLines.filter((line) => !claimedCartItemIds.has(String(line.cartItemId ?? line.id)));
 
     return { groupedSets: sets, looseItems: loose };
@@ -483,6 +485,7 @@ export function CartView() {
           selectedLooseCount={selectedLooseCount}
           selectedTotalAmount={selectedTotalAmount}
           selectedVariantIds={selectedVariantIds}
+          selectedCartItemIds={Array.from(selectedIds)}
           hasSelectedPcSet={groupedSets.length > 0}
           cartBusy={cartBusy}
           cartLoading={cartLoading}

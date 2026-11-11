@@ -72,37 +72,38 @@ export function CheckoutProductReview({ lines = [], products = [] }) {
       });
     }
 
-    // 2. Fallback gom nhóm từ localStorage nếu có
-    for (const buildSet of pcBuildSets) {
-      if (sets.some((s) => String(s.setMeta.id) === String(buildSet.id))) continue;
-      if (!Array.isArray(buildSet.itemVariantIds) || buildSet.itemVariantIds.length === 0) continue;
+    // 2. Fallback duy nhất cho phiên demo vãng lai (không có pcCustomId từ DB)
+    if (pcGroupMap.size === 0) {
+      for (const buildSet of pcBuildSets) {
+        if (!Array.isArray(buildSet.itemVariantIds) || buildSet.itemVariantIds.length === 0) continue;
 
-      const setVariants = new Set(buildSet.itemVariantIds.map(String));
-      const matchingLines = lines.filter(
-        (line) => !claimedKeys.has(String(line.cartItemId ?? line.id)) && setVariants.has(String(line.id))
-      );
-
-      if (matchingLines.length >= 2) {
-        const { totalSetPrice, totalPieces } = matchingLines.reduce(
-          (acc, item) => {
-            const p = products.find((prod) => prod.id === item.id);
-            const unitPrice = item.unitPrice ?? p?.price ?? 0;
-            const qty = item.quantity || 1;
-            return {
-              totalSetPrice: acc.totalSetPrice + unitPrice * qty,
-              totalPieces: acc.totalPieces + qty,
-            };
-          },
-          { totalSetPrice: 0, totalPieces: 0 }
+        const setVariants = new Set(buildSet.itemVariantIds.map(String));
+        const matchingLines = lines.filter(
+          (line) => !claimedKeys.has(String(line.cartItemId ?? line.id)) && setVariants.has(String(line.id))
         );
 
-        sets.push({
-          setMeta: buildSet,
-          items: matchingLines,
-          totalSetPrice,
-          totalPieces,
-        });
-        matchingLines.forEach((l) => claimedKeys.add(String(l.cartItemId ?? l.id)));
+        if (matchingLines.length >= buildSet.itemVariantIds.length && matchingLines.length >= 2) {
+          const { totalSetPrice, totalPieces } = matchingLines.reduce(
+            (acc, item) => {
+              const p = products.find((prod) => prod.id === item.id);
+              const unitPrice = item.unitPrice ?? p?.price ?? 0;
+              const qty = item.quantity || 1;
+              return {
+                totalSetPrice: acc.totalSetPrice + unitPrice * qty,
+                totalPieces: acc.totalPieces + qty,
+              };
+            },
+            { totalSetPrice: 0, totalPieces: 0 }
+          );
+
+          sets.push({
+            setMeta: buildSet,
+            items: matchingLines,
+            totalSetPrice,
+            totalPieces,
+          });
+          matchingLines.forEach((l) => claimedKeys.add(String(l.cartItemId ?? l.id)));
+        }
       }
     }
 
