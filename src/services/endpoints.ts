@@ -8,6 +8,7 @@ export const endpoints = {
     replacements: "/api/pc-build/builds/replacements",
     save: "/api/pc-build/builds/save",
     saved: "/api/pc-build/builds/saved",
+    savedBuild: (id: number) => `/api/pc-build/builds/saved/${id}`,
   },
   catalog: {
     products: "/api/catalog/products",

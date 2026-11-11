@@ -125,11 +125,21 @@
   color: #2563eb;
 }
 
-/* Popup chi tiết cấu hình đã lưu */
+/* Popup cấu hình đã lưu: bảng đổi linh kiện (PartsTable) nằm phẳng trong popup */
 .saved-modal-sub {
   margin: -8px 0 12px;
   font-size: 13px;
   color: var(--muted, #657185);
+}
+
+.saved-build-modal .builder-panel {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.saved-build-modal .panel-head {
+  padding: 0 0 12px;
 }
 
 .saved-build-modal .builder-table th,
@@ -137,9 +147,9 @@
   padding: 10px 12px;
 }
 
-.saved-modal-unit {
-  font-size: 12px;
-  color: var(--muted, #657185);
+.saved-build-modal .check-error,
+.saved-modal-violations {
+  margin-top: 12px;
 }
 
 .saved-modal-foot {
@@ -156,7 +166,8 @@
 .saved-modal-total {
   display: flex;
   align-items: baseline;
-  gap: 10px;
+  flex-wrap: wrap;
+  gap: 4px 10px;
   color: var(--muted, #657185);
 }
 
@@ -166,29 +177,16 @@
   color: #c81e33;
 }
 
+.saved-modal-total small {
+  font-size: 12px;
+}
+
 .saved-modal-actions {
   display: flex;
   gap: 10px;
 }
 
-.saved-modal-role {
-  display: none;
-}
-
-/* Màn hẹp: bỏ cột loại linh kiện, ghi loại ngay trên tên để bảng không tràn ngang */
 @media (max-width: 600px) {
-  .saved-build-modal .saved-modal-role-cell {
-    display: none;
-  }
-
-  .saved-modal-role {
-    display: block;
-    font-size: 11px;
-    font-weight: 700;
-    text-transform: uppercase;
-    color: var(--muted, #657185);
-  }
-
   .saved-modal-actions {
     width: 100%;
   }

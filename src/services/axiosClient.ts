@@ -26,7 +26,7 @@ axiosClient.interceptors.response.use(
     const method = response.config.method?.toUpperCase();
     if (method && ["POST", "PUT", "PATCH", "DELETE"].includes(method)) {
       const url = response.config.url || "";
-      if (url.includes("/products")) {
+      if (url.includes("/products") || url.includes("/orders")) {
         apiCache.invalidate("admin_product");
         apiCache.invalidate("admin_variant");
         apiCache.invalidate("catalog_product");

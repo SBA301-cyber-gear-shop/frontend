@@ -22,7 +22,7 @@ function estimateHardwareWeightGram(productName) {
 }
 
 export function useLiveCheckout() {
-  const { data, user, cartLoading, cartError, cartBusy, reloadCart, notify } =
+  const { data, user, cartLoading, cartError, cartBusy, reloadCart, reloadCatalog, notify } =
     useStore();
   const navigate = useNavigate();
   const [checkoutKey] = useState(() => {
@@ -177,14 +177,13 @@ export function useLiveCheckout() {
     ? cart.items.map((item) => {
         const inCart = data.cart?.find(
           (c) =>
-            (item.cartItemId && c.cartItemId === item.cartItemId) ||
-            String(c.id) === String(item.productVariantId)
+            item.cartItemId ? c.cartItemId === item.cartItemId : String(c.id) === String(item.productVariantId)
         );
         return {
           id: String(item.productVariantId),
           cartItemId: item.cartItemId ?? inCart?.cartItemId,
-          pcCustomId: item.pcCustomId ?? (item.cartItemId ? null : inCart?.pcCustomId) ?? null,
-          pcCustomName: item.pcCustomName ?? (item.cartItemId ? null : inCart?.pcCustomName) ?? null,
+          pcCustomId: item.pcCustomId !== undefined ? item.pcCustomId : (inCart?.pcCustomId ?? null),
+          pcCustomName: item.pcCustomName !== undefined ? item.pcCustomName : (inCart?.pcCustomName ?? null),
           quantity: item.quantity,
           unitPrice: item.unitPrice,
           name: item.productName,
@@ -453,6 +452,7 @@ export function useLiveCheckout() {
       notify("Đã tạo đơn hàng. Vui lòng chờ cửa hàng xác nhận sẵn sàng nhận.");
       navigate("/don-hang/" + order.id + "?created=1");
       void reloadCart();
+      void reloadCatalog();
     } catch (failure) {
       const rejected =
         failure.response?.status >= 400 && failure.response?.status < 500;

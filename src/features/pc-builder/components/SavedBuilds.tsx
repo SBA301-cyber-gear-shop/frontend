@@ -1,8 +1,7 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { Button, Notice } from "@/components/ui";
 import { money } from "@/utils";
-import { savedBuildHighlights, savedBuildToCartSet } from "../domain/buildLines";
+import { savedBuildHighlights } from "../domain/buildLines";
 import { useSavedBuilds } from "../hooks/useSavedBuilds";
 import type { SavedBuild } from "../types/pcBuilder.types";
 import { BuilderTabs } from "./BuilderTabs";
@@ -12,10 +11,6 @@ import { SavedBuildModal } from "./SavedBuildModal";
 export function SavedBuilds() {
   const { demoMode, builds, error, isLoading, reload } = useSavedBuilds();
   const [selected, setSelected] = useState<SavedBuild | null>(null);
-  const navigate = useNavigate();
-
-  const reopen = (build: SavedBuild) =>
-    navigate("/build-pc", { state: { savedSet: savedBuildToCartSet(build) } });
 
   return (
     <div className="pc-builder-container">
@@ -23,7 +18,7 @@ export function SavedBuilds() {
       <div className="page-header">
         <div>
           <h1 className="page-title">Cấu hình đã lưu</h1>
-          <p className="page-sub">Bấm vào một cấu hình để xem đầy đủ linh kiện hoặc mở lại để chỉnh sửa.</p>
+          <p className="page-sub">Bấm vào một cấu hình để xem đầy đủ linh kiện và đổi linh kiện ngay trong popup.</p>
         </div>
       </div>
 
@@ -93,7 +88,14 @@ export function SavedBuilds() {
       )}
 
       {selected && (
-        <SavedBuildModal build={selected} onReopen={() => reopen(selected)} onClose={() => setSelected(null)} />
+        <SavedBuildModal
+          build={selected}
+          onSaved={() => {
+            setSelected(null);
+            reload();
+          }}
+          onClose={() => setSelected(null)}
+        />
       )}
     </div>
   );

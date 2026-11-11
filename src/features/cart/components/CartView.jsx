@@ -20,6 +20,8 @@ export function CartView() {
     updateQuantity,
     removeFromCart,
     removeMultiple,
+    removePcSet,
+    detachPcSet,
     user,
     demoMode,
     cartLoading,
@@ -107,6 +109,15 @@ export function CartView() {
     isCartReadyRef.current = true;
   }, [data.cart, cartLoading]);
 
+  // Calculate selected lines and variant IDs
+  const selectedLines = useMemo(() => {
+    return data.cart.filter((line) => selectedIds.has(String(line.cartItemId ?? line.id)));
+  }, [data.cart, selectedIds]);
+
+  const selectedVariantIds = useMemo(() => {
+    return Array.from(new Set(selectedLines.map((line) => Number(line.id))));
+  }, [selectedLines]);
+
   // Save selectedIds to sessionStorage whenever selection changes and cart is ready
   useEffect(() => {
     if (!isCartReadyRef.current && (!data.cart || data.cart.length === 0)) {
@@ -115,10 +126,10 @@ export function CartView() {
     try {
       const arr = Array.from(selectedIds);
       sessionStorage.setItem(STORAGE_SELECTED_IDS, JSON.stringify(arr));
-      sessionStorage.setItem(STORAGE_CHECKOUT_SELECTED, JSON.stringify(arr));
+      sessionStorage.setItem(STORAGE_CHECKOUT_SELECTED, JSON.stringify(selectedVariantIds));
       sessionStorage.setItem("techzone_checkout_selected_cart_item_ids", JSON.stringify(arr));
     } catch {}
-  }, [selectedIds, data.cart]);
+  }, [selectedIds, selectedVariantIds, data.cart]);
 
   // Group items into PC Build Sets vs Loose Products
   const { groupedSets, looseItems } = useMemo(() => {
@@ -162,7 +173,7 @@ export function CartView() {
           (line) => !claimedCartItemIds.has(String(line.cartItemId ?? line.id)) && setVariants.has(String(line.id))
         );
 
-        if (matchingLines.length >= buildSet.itemVariantIds.length && matchingLines.length >= 2) {
+        if (matchingLines.length >= setVariants.size && matchingLines.length >= 2) {
           sets.push({
             setMeta: buildSet,
             items: matchingLines,
@@ -177,15 +188,6 @@ export function CartView() {
 
     return { groupedSets: sets, looseItems: loose };
   }, [data.cart, pcBuildSets]);
-
-  // Calculate selection metrics
-  const selectedLines = useMemo(() => {
-    return data.cart.filter((line) => selectedIds.has(String(line.cartItemId ?? line.id)));
-  }, [data.cart, selectedIds]);
-
-  const selectedVariantIds = useMemo(() => {
-    return Array.from(new Set(selectedLines.map((line) => Number(line.id))));
-  }, [selectedLines]);
 
   const selectedCount = useMemo(() => {
     return selectedLines.reduce((sum, line) => sum + line.quantity, 0);
@@ -250,7 +252,7 @@ export function CartView() {
 
   // Ungroup PC Set
   const executeUngroupSet = (setId) => {
-    const updated = pcBuildSets.filter((s) => s.id !== setId);
+    const updated = pcBuildSets.filter((s) => String(s.id) !== String(setId));
     setPcBuildSets(updated);
     try {
       localStorage.setItem(STORAGE_PC_SETS, JSON.stringify(updated));
@@ -268,14 +270,7 @@ export function CartView() {
       confirmText: "Xác nhận tách mua lẻ",
       tone: "primary",
       onConfirm: async () => {
-        if (!demoMode && Number.isInteger(Number(setMeta.id))) {
-          try {
-            await cartApi.detachPcSet(Number(setMeta.id));
-            await reloadCart();
-          } catch (err) {
-            console.error("[Cart] Lỗi tách bộ PC:", err);
-          }
-        }
+        await detachPcSet(setMeta.id);
         executeUngroupSet(setMeta.id);
       },
     });
@@ -290,18 +285,15 @@ export function CartView() {
       confirmText: "Xóa cả bộ máy",
       tone: "danger",
       onConfirm: async () => {
-        if (!demoMode && Number.isInteger(Number(setMeta.id))) {
-          try {
-            await cartApi.removePcSet(Number(setMeta.id));
-            await reloadCart();
-          } catch (err) {
-            console.error("[Cart] Lỗi xóa bộ PC:", err);
-          }
-        } else {
-          const itemIds = items.map((i) => String(i.cartItemId ?? i.id));
-          await removeMultiple(itemIds);
-        }
+        await removePcSet(setMeta.id, items);
         executeUngroupSet(setMeta.id);
+        // Bỏ chọn các id vừa bị xóa khỏi selectedIds
+        const deletedKeys = new Set(items.map((i) => String(i.cartItemId ?? i.id)));
+        setSelectedIds((prev) => {
+          const next = new Set(prev);
+          deletedKeys.forEach((k) => next.delete(k));
+          return next;
+        });
       },
     });
   };

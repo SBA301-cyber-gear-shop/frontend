@@ -172,18 +172,20 @@ export default function StoreProvider({ children, catalogApi, cartApi }) {
     return () => controller.abort();
   }, [user, fetchCart]);
 
-  function reloadCatalog() {
+  const reloadCatalog = useCallback(() => {
     apiCache.invalidate("catalog_products");
-    setCatalogLoading(true);
+    if (!current.current?.products?.length) {
+      setCatalogLoading(true);
+    }
     setCatalogError("");
     return fetchCatalog(undefined, { forceRefresh: true });
-  }
+  }, [fetchCatalog]);
 
-  function reloadCart() {
+  const reloadCart = useCallback(() => {
     setCartLoading(true);
     setCartError("");
     return fetchCart();
-  }
+  }, [fetchCart]);
 
   async function mutateCart(operation) {
     if (mutationBusy.current)

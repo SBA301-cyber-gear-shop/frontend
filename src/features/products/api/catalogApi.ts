@@ -3,6 +3,13 @@ import { apiCache, type CacheOptions } from "@/services/apiCache";
 
 export const catalogApi = {
   async list(signal?: AbortSignal, options?: CacheOptions) {
+    try {
+      // Dọn dẹp cache phiên cũ nếu có trong sessionStorage
+      if (typeof window !== "undefined") {
+        window.sessionStorage.removeItem("tz_cache_catalog_products");
+      }
+    } catch {}
+
     return apiCache.fetchWithCache(
       "catalog_products",
       async () => {
@@ -20,7 +27,7 @@ export const catalogApi = {
             : {}),
         }));
       },
-      { ttl: 180_000, storage: "session", ...options }
+      { ttl: 10_000, storage: "memory", ...options }
     );
   },
 };
