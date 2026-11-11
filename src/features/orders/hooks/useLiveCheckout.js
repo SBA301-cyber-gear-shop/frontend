@@ -151,15 +151,25 @@ export function useLiveCheckout() {
   const validationError = validationCurrent ? validation.error || "" : "";
   const cart = validationCurrent ? validation.cart : null;
   const rawLines = cart
-    ? cart.items.map((item) => ({
-        id: String(item.productVariantId),
-        quantity: item.quantity,
-        unitPrice: item.unitPrice,
-        name: item.productName,
-        variant: item.variantName,
-        image: item.imageUrl,
-        stock: item.stockQuantity,
-      }))
+    ? cart.items.map((item) => {
+        const inCart = data.cart?.find(
+          (c) =>
+            (item.cartItemId && c.cartItemId === item.cartItemId) ||
+            String(c.id) === String(item.productVariantId)
+        );
+        return {
+          id: String(item.productVariantId),
+          cartItemId: item.cartItemId ?? inCart?.cartItemId,
+          pcCustomId: item.pcCustomId ?? inCart?.pcCustomId ?? null,
+          pcCustomName: item.pcCustomName ?? inCart?.pcCustomName ?? null,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          name: item.productName,
+          variant: item.variantName,
+          image: item.imageUrl,
+          stock: item.stockQuantity,
+        };
+      })
     : data.cart;
 
   const lines = useMemo(() => {

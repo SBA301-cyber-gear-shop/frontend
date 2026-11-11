@@ -12,6 +12,7 @@ import {
 } from "@/components/ui";
 import { Field } from "@/components/form";
 import { OrderLines } from "@/features/products";
+import { CheckoutProductReview } from "./CheckoutProductReview";
 import { useCheckout } from "../hooks/useCheckout";
 
 export function CheckoutForm() {
@@ -407,7 +408,7 @@ export function CheckoutForm() {
 
             {/* 03 · KIỂM TRA SẢN PHẨM */}
             <Panel title="03 · Kiểm tra sản phẩm">
-              <OrderLines lines={lines} products={data.products} />
+              <CheckoutProductReview lines={lines} products={data.products} />
             </Panel>
           </div>
 

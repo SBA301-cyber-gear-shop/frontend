@@ -35,6 +35,7 @@ function orderView(order) {
       variant: "",
       quantity: item.quantity,
       unitPrice: item.unitPrice,
+      pcCustomId: item.pcCustomId ?? null,
       warranty: item.warrantyPeriodMonths,
       review: item.rating
         ? { rating: item.rating, comment: item.reviewComment }

@@ -10,6 +10,7 @@ import { paymentApi } from "../api/paymentApi";
 import { shippingApi } from "../api/shippingApi";
 import { ORDER_STATUS, PAYMENT_STATUS } from "../constants";
 import { OrderLines } from "@/features/products";
+import { CheckoutProductReview } from "./CheckoutProductReview";
 import {
   Badge,
   Button,
@@ -249,7 +250,7 @@ export function OrderDetails() {
             </Panel>
           )}
 
-          <OrderLines lines={order.lines} products={data.products} />
+          <CheckoutProductReview lines={order.lines} products={data.products} />
 
           <Panel title="Thông tin nhận hàng">
             <div className="two-col">
