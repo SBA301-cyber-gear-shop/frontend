@@ -1,5 +1,33 @@
 import { test, expect } from "@playwright/test";
 
+test("changing a technician request keeps the editor mounted", async ({ page }) => {
+  const card = { id: 1, serialNumber: "RAM-1", productName: "RAM", orderCode: "ORDER-5", status: "active", valid: true, requests: [] };
+  let ticket = { id: 12, requestCode: "BH-NEW", intakeId: 5, intakeCode: "BH-5", orderCode: "ORDER-5", productName: "RAM", serialNumber: card.serialNumber, status: "received", version: 0, card, canAddNote: true, allowedTransitions: [{ toStatus: "inspecting", resolutions: [] }], events: [] };
+  await page.addInitScript(() => {
+    sessionStorage.setItem("techzone-token", "test-token");
+    sessionStorage.setItem("techzone-session", JSON.stringify({ id: 3, name: "Technician", role: "Technician" }));
+    window.__pageMarker = Math.random();
+  });
+  await page.route("**/api/**", (route) => {
+    const path = new URL(route.request().url()).pathname;
+    if (!path.startsWith("/api/")) return route.continue();
+    if (path.endsWith("/transitions")) ticket = { ...ticket, status: "inspecting", version: 1, allowedTransitions: [] };
+    const data = path === "/api/service-requests" ? [ticket] : path === "/api/service-requests/12" || path.endsWith("/transitions") ? ticket :
+      path === "/api/warranty-cards" ? [card] : path === "/api/service-intakes/5" ? { id: 5, requests: [] } : [];
+    return route.fulfill({ json: { data } });
+  });
+  await page.goto("/ky-thuat");
+  const note = page.getByLabel("Ghi chú nội bộ kỹ thuật");
+  await note.fill("Đã kiểm tra");
+  await note.evaluate((element) => { element.dataset.testMounted = "yes"; });
+  const marker = await page.evaluate(() => window.__pageMarker);
+  await page.getByRole("button", { name: "Bắt đầu kiểm tra" }).click();
+  await expect(page.getByRole("button", { name: "Bắt đầu kiểm tra" })).toHaveCount(0);
+  await expect(note).toHaveAttribute("data-test-mounted", "yes");
+  await expect(note).toHaveValue("");
+  expect(await page.evaluate(() => window.__pageMarker)).toBe(marker);
+});
+
 test("technician sees the replacement chain for one device only", async ({ page }) => {
   const previous = { id: 11, requestCode: "BH-OLD", status: "returned", resolution: "replaced", createdAt: "2026-11-01" };
   const current = { id: 12, requestCode: "BH-NEW", intakeId: 5, intakeCode: "BH-5", orderCode: "ORDER-5", productName: "RAM", serialNumber: "RAM-NEW", status: "inspecting", version: 0, createdAt: "2026-11-02" };
