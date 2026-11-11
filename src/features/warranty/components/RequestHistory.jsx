@@ -3,6 +3,14 @@ import { Badge, KV } from "@/components/ui";
 import { REQUEST_RESOLUTION, REQUEST_STATUS } from "../constants";
 import { day } from "../domain/requests";
 
+export function HistoryCounts({ counts }) {
+  return <div className="tech-history-counts">
+    <span><strong>{counts.received}</strong> lần tiếp nhận</span>
+    <span><strong>{counts.repaired}</strong> lần sửa</span>
+    <span><strong>{counts.replaced}</strong> lần đổi</span>
+  </div>;
+}
+
 export function RequestHistory({ requests, onView }) {
   if (!requests.length)
     return <p className="small muted">Thẻ chưa có phiếu bảo hành nào.</p>;
@@ -43,7 +51,7 @@ export function RequestDetail({ ticket: t }) {
       <p>{t.issueDescription}</p>
       <KV label="Ngoại quan">{t.conditionNote || "Chưa ghi nhận"}</KV>
       <KV label="Phụ kiện">{t.accessoriesNote || "Chưa ghi nhận"}</KV>
-      <h3 className="section">Lịch sử xử lý</h3>
+      <h3 className="section history-title">Lịch sử xử lý</h3>
       <Timeline events={t.events} />
     </>
   );
@@ -51,7 +59,7 @@ export function RequestDetail({ ticket: t }) {
 
 export function Timeline({ events }) {
   return events.map((e, i) => (
-    <div className="ticket-preview" key={i}>
+    <div className="ticket-preview history-event" key={i}>
       <div className="row wrap-row between">
         <b>
           {e.fromStatus === e.toStatus ? "Ghi chú" : REQUEST_STATUS[e.toStatus]}
@@ -60,8 +68,8 @@ export function Timeline({ events }) {
           {dateTime(e.createdAt)} · {e.actorName}
         </span>
       </div>
-      {e.internalNote && <p className="small">{e.internalNote}</p>}
-      {e.publicNote && <p className="small muted">Cho khách: {e.publicNote}</p>}
+      {e.internalNote && <p className="small history-note history-note-internal"><span>Ghi chú nội bộ: </span>{e.internalNote}</p>}
+      {e.publicNote && <p className="small history-note history-note-public"><span>Thông tin cho khách: </span>{e.publicNote}</p>}
     </div>
   ));
 }

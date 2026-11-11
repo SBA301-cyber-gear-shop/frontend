@@ -16,7 +16,7 @@ import { Field } from "@/components/form";
 import { REQUEST_RESOLUTION, REQUEST_STATUS } from "../constants";
 import { cardBadge, day, groupByPc, today, warrantyRemainingText } from "../domain/requests";
 import { useAftersales } from "../hooks/useAftersales";
-import { RequestDetail, RequestHistory } from "./RequestHistory";
+import { HistoryCounts, RequestDetail, RequestHistory } from "./RequestHistory";
 import { deviceChain, historyCounts } from "../domain/deviceHistory";
 
 const EMPTY_INTAKE = {
@@ -684,6 +684,7 @@ export function ApiWarrantyIntake() {
       {history && (
         <Modal
           title={"Lịch sử bảo hành · đơn " + history.orderCode}
+          className="tech-history"
           onClose={() => setHistory(null)}
         >
           {history.groups
@@ -699,8 +700,14 @@ export function ApiWarrantyIntake() {
                   const chain = deviceChain(all, c);
                   const own = historyCounts([c]);
                   const total = historyCounts(chain);
-                  return <p className="small">Serial này: {own.received} lần tiếp nhận · {own.repaired} lần sửa · {own.replaced} lần đổi<br />
-                    Chuỗi {chain.map((item) => item.serialNumber).join(" → ")}: {total.received} lần tiếp nhận · {total.repaired} lần sửa · {total.replaced} lần đổi</p>;
+                  return <>
+                    <div className="tech-history-chain"><span>Serial này</span><strong>{c.serialNumber}</strong></div>
+                    <HistoryCounts counts={own} />
+                    {chain.length > 1 && <>
+                      <div className="tech-history-chain"><span>Chuỗi serial</span><strong>{chain.map((item) => item.serialNumber).join(" → ")}</strong></div>
+                      <HistoryCounts counts={total} />
+                    </>}
+                  </>;
                 })()}
                 {c.repairedCount >= 3 && (
                   <Notice tone="warning">
@@ -722,6 +729,7 @@ export function ApiWarrantyIntake() {
       {detail && (
         <Modal
           title={"Phiếu " + detail.requestCode}
+          className="tech-history"
           onClose={() => setDetail(null)}
         >
           <RequestDetail ticket={detail} />

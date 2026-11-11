@@ -15,6 +15,7 @@ import { CUSTOMER_RESOLUTION, CUSTOMER_STATUS } from "../constants";
 import { useAftersales } from "../hooks/useAftersales";
 import { RequestRoadmap } from "./RequestRoadmap";
 import { groupByPc } from "../domain/requests";
+import { HistoryCounts } from "./RequestHistory";
 import { deviceChain, historyCounts } from "../domain/deviceHistory";
 
 // Roadmap của cả lần gửi: trạng thái chung kèm tiến trình gộp của mọi linh kiện, mốc mới nhất thắng.
@@ -116,18 +117,8 @@ export function ApiCustomerWarranty() {
                         <div className="name">
                           <b>{c.productName}</b>
                           <p className="small mono">{c.serialNumber}</p>
-                          {(() => {
-                            const chain = deviceChain(cards || [], c);
-                            const own = historyCounts([c]);
-                            const total = historyCounts(chain);
-                            return <details className="small"><summary>Lịch sử thiết bị</summary>
-                              <p>Serial này: {own.received} lần tiếp nhận · {own.repaired} lần sửa · {own.replaced} lần đổi</p>
-                              <p>Chuỗi {chain.map((item) => item.serialNumber).join(" → ")}: {total.received} lần tiếp nhận · {total.repaired} lần sửa · {total.replaced} lần đổi</p>
-                              {chain.flatMap((item) => (item.requests || []).map((r) => <p key={r.id}>{item.serialNumber} · {r.requestCode} · {CUSTOMER_STATUS[r.status]}{r.resolution ? " · " + CUSTOMER_RESOLUTION[r.resolution] : ""}</p>))}
-                            </details>;
-                          })()}
                           {c.replacedBySerialNumber && (
-                            <p className="small muted">
+                            <p className="replacement-serial">
                               Đã đổi sang serial{" "}
                               <b className="mono">{c.replacedBySerialNumber}</b>
                             </p>
@@ -140,6 +131,34 @@ export function ApiCustomerWarranty() {
                             {cardState(c)}
                           </Badge>
                         </span>
+                        <div className="customer-history-cell">
+                          {(() => {
+                            const chain = deviceChain(cards || [], c);
+                            const own = historyCounts([c]);
+                            const total = historyCounts(chain);
+                            return <details className="small tech-history customer-device-history"><summary>Lịch sử thiết bị</summary>
+                              <div className="tech-history-chain"><span>Serial này</span><strong>{c.serialNumber}</strong></div>
+                              <HistoryCounts counts={own} />
+                              {chain.length > 1 && <>
+                                <div className="tech-history-chain"><span>Chuỗi serial</span><strong>{chain.map((item) => item.serialNumber).join(" → ")}</strong></div>
+                                <HistoryCounts counts={total} />
+                              </>}
+                              {chain.some((item) => item.requests?.length > 0) && <div className="customer-history-events">
+                                <span className="customer-history-heading">Lịch sử xử lý</span>
+                                {chain.flatMap((item) => (item.requests || []).map((r) => <div className="customer-history-event" key={r.id}>
+                                  <span className="customer-history-serial">{item.serialNumber}</span>
+                                  <span className="customer-history-result">
+                                    {r.resolution ? CUSTOMER_RESOLUTION[r.resolution] : CUSTOMER_STATUS[r.status]}
+                                    {r.resolution === "replaced" && (r.replacementSerialNumber || item.replacedBySerialNumber) && <>
+                                      {" · Serial mới: "}<strong className="customer-history-new-serial">{r.replacementSerialNumber || item.replacedBySerialNumber}</strong>
+                                    </>}
+                                  </span>
+                                  {r.resolution && <span className="customer-history-status">{CUSTOMER_STATUS[r.status]}</span>}
+                                </div>))}
+                              </div>}
+                            </details>;
+                          })()}
+                        </div>
                       </Fragment>
                     ))}
                   </div></div>)}
