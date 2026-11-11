@@ -82,7 +82,7 @@ export function CheckoutProductReview({ lines = [], products = [] }) {
           (line) => !claimedKeys.has(String(line.cartItemId ?? line.id)) && setVariants.has(String(line.id))
         );
 
-        if (matchingLines.length >= buildSet.itemVariantIds.length && matchingLines.length >= 2) {
+        if (matchingLines.length >= setVariants.size && matchingLines.length >= 2) {
           const { totalSetPrice, totalPieces } = matchingLines.reduce(
             (acc, item) => {
               const p = products.find((prod) => prod.id === item.id);

@@ -182,6 +182,50 @@ export function useCart() {
     }));
   }
 
+  async function removePcSet(pcCustomId, items = []) {
+    if (!demoMode) {
+      const success = await remoteChange(async () => {
+        let deletedBySet = false;
+        if (pcCustomId && Number.isInteger(Number(pcCustomId))) {
+          try {
+            await cartApi.removePcSet(Number(pcCustomId));
+            deletedBySet = true;
+          } catch (e) {
+            console.warn("[Cart] Không thể xóa qua removePcSet, fallback theo cartItemId:", e);
+          }
+        }
+        for (const item of items) {
+          if (item.cartItemId) {
+            try {
+              await cartApi.remove(item.cartItemId);
+            } catch {}
+          }
+        }
+      });
+      if (success) notify("Đã xóa bộ máy PC khỏi giỏ hàng.");
+      return success;
+    }
+    const itemIds = new Set(items.map((i) => String(i.cartItemId ?? i.id)));
+    commit((current) => ({
+      ...current,
+      cart: current.cart.filter(
+        (line) => !itemIds.has(String(line.cartItemId ?? line.id)) && !itemIds.has(String(line.id))
+      ),
+    }));
+    notify("Đã xóa bộ máy PC khỏi giỏ hàng.");
+    return true;
+  }
+
+  async function detachPcSet(pcCustomId) {
+    if (!demoMode && pcCustomId && Number.isInteger(Number(pcCustomId))) {
+      const success = await remoteChange(() => cartApi.detachPcSet(Number(pcCustomId)));
+      if (success) notify("Đã tách bộ PC thành các linh kiện mua lẻ.");
+      return success;
+    }
+    notify("Đã tách bộ PC thành các linh kiện mua lẻ.");
+    return true;
+  }
+
   return {
     data,
     user,
@@ -198,5 +242,7 @@ export function useCart() {
     updateQuantity,
     removeFromCart,
     removeMultiple,
+    removePcSet,
+    detachPcSet,
   };
 }

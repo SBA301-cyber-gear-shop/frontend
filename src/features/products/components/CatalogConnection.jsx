@@ -2,8 +2,9 @@ import { useStore } from "@/store";
 import { Button, Notice } from "@/components/ui";
 
 export function CatalogConnection() {
-  const { catalogLoading, catalogError, reloadCatalog } = useStore();
-  if (catalogLoading) return <Notice>Đang tải sản phẩm từ cửa hàng…</Notice>;
+  const { data, catalogLoading, catalogError, reloadCatalog } = useStore();
+  if (catalogLoading && (!data?.products || data.products.length === 0))
+    return <Notice>Đang tải sản phẩm từ cửa hàng…</Notice>;
   if (catalogError)
     return (
       <div className="stack section">

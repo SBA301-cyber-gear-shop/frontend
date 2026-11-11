@@ -5,5 +5,5 @@ export function isCartPcSet(buildSet, cartLines) {
   }
   const variants = new Set(buildSet.itemVariantIds.map(String));
   const matching = cartLines.filter((line) => variants.has(String(line.id)));
-  return matching.length >= buildSet.itemVariantIds.length && matching.length >= 2;
+  return matching.length >= variants.size && matching.length >= 2;
 }
