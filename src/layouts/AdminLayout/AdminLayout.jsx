@@ -11,6 +11,7 @@ const menu = [
   ["/van-hanh/ban-giao", "pin", "Bàn giao tại quầy", ["Staff", "Admin"]],
   ["/van-hanh/bao-hanh", "shield", "Tiếp nhận bảo hành", ["Staff", "Admin"]],
   ["/ky-thuat", "chip", "Xử lý kỹ thuật", ["Technician", "Admin"]],
+  ["/quan-tri/thong-ke", "chart", "Báo cáo thống kê", ["Admin"]],
   ["/quan-tri/san-pham", "grid", "Sản phẩm & phiên bản", ["Admin"]],
   ["/quan-tri/thong-so", "layers", "Danh mục & thông số", ["Admin"]],
   ["/quan-tri/khuyen-mai", "spark", "Khuyến mãi & banner", ["Admin"]],

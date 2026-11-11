@@ -26,6 +26,7 @@ const AdminSpecs = lazy(() => import("@/pages/AdminSpecs"));
 const AdminPromotion = lazy(() => import("@/pages/AdminPromotion"));
 const AdminAiConfig = lazy(() => import("@/pages/AdminAiConfig"));
 const AdminPcBuildMetadata = lazy(() => import("@/pages/AdminPcBuildMetadata"));
+const AdminAnalytics = lazy(() => import("@/pages/AdminAnalytics"));
 const Exceptions = lazy(() => import("@/pages/Exceptions"));
 const Login = lazy(() => import("@/pages/Login"));
 const Register = lazy(() => import("@/pages/Register"));
@@ -112,6 +113,7 @@ export function AppRoutes() {
             }
           />
           <Route element={<PrivateRoute roles={["Admin"]} />}>
+            <Route path="/quan-tri/thong-ke" element={<AdminAnalytics />} />
             <Route path="/quan-tri/san-pham" element={<AdminProduct />} />
             <Route path="/quan-tri/thong-so" element={<AdminSpecs />} />
             <Route path="/quan-tri/khuyen-mai" element={<AdminPromotion />} />
