@@ -64,7 +64,7 @@ export function buildableRequirement(analysis: AnalyzeResponse): AutoBuildReques
   return { budget: requirement.budget, purpose: requirement.purpose };
 }
 
-export const toItemRequests = (items: BuildItem[]): BuildItemRequest[] =>
+export const toItemRequests = (items: Pick<BuildItem, "id" | "qty">[]): BuildItemRequest[] =>
   items.map((item) => ({ variantId: item.id, qty: item.qty }));
 
 /** Khóa của một bộ PC (không phụ thuộc thứ tự dòng): phản hồi cho khóa cũ bị bỏ. */
@@ -154,17 +154,6 @@ export function savedBuildHighlights(saved: SavedBuild): { label: string; value:
     { label: "Màn hình", value: named("MONITOR") ?? "Chưa có" },
   ];
 }
-
-/**
- * Bộ đã lưu → dạng CartBuildSet để mở lại bằng đúng luồng "sửa bộ PC trong giỏ" (itemsFromCartSet → /validate).
- * Backend không lưu ngân sách nên lấy tổng tiền lúc lưu: giá đã tăng thì bộ mở lại hiện "Vượt ngân sách".
- */
-export const savedBuildToCartSet = (saved: SavedBuild): CartBuildSet => ({
-  id: saved.buildId,
-  name: `Cấu hình #${saved.buildId}`,
-  budget: saved.total,
-  parts: saved.items.map((item) => ({ ...item })),
-});
 
 /**
  * Đọc lại bộ PC đã thêm vào giỏ (localStorage techzone_pc_build_sets) để sửa tiếp.

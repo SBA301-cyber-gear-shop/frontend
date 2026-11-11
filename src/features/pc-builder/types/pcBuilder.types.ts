@@ -146,8 +146,13 @@ export interface SavedBuild {
   buildId: number;
   /** Tổng tiền lúc lưu. */
   total: number;
-  /** `price` là giá lúc lưu; không có maxQty (mở lại thì /validate trả số thật). */
+  /** `price` là giá lúc lưu; không có maxQty (popup sửa gọi /validate để lấy số thật). */
   items: Omit<BuildItem, "maxQty">[];
+}
+
+/** PUT /api/pc-build/builds/saved/{id}: ghi đè toàn bộ món, không có ngân sách. */
+export interface UpdateSavedBuildRequest {
+  items: BuildItemRequest[];
 }
 
 /** Thân lỗi của GlobalExceptionHandler. */

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useStore } from "@/store";
 import { cartApi } from "@/features/cart";
 import { money } from "@/utils";
@@ -110,13 +110,10 @@ export function usePcBuilder() {
   const editBuildId = searchParams.get("editBuildId");
   const [requests] = useState(() => createBuildRequests());
   const [draft] = useState(readGuestDraft);
-  // Bộ mở lại từ tab "Cấu hình đã lưu" đi qua router state (dạng CartBuildSet, xem savedBuildToCartSet)
-  const savedSet = (useLocation().state as { savedSet?: CartBuildSet } | null)?.savedSet ?? null;
-  // Bộ PC đã lưu hoặc từ giỏ hàng ("Sửa trong bộ lắp ráp"); khôi phục bản nháp sau đăng nhập được ưu tiên
+  // Bộ PC từ giỏ hàng ("Sửa trong bộ lắp ráp"); khôi phục bản nháp sau đăng nhập được ưu tiên
   const [cartSet] = useState<CartBuildSet | null>(() => {
-    if (draft) return null;
-    if (savedSet) return savedSet;
-    return editBuildId ? readCartSets().find((set) => String(set.id) === editBuildId) ?? null : null;
+    if (draft || !editBuildId) return null;
+    return readCartSets().find((set) => String(set.id) === editBuildId) ?? null;
   });
   const [cartItems] = useState(() => itemsFromCartSet(cartSet));
 
@@ -190,8 +187,6 @@ export function usePcBuilder() {
       {
         onSuccess: (outcome: Outcome) => {
           applyOutcome(outcome);
-          // Bộ vừa mở từ tab "Cấu hình đã lưu" chưa bị sửa nên vẫn đang là bản đã lưu
-          if (cartSet === savedSet && typeof cartSet.id === "number") setSavedBuildId(cartSet.id);
           notify(`✨ Đã nạp cấu hình "${name}" vào bộ lắp ráp.`, "success");
         },
         onError: applyError,

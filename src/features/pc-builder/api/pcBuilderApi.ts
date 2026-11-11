@@ -12,6 +12,7 @@ import type {
   SaveBuildRequest,
   SaveBuildResult,
   SavedBuild,
+  UpdateSavedBuildRequest,
   ValidateBuildRequest,
 } from "../types/pcBuilder.types";
 
@@ -84,9 +85,9 @@ async function get<T>(url: string, signal?: AbortSignal): Promise<T> {
   }
 }
 
-async function post<T>(url: string, payload: unknown, signal?: AbortSignal): Promise<T> {
+async function post<T>(url: string, payload: unknown, signal?: AbortSignal, method: "post" | "put" = "post"): Promise<T> {
   try {
-    const { data } = await axiosClient.post<ApiResponseWrapper<T>>(url, payload, { signal });
+    const { data } = await axiosClient[method]<ApiResponseWrapper<T>>(url, payload, { signal });
     if (data == null || data.data == null) throw new Error("Không nhận được dữ liệu từ máy chủ");
     return data.data;
   } catch (error) {
@@ -155,5 +156,13 @@ export const pcBuilderApi = {
   async listSaved({ signal }: RequestOptions = {}): Promise<SavedBuild[]> {
     const list = await get<SavedBuild[]>(endpoints.pcBuilder.saved, signal);
     return Array.isArray(list) ? list : [];
+  },
+
+  /**
+   * Đổi linh kiện của một bộ đã lưu (cần đăng nhập). Giá do server đọc lại từ DB; 422 BUILD_INCOMPATIBLE khi xung đột.
+   * Endpoint: PUT /api/pc-build/builds/saved/{buildId}
+   */
+  updateSaved(buildId: number, payload: UpdateSavedBuildRequest): Promise<SaveBuildResult> {
+    return post<SaveBuildResult>(endpoints.pcBuilder.savedBuild(buildId), payload, undefined, "put");
   },
 };
