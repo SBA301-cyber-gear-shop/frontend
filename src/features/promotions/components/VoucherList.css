@@ -1,0 +1,152 @@
+.promotion-management .voucher-list {
+  --voucher-primary: #245ba0;
+  --voucher-primary-soft: #eff5fd;
+  --voucher-secondary: #526176;
+  border: 1px solid var(--line, #e2e7ed);
+  border-radius: 16px;
+  box-shadow: 0 3px 14px #15223704;
+  padding: 24px;
+  background: var(--white, #fff);
+  font-variant-numeric: tabular-nums;
+  container-type: inline-size;
+}
+.voucher-list .promotion-list-header { gap: 12px; margin-bottom: 20px; }
+.promotion-management .voucher-list .promotion-list-header h2 { display: flex; align-items: center; gap: 10px; font-size: 21px; }
+.voucher-list .voucher-total-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 28px; height: 26px; padding: 0 8px; border-radius: 7px; color: #43546b; background: #eef2f7; font-size: 13px; font-weight: 700; }
+.promotion-management .voucher-list .promotion-list-tools { font-size: 13px; color: var(--muted, #657185); }
+.promotion-management .voucher-table-scroll { max-height: none; overflow: visible; border: 1px solid #e7ecf3; border-radius: 12px; }
+.promotion-management .voucher-list .promotion-voucher-table { table-layout: fixed; min-width: 0; width: 100%; border-collapse: separate; border-spacing: 0; }
+.promotion-management .voucher-list .promotion-voucher-table th { position: sticky; top: 0; z-index: 1; padding: 16px; background: #f7f9fc; color: #526176; font-size: 12px; font-weight: 650; letter-spacing: .015em; white-space: nowrap; border-bottom: 1px solid var(--line, #e2e7ed); }
+.promotion-management .voucher-list .promotion-voucher-table td { padding: 16px; background: #fff; font-size: 13px; border-bottom: 1px solid #edf0f5; vertical-align: middle; transition: background-color .15s ease; }
+.promotion-management .voucher-list .promotion-voucher-table tbody tr:hover td { background: #fafcff; }
+.promotion-management .voucher-list .promotion-voucher-table tr:last-child td { border-bottom: 0; }
+.voucher-list .promotion-voucher-table th:first-child { width: 17%; }
+.voucher-list .promotion-voucher-table th:nth-child(2) { width: 15%; }
+.voucher-list .promotion-voucher-table th:nth-child(3) { width: 10%; }
+.voucher-list .promotion-voucher-table th:nth-child(4) { width: 22%; }
+.voucher-list .promotion-voucher-table th:nth-child(5) { width: 10%; }
+.voucher-list .promotion-voucher-table th:nth-child(6) { width: 13%; }
+.voucher-list .promotion-voucher-table th:last-child { width: 13%; }
+.voucher-identity { display: grid; justify-items: start; gap: 8px; min-width: 0; }
+.voucher-code-line { display: flex; align-items: center; gap: 5px; max-width: 100%; min-width: 0; }
+.voucher-code-chip { display: inline-block; border: 1px solid #e0e7f0; border-radius: 6px; padding: 5px 8px; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 13px; font-weight: 650; line-height: 1.5; white-space: nowrap; overflow-wrap: normal; word-break: normal; color: #233b5b; background: #f4f7fb; user-select: all; }
+.promotion-management .voucher-list .voucher-copy.btn { display: inline-flex; flex: 0 0 28px; align-items: center; justify-content: center; width: 28px; min-height: 28px; padding: 5px; border: 0; border-radius: 5px; background: transparent; color: #526176; opacity: 0; }
+.voucher-code-line:hover .voucher-copy.btn,.voucher-code-line:focus-within .voucher-copy.btn { opacity: 1; }
+.promotion-management .voucher-list .voucher-copy.btn:hover { background: #e8eff8; color: #245ba0; }
+.voucher-copy .icon { width: 15px; height: 15px; }
+.voucher-audience { display: inline-flex; align-items: center; gap: 5px; padding: 3px 7px; border-radius: 5px; font-size: 11px; font-weight: 600; line-height: 1.6; white-space: nowrap; }
+.voucher-audience svg { width: 12px; height: 12px; flex-shrink: 0; }
+.voucher-audience.is-assigned { color: #51428c; background: #f0edf9; }
+.voucher-audience.is-public { color: #246855; background: #eaf5ef; }
+.promotion-management .voucher-list .promotion-program-name { color: var(--ink, #152237); font-weight: 600; line-height: 1.6; }
+.voucher-list .promotion-program-name > span { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; max-width: 230px; min-width: 0; overflow-wrap: anywhere; }
+.promotion-management .voucher-list .promotion-type { padding: 0; background: none; color: var(--voucher-secondary); font-weight: 400; white-space: nowrap; font-size: 12px; }
+.promotion-management .voucher-list .promotion-value { font-size: 15px; font-weight: 750; color: #223956; text-decoration: none; white-space: nowrap; }
+.voucher-date-range { display: grid; gap: 5px; color: #34465f; font-size: 12px; white-space: nowrap; }
+.voucher-date-range > div { display: grid; grid-template-columns: 24px 1fr; align-items: baseline; gap: 6px; }
+.voucher-date-range > div > span { color: #657185; }
+.voucher-date-range time { font-variant-numeric: tabular-nums; }
+.voucher-date-range small { display: flex; align-items: center; gap: 5px; color: #386c57; font-size: 11px; margin-top: 3px; }
+.voucher-date-range small.is-ended { color: #657185; }
+.voucher-date-range .icon { width: 12px; height: 12px; }
+.voucher-usage { min-width: 0; max-width: 130px; display: grid; gap: 8px; }
+.voucher-usage-value { color: #263d58; font-size: 13px; font-weight: 700; white-space: nowrap; }
+.voucher-usage-value > span { color: #657185; font-weight: 400; }
+.voucher-usage-progress { height: 4px; width: 100%; background: #e9eef5; border-radius: 4px; overflow: hidden; }
+.voucher-usage-progress > span { display: block; height: 100%; border-radius: inherit; background: #28896f; }
+.voucher-usage-progress.is-high > span { background: #b98512; }
+.voucher-usage-progress.is-full > span { background: #c84759; }
+.promotion-management .voucher-list .voucher-usage-details.btn { display: inline-flex; align-items: center; gap: 5px; margin: 7px 0 0 -5px; padding: 4px 5px; min-height: 26px; border: 0; border-radius: 5px; background: transparent; color: #245ba0; font-size: 11px; font-weight: 600; line-height: 1.4; white-space: nowrap; box-shadow: none; }
+.promotion-management .voucher-list .voucher-usage-details.btn:hover { background: #edf4ff; color: #17477f; }
+.voucher-usage-details .icon { width: 13px; height: 13px; }
+.promotion-management .voucher-list .promotion-status { display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 8px; border: 0; border-radius: 99px; font-size: 11px; font-weight: 650; line-height: 1; white-space: nowrap; }
+.voucher-status-dot { flex: 0 0 5px; width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+.voucher-list .voucher-status-active { color: #17634c; background: #e6f4ed; }
+.voucher-list .voucher-status-disabled { color: #526176; background: #edf0f4; }
+.voucher-list .voucher-status-upcoming { color: #275b9d; background: #eaf2ff; }
+.voucher-list .voucher-status-expired { color: #695773; background: #f2eef5; }
+.voucher-list .voucher-status-exhausted { color: #9b4d16; background: #fff0df; }
+.voucher-row-actions { display: flex; flex-wrap: nowrap; align-items: center; justify-content: flex-end; gap: 6px; }
+.promotion-management .voucher-list .voucher-row-actions .btn { display: inline-flex; gap: 5px; align-items: center; justify-content: center; width: auto; min-height: 32px; height: 32px; padding: 6px 8px; border: 1px solid #e1e7f0; border-radius: 6px; background: #fff; color: #43546b; font-size: 11px; font-weight: 600; line-height: 1; white-space: nowrap; box-shadow: none; }
+.voucher-row-actions .btn > svg { width: 15px; height: 15px; flex-shrink: 0; }
+.promotion-management .voucher-list .voucher-row-actions .btn:hover { color: #223d60; background: #f1f5fb; border-color: #b9c9df; }
+.promotion-management .voucher-list .voucher-row-actions .voucher-action-edit { color: var(--voucher-primary); background: var(--voucher-primary-soft); border-color: #d6e3f6; }
+.promotion-management .voucher-list .voucher-row-actions .voucher-action-edit:hover { background: #e1ecfb; border-color: #afc8e9; }
+.voucher-list :is(button,a,[tabindex]):focus-visible { outline: 2px solid var(--focus, #246dd0); outline-offset: 3px; }
+.voucher-screen-reader { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.promotion-management .voucher-list .promotion-empty { padding: 48px 24px; text-align: center; }
+.voucher-list .promotion-empty > .icon { display: block; width: 34px; height: 34px; margin: 0 auto 14px; color: #73849b; }
+.voucher-list .promotion-empty strong { display: block; color: #34465f; font-size: 15px; font-weight: 600; }
+.voucher-list .promotion-empty p { margin: 8px 0 0; color: #657185; font-size: 13px; }
+.voucher-list-error .notice { display: flex; align-items: center; gap: 10px; }
+.voucher-list-error > .btn { justify-self: start; }
+.voucher-loading { min-height: 300px; }
+.promotion-management .voucher-list .sale-presentation-table { min-width: 0; }
+.voucher-list .sale-presentation-table th:first-child { width: 28%; }
+.voucher-list .sale-presentation-table th:nth-child(2) { width: 13%; }
+.voucher-list .sale-presentation-table th:nth-child(3) { width: 24%; }
+.voucher-list .sale-presentation-table th:nth-child(4) { width: 9%; }
+.voucher-list .sale-presentation-table th:nth-child(5) { width: 15%; }
+.voucher-list .sale-presentation-table th:last-child { width: 11%; }
+.sale-product-name { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; font-size: 14px; line-height: 1.6; font-weight: 650; max-width: 310px; overflow-wrap: anywhere; }
+.sale-product-scope { display: flex; align-items: center; gap: 5px; color: #526176; font-size: 11px; line-height: 1.7; margin-top: 7px; }
+.sale-product-scope .icon { width: 13px; height: 13px; flex-shrink: 0; }
+.sale-sku-count { display: inline-block; border: 1px solid #e4eaf2; border-radius: 6px; padding: 4px 8px; background: #f7f9fc; color: #43546b; font-size: 12px; font-weight: 600; white-space: nowrap; }
+.voucher-skeleton-heading,.voucher-skeleton-row > span { display: block; background: #edf1f6; border-radius: 6px; animation: voucher-skeleton 1.4s ease-in-out infinite alternate; }
+.voucher-skeleton-heading { width: 200px; height: 24px; margin-bottom: 28px; }
+.voucher-skeleton-row { display: grid; grid-template-columns: repeat(5,1fr); gap: 20px; padding: 24px 0; border-top: 1px solid #edf0f5; }
+.voucher-skeleton-row > span { height: 32px; }
+@keyframes voucher-skeleton { to { opacity: .45; } }
+@media (prefers-reduced-motion: reduce) { .voucher-skeleton-heading,.voucher-skeleton-row > span { animation: none; } }
+@container (max-width: 1149px) {
+  .voucher-row-actions .btn > span { display: none; }
+  .promotion-management .voucher-list .voucher-row-actions .btn { padding: 8px; width: 32px; }
+  .promotion-management .voucher-list .promotion-voucher-table th { padding: 14px 10px; font-size: 11px; }
+  .promotion-management .voucher-list .promotion-voucher-table td { padding: 16px 10px; }
+  .promotion-management .voucher-list .promotion-value { font-size: 13px; }
+}
+@media (hover: none) { .promotion-management .voucher-list .voucher-copy.btn { opacity: 1; } }
+@container (max-width: 860px) {
+  .promotion-management .voucher-list { padding: 16px; }
+  .promotion-management .voucher-list .promotion-list-header h2 { font-size: 18px; }
+  .promotion-management .voucher-table-scroll { overflow: visible; max-height: none; border: 0; border-radius: 0; }
+  .promotion-management .voucher-list .promotion-voucher-table { display: block; min-width: 0; width: 100%; }
+  .promotion-management .voucher-list .sale-presentation-table { min-width: 0; }
+  .voucher-list .promotion-voucher-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .voucher-list .promotion-voucher-table tbody { display: grid; gap: 16px; }
+  .promotion-management .voucher-list .promotion-voucher-table tbody tr { display: grid; grid-template-columns: minmax(0,1fr); gap: 0; padding: 16px; border: 1px solid #e1e7f0; border-radius: 12px; background: #fff; min-width: 0; }
+  .promotion-management .voucher-list .promotion-voucher-table td { display: block; min-width: 0; padding: 0; border: 0; background: transparent; }
+  .promotion-management .voucher-list .promotion-voucher-table tbody tr:hover td { background: transparent; }
+  .voucher-list .voucher-code-cell { grid-row: 1; margin-bottom: 12px; }
+  .voucher-list .voucher-code-line { width: 100%; }
+  .voucher-list .voucher-code-chip { min-width: 0; max-width: 100%; }
+  .promotion-management .voucher-list .voucher-copy.btn { opacity: 1; }
+  .voucher-list .promotion-program-name { grid-row: 2; margin-bottom: 12px; }
+  .voucher-list .promotion-program-name > span { max-width: none; min-width: 0; font-size: 14px; }
+  .voucher-list .voucher-status-cell { grid-row: 3; margin-bottom: 16px; }
+  .promotion-management .voucher-list .promotion-voucher-table td.voucher-value-cell { grid-row: 4; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding-top: 14px; border-top: 1px solid #edf0f5; }
+  .voucher-list .voucher-value-cell::before { content: attr(data-label); color: #657185; font-size: 12px; }
+  .promotion-management .voucher-list .promotion-value { font-size: 19px; }
+  .promotion-management .voucher-list .promotion-voucher-table td.voucher-type-cell { grid-row: 5; text-align: right; padding-top: 4px; }
+  .promotion-management .voucher-list .promotion-voucher-table td.voucher-usage-cell { grid-row: 6; padding-top: 18px; }
+  .voucher-list .voucher-usage-cell::before { display: block; content: attr(data-label); color: #657185; font-size: 12px; margin-bottom: 6px; }
+  .voucher-list .voucher-usage { max-width: none; min-width: 0; }
+  .voucher-list .voucher-usage-value { text-align: right; margin-top: -24px; margin-bottom: 2px; }
+  .promotion-management .voucher-list .promotion-voucher-table td.voucher-dates-cell { grid-row: 7; padding-top: 18px; }
+  .voucher-list .voucher-dates-cell::before { display: block; content: attr(data-label); color: #657185; font-size: 12px; margin-bottom: 9px; }
+  .voucher-date-range { font-size: 11px; white-space: normal; }
+  .voucher-date-range time { white-space: nowrap; }
+  .promotion-management .voucher-list .promotion-voucher-table td.promotion-actions { grid-row: 8; margin-top: 16px; padding-top: 14px; border-top: 1px solid #edf0f5; }
+  .promotion-management .voucher-list .sale-presentation-table td.sale-sku-cell { grid-row: 6; display: flex; justify-content: space-between; align-items: center; padding-top: 16px; }
+  .sale-sku-cell::before { content: attr(data-label); color: #657185; font-size: 12px; }
+  .voucher-row-actions { justify-content: space-between; gap: 8px; }
+  .voucher-row-actions .btn > span { display: none; }
+  .promotion-management .voucher-list .voucher-row-actions .btn { flex: 1; height: 36px; min-height: 36px; padding: 8px; }
+  .promotion-management .voucher-list .promotion-empty { padding: 24px 0; }
+  .voucher-skeleton-row { grid-template-columns: repeat(2,1fr); }
+  .voucher-skeleton-row > span:last-child { display: none; }
+}
+.voucher-list .voucher-code-chip { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.voucher-list .voucher-audience { max-width: 100%; }
+.voucher-list .voucher-date-range { min-width: 0; }
+.voucher-list .voucher-date-range time { min-width: 0; }

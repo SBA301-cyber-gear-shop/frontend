@@ -1,11 +1,13 @@
 export const endpoints = {
   auth: { login: "/api/auth/login", register: "/api/auth/register", me: "/api/auth/me" },
   pcBuilder: {
+    config: "/api/pc-build/config",
     analyze: "/api/pc-build/requirements/analyze",
     auto: "/api/pc-build/builds/auto",
     validate: "/api/pc-build/builds/validate",
     replacements: "/api/pc-build/builds/replacements",
     save: "/api/pc-build/builds/save",
+    saved: "/api/pc-build/builds/saved",
   },
   catalog: {
     products: "/api/catalog/products",
@@ -16,6 +18,19 @@ export const endpoints = {
     specifications: "/api/admin/specifications",
     categories: "/api/admin/categories",
     brands: "/api/admin/brands",
+    aiConfigs: "/api/admin/ai-configs",
+    aiConfig: (id: number | string) => `/api/admin/ai-configs/${id}`,
+    aiConfigToggle: (id: number | string) => `/api/admin/ai-configs/${id}/toggle-active`,
+    aiConfigTest: "/api/admin/ai-configs/test",
+    pcBuildMetadata: {
+      slots: "/api/admin/pc-build/metadata/slots",
+      slot: (id: number | string) => `/api/admin/pc-build/metadata/slots/${id}`,
+      reorderSlots: "/api/admin/pc-build/metadata/slots/reorder",
+      categoriesAvailable: "/api/admin/pc-build/metadata/categories-available",
+      budgetProfiles: "/api/admin/pc-build/metadata/budget-profiles",
+      budgetProfilePurposes: "/api/admin/pc-build/metadata/budget-profiles/purposes",
+      budgetProfilePurpose: (purpose: string) => `/api/admin/pc-build/metadata/budget-profiles/purposes/${purpose}`,
+    },
   },
   products: "/api/products",
   cart: "/api/orders/cart",

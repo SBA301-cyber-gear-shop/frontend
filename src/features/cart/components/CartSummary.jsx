@@ -1,14 +1,13 @@
 import { Link } from "react-router-dom";
 import { money } from "@/utils";
-import { Button } from "@/components/ui";
 
 export function CartSummary({
   selectedCount,
   selectedSetsCount,
   selectedLooseCount,
   selectedTotalAmount,
-  selectedIds,
-  hasSelectedPcSet,
+  selectedVariantIds,
+  selectedCartItemIds,
   cartBusy,
   cartLoading,
 }) {
@@ -43,14 +42,6 @@ export function CartSummary({
             </span>
           </div>
 
-          <div className="cart-summary-row">
-            <span className="cart-perk-free">
-              Công lắp ráp bộ PC
-              <span className="badge-free">FREE</span>
-            </span>
-            <span className="cart-perk-val">0 đ</span>
-          </div>
-
         </div>
 
         {/* Total Calculation */}
@@ -66,10 +57,13 @@ export function CartSummary({
         {isReady ? (
           <Link
             to="/thanh-toan"
-            state={{ selectedVariantIds: Array.from(selectedIds || []) }}
+            state={{
+              selectedVariantIds: selectedVariantIds || [],
+              selectedCartItemIds: selectedCartItemIds || [],
+            }}
             className="cart-btn-checkout"
           >
-            Tiếp tục đặt hàng ({selectedCount}) →
+            Tiếp tục đặt hàng
           </Link>
         ) : (
           <button type="button" className="cart-btn-checkout disabled" disabled>

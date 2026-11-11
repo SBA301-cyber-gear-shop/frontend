@@ -12,12 +12,12 @@ import {
 } from "@/components/ui";
 import { Field } from "@/components/form";
 import { OrderLines } from "@/features/products";
+import { CheckoutProductReview } from "./CheckoutProductReview";
 import { useCheckout } from "../hooks/useCheckout";
 
 export function CheckoutForm() {
   const {
     data,
-    user,
     fromBuild,
     lines,
     total,
@@ -63,6 +63,7 @@ export function CheckoutForm() {
   } = useCheckout();
 
   const finalAmount = (total || 0) - (discount || 0) + (deliveryType === "shipping" ? (shippingFee || 0) : 0);
+
   const MAX_COD_AMOUNT = 20_000_000;
   const isCodOverLimit = deliveryType === "shipping" && finalAmount > MAX_COD_AMOUNT;
 
@@ -135,6 +136,7 @@ export function CheckoutForm() {
         action={<Button to="/san-pham">Chọn sản phẩm</Button>}
       />
     );
+
 
 
 
@@ -411,7 +413,7 @@ export function CheckoutForm() {
 
             {/* 03 · KIỂM TRA SẢN PHẨM */}
             <Panel title="03 · Kiểm tra sản phẩm">
-              <OrderLines lines={lines} products={data.products} />
+              <CheckoutProductReview lines={lines} products={data.products} />
             </Panel>
           </div>
 

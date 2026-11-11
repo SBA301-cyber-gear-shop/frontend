@@ -1,5 +1,6 @@
 import { Notice } from "@/components/ui";
 import { usePcBuilder } from "../hooks/usePcBuilder";
+import { BuilderTabs } from "./BuilderTabs";
 import { BuilderToolbar } from "./BuilderToolbar";
 import { AnalysisPanel } from "./AnalysisPanel";
 import { ExplanationPanel } from "./ExplanationPanel";
@@ -17,6 +18,7 @@ export function PcBuilder() {
 
   return (
     <div className="pc-builder-container">
+      <BuilderTabs />
       <div className="page-header">
         <div>
           <h1 className="page-title">AI PC Builder — Cấu hình chuẩn xác từ kho thực tế</h1>
@@ -48,6 +50,7 @@ export function PcBuilder() {
         onSubmit={() => builder.submit()}
         isBusy={builder.isBusy}
         disabled={builder.demoMode}
+        maxBuildPrice={builder.config?.maxBuildPrice}
       />
 
       {phase === "loading" && <AiLoadingBox step={builder.step} />}

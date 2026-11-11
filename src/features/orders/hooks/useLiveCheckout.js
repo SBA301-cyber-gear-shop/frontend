@@ -4,6 +4,7 @@ import { useStore } from "@/store";
 import { checkoutApi } from "../api/checkoutApi";
 import { ordersApi } from "../api/ordersApi";
 import { shippingApi } from "../api/shippingApi";
+import { isCartPcSet } from "@/features/cart";
 
 function estimateHardwareWeightGram(productName) {
   if (!productName) return 500;
@@ -53,6 +54,23 @@ export function useLiveCheckout() {
     }
     try {
       const stored = sessionStorage.getItem("techzone_checkout_selected_ids");
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.map(Number);
+        }
+      }
+    } catch {}
+    return null;
+  }, [location.state, fromBuild]);
+
+  const selectedCartItemIds = useMemo(() => {
+    if (fromBuild) return null;
+    if (Array.isArray(location.state?.selectedCartItemIds) && location.state.selectedCartItemIds.length > 0) {
+      return location.state.selectedCartItemIds.map(Number);
+    }
+    try {
+      const stored = sessionStorage.getItem("techzone_checkout_selected_cart_item_ids");
       if (stored) {
         const parsed = JSON.parse(stored);
         if (Array.isArray(parsed) && parsed.length > 0) {
@@ -132,7 +150,13 @@ export function useLiveCheckout() {
     if (fromBuild || pendingAttempt) return;
     const abort = new AbortController();
     checkoutApi
-      .validate(selectedVariantIds || undefined, abort.signal)
+      .validate(
+        {
+          cartItemIds: selectedCartItemIds || undefined,
+          itemVariantIds: selectedVariantIds || undefined,
+        },
+        abort.signal
+      )
       .then((cart) => {
         if (!abort.signal.aborted)
           setValidation({ source: data.cart, attempt, cart });
@@ -142,7 +166,7 @@ export function useLiveCheckout() {
           setValidation({ source: data.cart, attempt, error: failure.message });
       });
     return () => abort.abort();
-  }, [data.cart, attempt, fromBuild, pendingAttempt, selectedVariantIds]);
+  }, [data.cart, attempt, fromBuild, pendingAttempt, selectedCartItemIds, selectedVariantIds]);
 
   const validationCurrent =
     validation?.source === data.cart && validation?.attempt === attempt;
@@ -150,24 +174,38 @@ export function useLiveCheckout() {
   const validationError = validationCurrent ? validation.error || "" : "";
   const cart = validationCurrent ? validation.cart : null;
   const rawLines = cart
-    ? cart.items.map((item) => ({
-        id: String(item.productVariantId),
-        quantity: item.quantity,
-        unitPrice: item.unitPrice,
-        name: item.productName,
-        variant: item.variantName,
-        image: item.imageUrl,
-        stock: item.stockQuantity,
-      }))
+    ? cart.items.map((item) => {
+        const inCart = data.cart?.find(
+          (c) =>
+            (item.cartItemId && c.cartItemId === item.cartItemId) ||
+            String(c.id) === String(item.productVariantId)
+        );
+        return {
+          id: String(item.productVariantId),
+          cartItemId: item.cartItemId ?? inCart?.cartItemId,
+          pcCustomId: item.pcCustomId ?? (item.cartItemId ? null : inCart?.pcCustomId) ?? null,
+          pcCustomName: item.pcCustomName ?? (item.cartItemId ? null : inCart?.pcCustomName) ?? null,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          name: item.productName,
+          variant: item.variantName,
+          image: item.imageUrl,
+          stock: item.stockQuantity,
+        };
+      })
     : data.cart;
 
   const lines = useMemo(() => {
+    if (selectedCartItemIds && selectedCartItemIds.length > 0) {
+      const selectedCartSet = new Set(selectedCartItemIds.map(Number));
+      return rawLines.filter((l) => l.cartItemId && selectedCartSet.has(Number(l.cartItemId)));
+    }
     if (!selectedVariantIds || selectedVariantIds.length === 0) {
       return rawLines;
     }
     const selectedSet = new Set(selectedVariantIds.map(Number));
     return rawLines.filter((l) => selectedSet.has(Number(l.id)));
-  }, [rawLines, selectedVariantIds]);
+  }, [rawLines, selectedCartItemIds, selectedVariantIds]);
 
   const total = useMemo(() => {
     if (cart && (!selectedVariantIds || cart.items.length === lines.length)) {
@@ -203,13 +241,13 @@ export function useLiveCheckout() {
       .finally(() => setCalculatingFee(false));
   }, [districtId, wardCode, deliveryType, totalWeightGram]);
 
-  async function apply() {
-    const code = inputCode.trim();
+  async function apply(selectedCode) {
+    const code = (typeof selectedCode === "string" ? selectedCode : inputCode).trim();
     if (!code) {
       setPromoError("Vui lòng nhập mã giảm giá.");
-      return;
+      return false;
     }
-    if (applying || placing || validating) return;
+    if (applying || placing || validating) return false;
     setApplying(true);
     setPromoError("");
     try {
@@ -218,6 +256,7 @@ export function useLiveCheckout() {
         pickupPhone: phone.trim() || user?.phone || "0900000128",
         note: note.trim(),
         promotionCode: code,
+        cartItemIds: selectedCartItemIds || undefined,
         itemVariantIds: selectedVariantIds || undefined,
       });
       const resolvedCode = result.promotionCode || code.toUpperCase();
@@ -226,10 +265,12 @@ export function useLiveCheckout() {
       setDiscount(result.discountAmount ?? 0);
       setPromoError("");
       notify("Đã áp dụng mã giảm giá thành công.");
+      return true;
     } catch (failure) {
       setPromoError(failure.message || "Mã giảm giá không hợp lệ.");
       setApplied("");
       setDiscount(0);
+      return false;
     } finally {
       setApplying(false);
     }
@@ -325,6 +366,43 @@ export function useLiveCheckout() {
       fullShippingAddress = `${addressDetail.trim()}, ${wardName}, ${distName}, ${provName}`;
     }
 
+    let pcGroups = [];
+    if (!pendingAttempt) {
+      let sets;
+      try {
+        sets = JSON.parse(localStorage.getItem("techzone_pc_build_sets") || "[]");
+        if (!Array.isArray(sets)) throw new Error();
+      } catch {
+        setError("Không đọc được thông tin bộ PC. Vui lòng kiểm tra lại giỏ hàng.");
+        return;
+      }
+      const chosen = new Set(lines.map((line) => Number(line.id)));
+      const claimed = new Set();
+      for (const set of sets) {
+        const ids = (set.itemVariantIds || []).map(Number);
+        const setHasItemsInLines = lines.some((l) => l.pcCustomId && String(l.pcCustomId) === String(set.id));
+        if (!setHasItemsInLines) continue;
+        const parts = (set.parts || []).map((part) => ({
+          variantId: Number(part.id ?? part.variantId),
+          quantity: Number(part.qty ?? part.quantity),
+          role: String(part.category || "COMPONENT").slice(0, 50),
+        }));
+        const totals = new Map();
+        for (const part of parts) totals.set(part.variantId, (totals.get(part.variantId) || 0) + part.quantity);
+        if (!ids.length || ids.some((id) => !chosen.has(id)) || totals.size !== new Set(ids).size ||
+            ids.some((id) => !totals.has(id)) || [...totals].some(([id, qty]) =>
+              claimed.has(id) || !Number.isInteger(qty) || qty <= 0 ||
+              lines.filter((line) => Number(line.id) === id).reduce((s, l) => s + (l.quantity || 0), 0) < qty)) {
+          setError("Bộ PC chưa được chọn đầy đủ linh kiện. Vui lòng kiểm tra lại giỏ hàng.");
+          return;
+        }
+        for (const id of totals.keys()) claimed.add(id);
+        pcGroups.push({ parts: [...totals].map(([variantId, quantity]) => ({
+          variantId, quantity, role: parts.find((part) => part.variantId === variantId).role,
+        })) });
+      }
+    }
+
     const submission = pendingAttempt || {
       key: checkoutKey,
       payload: {
@@ -335,7 +413,9 @@ export function useLiveCheckout() {
         method: method,
         expectedTotal: total,
         expectedDiscount: discount,
+        cartItemIds: selectedCartItemIds || undefined,
         itemVariantIds: selectedVariantIds || undefined,
+        pcGroups,
         deliveryType,
         shippingFee: deliveryType === "shipping" ? shippingFee : 0,
         shippingAddress: fullShippingAddress || undefined,
@@ -351,6 +431,14 @@ export function useLiveCheckout() {
     try {
       sessionStorage.setItem(attemptStorageKey, JSON.stringify(submission));
       const order = await ordersApi.place(submission.payload, submission.key);
+      if (submission.payload.pcGroups?.length) {
+        const purchased = new Set(submission.payload.pcGroups.flatMap((group) => group.parts.map((part) => part.variantId)));
+        try {
+          const sets = JSON.parse(localStorage.getItem("techzone_pc_build_sets") || "[]");
+          localStorage.setItem("techzone_pc_build_sets", JSON.stringify(sets.filter((set) =>
+            !(set.itemVariantIds || []).some((id) => purchased.has(Number(id))))));
+        } catch { /* Đơn đã được tạo; không được gửi lại chỉ vì lỗi lưu trình duyệt. */ }
+      }
       sessionStorage.removeItem(attemptStorageKey);
       sessionStorage.removeItem("techzone-checkout-key-" + user.id);
       sessionStorage.removeItem("techzone_checkout_selected_ids");

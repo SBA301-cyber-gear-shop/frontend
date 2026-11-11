@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 
+/** @param {{ to?: string, tone?: string, children?: any, className?: string, [key: string]: any }} props */
 export function Button({
   to,
   children,

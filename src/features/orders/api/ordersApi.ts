@@ -19,6 +19,7 @@ function orderView(order) {
         ? "cod"
         : order.methodType === "cash"
         ? "store"
+
         : order.methodType,
     payment: order.paymentStatus,
     createdAt: order.createdAt,
@@ -37,6 +38,7 @@ function orderView(order) {
       variant: "",
       quantity: item.quantity,
       unitPrice: item.unitPrice,
+      pcCustomId: item.pcCustomId ?? null,
       warranty: item.warrantyPeriodMonths,
       review: item.rating
         ? { rating: item.rating, comment: item.reviewComment }
@@ -81,12 +83,23 @@ export const ordersApi = {
     );
     return orderView(data);
   },
+  async shippingSerials(code: string, devices: { orderItemId: number; serialNumber: string }[]) {
+    const { data } = await axiosClient.post(`${codePath(endpoints.orderOperations, code)}/shipping-serials`, { devices });
+    return orderView(data);
+  },
   async collect(code: string, receivedAmount: number, reference: string) {
     const { data } = await axiosClient.post(
       `${codePath(endpoints.orderOperations, code)}/collect`,
       { receivedAmount, reference },
     );
     return orderView(data);
+  },
+  async cashCollection(code: string, signal?: AbortSignal) {
+    const { data } = await axiosClient.get(
+      `${codePath(endpoints.orderOperations, code)}/cash-collection`,
+      { signal },
+    );
+    return data || null;
   },
   async handover(code: string, payload) {
     const { data } = await axiosClient.post(

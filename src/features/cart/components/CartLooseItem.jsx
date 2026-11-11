@@ -25,7 +25,7 @@ export function CartLooseItem({
           type="checkbox"
           className="cart-checkbox"
           checked={isSelected}
-          onChange={(e) => onToggleSelect(item.id, e.target.checked)}
+          onChange={(e) => onToggleSelect(item.cartItemId ?? item.id, e.target.checked)}
           disabled={disabled || isOutOfStock}
         />
       </div>
@@ -70,7 +70,7 @@ export function CartLooseItem({
             label={`Số lượng ${item.name || p?.name}`}
             value={item.quantity}
             max={Math.max(1, item.stock ?? p?.stock ?? 99)}
-            onChange={(q) => onUpdateQuantity(item.id, q)}
+            onChange={(q) => onUpdateQuantity(item.cartItemId ?? item.id, q)}
           />
         </fieldset>
       </div>

@@ -13,9 +13,10 @@ import {
 } from "@/components/ui";
 import { Field } from "@/components/form";
 import { REQUEST_RESOLUTION, REQUEST_STATUS } from "../constants";
-import { cardBadge, day, groupRequestsByIntake, stepButtons, today } from "../domain/requests";
+import { cardBadge, day, groupByPc, groupRequestsByIntake, stepButtons, today } from "../domain/requests";
+import { deviceChain, historyCounts } from "../domain/deviceHistory";
 import { useAftersales } from "../hooks/useAftersales";
-import { RequestHistory, Timeline } from "./RequestHistory";
+import { HistoryCounts, RequestHistory, Timeline } from "./RequestHistory";
 
 export function ApiTechnicianWorkbench() {
   const svc = useAftersales(),
@@ -101,7 +102,9 @@ export function ApiTechnicianWorkbench() {
                   </span>
                   <span className="tech-intake-toggle" aria-hidden="true" />
                 </summary>
-                {rows.map((t) => (
+                {groupByPc(rows).map((group) => <div key={group.id ?? "loose"}>
+                  <h4>{group.label}</h4>
+                {group.items.map((t) => (
                   <button
                     type="button"
                     className={"selection tech-part " + (t.id === activeId ? "selected" : "")}
@@ -112,7 +115,7 @@ export function ApiTechnicianWorkbench() {
                       setSelectedId(t.id);
                     }}
                   >
-                    <span className="tech-part-identity"><b>{t.productName || "Chưa rõ linh kiện"}</b><span className="small muted">{t.serialNumber || "Chưa có serial"} · {t.requestCode}</span></span>
+                    <span className="tech-part-identity"><b>{t.productName || "Chưa rõ linh kiện"}</b><span className="small muted">{t.serialNumber || "Chưa có serial"}</span></span>
                     <span className="tech-part-state">
                       <Badge tone={t.underWarrantyAtIntake === false ? "warning" : "success"}>
                         {t.underWarrantyAtIntake === false ? "Ngoài bảo hành lúc nhận" : t.warrantyRemainingDays == null ? "Còn bảo hành lúc nhận" : `Còn ${t.warrantyRemainingDays} ngày (${day(t.warrantyRemainingAsOf)})`}
@@ -120,7 +123,7 @@ export function ApiTechnicianWorkbench() {
                       <Badge tone="info">{REQUEST_STATUS[t.status] || t.status}</Badge>
                     </span>
                   </button>
-                ))}
+                ))}</div>)}
               </details>
             ))}
             {list && !groups.length && (
@@ -151,10 +154,12 @@ function ApiTicketEditor({ ticket: t, svc, onChanged }) {
     [publicNote, setPublicNote] = useState(""),
     [expected, setExpected] = useState(""),
     [orderCards, setOrderCards] = useState([]),
+    [historyState, setHistoryState] = useState("loading"),
     [intake, setIntake] = useState(null),
     [target, setTarget] = useState(""),
     [addTarget, setAddTarget] = useState(""),
     [serial, setSerial] = useState(""),
+    [serialTouched, setSerialTouched] = useState(false),
     [source, setSource] = useState("supplier"),
     [confirming, setConfirming] = useState(false),
     [selectedParts, setSelectedParts] = useState([]),
@@ -168,11 +173,18 @@ function ApiTicketEditor({ ticket: t, svc, onChanged }) {
   // Các thẻ cùng đơn hàng và các linh kiện cùng lần tiếp nhận: khách mang cả bộ máy, lỗi có thể nằm ở linh kiện khác.
   useEffect(() => {
     let alive = true;
+    setHistoryState("loading");
     if (orderCode)
       svc
         .searchCards(orderCode)
-        .then((found) => alive && setOrderCards(found))
-        .catch(() => {});
+        .then((found) => {
+          if (alive) {
+            setOrderCards(found);
+            setHistoryState(found.some((card) => card.id === cardId) ? "ready" : "error");
+          }
+        })
+        .catch(() => alive && setHistoryState("error"));
+    else setHistoryState("error");
     svc
       .getIntake(t.intakeId)
       .then((found) => alive && setIntake(found))
@@ -180,19 +192,25 @@ function ApiTicketEditor({ ticket: t, svc, onChanged }) {
     return () => {
       alive = false;
     };
-  }, [svc, orderCode, t.intakeId, t.version]);
+  }, [svc, orderCode, cardId, t.intakeId, t.version]);
   const siblings = orderCards.filter(
-    (c) => c.id !== cardId && c.status === "active",
+    (c) => c.id !== cardId && c.status === "active" && !c.replacementPendingReturn,
   );
   // Chỉ thêm thiết bị đã được khách mang tới và chưa có phiếu đang mở.
   const addable = orderCards.filter(
-    (c) => c.status === "active" && !c.openRequest,
+    (c) => c.status === "active" && !c.openRequest && !c.replacementPendingReturn,
   );
   const rest =
     intake?.requests.filter(
       (r) => r.status === "received" || r.status === "inspecting",
     ) ?? [];
   const chosenParts = rest.filter((r) => selectedParts.includes(r.id));
+  const normalizedSerial = serial.trim().toUpperCase();
+  const serialError = !normalizedSerial ? "Vui lòng nhập serial thiết bị thay thế."
+    : orderCards.some((card) => card.serialNumber?.trim().toUpperCase() === normalizedSerial)
+      || t.card.serialNumber?.trim().toUpperCase() === normalizedSerial
+      ? "Serial này đã có thẻ bảo hành trong đơn."
+      : "";
   async function run(action, message) {
     // Khóa form trong lúc gửi: phiếu được nạp lại khi có kết quả, chữ gõ dở lúc đó sẽ mất.
     setBusy(true);
@@ -208,7 +226,8 @@ function ApiTicketEditor({ ticket: t, svc, onChanged }) {
       setBusy(false);
     }
   }
-  const others = t.card.requests.filter((r) => r.id !== t.id);
+  const chain = historyState === "ready" ? deviceChain(orderCards, t.card) : [];
+  const counts = historyCounts(chain);
   return (
     <fieldset className="stack plain-fieldset" disabled={busy}>
       <Panel
@@ -348,7 +367,12 @@ function ApiTicketEditor({ ticket: t, svc, onChanged }) {
         >
           <p className="small muted">Chỉ chọn những linh kiện đã kiểm tra và không phát hiện lỗi. Các linh kiện không chọn giữ nguyên trạng thái.</p>
           <div className="no-fault-parts">
-            {rest.map((r) => (
+            {groupByPc(rest).map((group) => <div key={group.id ?? "loose"}>
+              <h4>{group.label}</h4>
+              {group.id !== null && <Button tone="secondary" onClick={() => setSelectedParts((ids) => [...new Set([...ids, ...group.items.map((r) => r.id)])])}>
+                Chọn tất cả linh kiện của bộ PC #{group.id}
+              </Button>}
+            {group.items.map((r) => (
               <label className="no-fault-part" key={r.id}>
                 <input type="checkbox" checked={selectedParts.includes(r.id)} onChange={(e) =>
                   setSelectedParts((ids) => e.target.checked ? [...ids, r.id] : ids.filter((id) => id !== r.id))
@@ -357,7 +381,7 @@ function ApiTicketEditor({ ticket: t, svc, onChanged }) {
                   <span className="small muted">{REQUEST_STATUS[r.status]}{r.underWarrantyAtIntake === false ? " · Ngoài bảo hành" : ""}</span>
                 </span>
               </label>
-            ))}
+            ))}</div>)}
           </div>
           <Field label="Ghi chú kiểm tra chung (bắt buộc)">
             {(id) => <textarea id={id} className="input full" rows="2" value={noFaultNote} onChange={(e) => setNoFaultNote(e.target.value)} />}
@@ -499,6 +523,11 @@ function ApiTicketEditor({ ticket: t, svc, onChanged }) {
             label="Serial thiết bị thay thế"
             value={serial}
             onChange={(e) => setSerial(e.target.value)}
+            onBlur={() => setSerialTouched(true)}
+            maxLength={100}
+            required
+            error={serialTouched ? serialError : ""}
+            hint="Nhập serial thực tế trên thiết bị; hệ thống sẽ kiểm tra trùng khi xác nhận."
           />
           <Field label="Nguồn thiết bị thay thế">
             {(id) => (
@@ -520,7 +549,7 @@ function ApiTicketEditor({ ticket: t, svc, onChanged }) {
           <Button
             className="section"
             tone="secondary"
-            disabled={!serial.trim()}
+            disabled={!!serialError}
             onClick={() => setConfirming(true)}
           >
             Đổi thiết bị
@@ -563,14 +592,21 @@ function ApiTicketEditor({ ticket: t, svc, onChanged }) {
           </div>
         </Modal>
       )}
-      <Panel title="Lịch sử xử lý">
+      <Panel title="Lịch sử xử lý" className="tech-history">
         <Timeline events={t.events} />
       </Panel>
-      {others.length > 0 && (
-        <Panel title="Các phiếu trước của thiết bị">
-          <RequestHistory requests={others} />
-        </Panel>
-      )}
+      <Panel title="Lịch sử linh kiện trong đơn" className="tech-history">
+        {historyState === "loading" && <p>Đang tải lịch sử linh kiện...</p>}
+        {historyState === "error" && <Notice tone="danger">Không tải được lịch sử linh kiện. Vui lòng làm mới và thử lại.</Notice>}
+        {historyState === "ready" && <>
+          <div className="tech-history-chain"><span>Chuỗi serial</span><strong>{chain.map((card) => card.serialNumber).join(" → ")}</strong></div>
+          <HistoryCounts counts={counts} />
+          {chain.map((card) => <div key={card.id} className="section">
+            <h4 className="tech-history-serial"><span>Serial</span> {card.serialNumber}{card.id === cardId && <small>Phiếu hiện tại</small>}</h4>
+            <RequestHistory requests={card.requests || []} />
+          </div>)}
+        </>}
+      </Panel>
       <Notice tone="neutral">
         Ghi chú nội bộ không hiển thị ở trang khách. Trả cả bộ máy cho khách
         thực hiện ở màn hình Tiếp nhận bảo hành.

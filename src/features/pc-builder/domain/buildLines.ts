@@ -5,6 +5,7 @@ import type {
   BuildItemRequest,
   BuildViolation,
   ReplacementOption,
+  SavedBuild,
   SlotCode,
 } from "../types/pcBuilder.types";
 
@@ -45,19 +46,20 @@ export const MAX_BUDGET = 9_999_999_999;
 export const MAX_MESSAGE_LENGTH = 500;
 
 /** Kiểm tra form trước khi gọi /requirements/analyze; trả câu báo lỗi hoặc null. */
-export function checkInput(budget: number, message: string): string | null {
+export function checkInput(budget: number, message: string, maxLimit?: number | null): string | null {
   if (!Number.isInteger(budget) || budget <= 0) return "Vui lòng nhập ngân sách là số đồng nguyên lớn hơn 0.";
-  if (budget > MAX_BUDGET) return `Ngân sách tối đa là ${MAX_BUDGET.toLocaleString("vi-VN")} ₫.`;
+  const max = maxLimit && maxLimit > 0 ? maxLimit : MAX_BUDGET;
+  if (budget > max) return `Ngân sách tối đa của shop hiện tại là ${max.toLocaleString("vi-VN")} ₫.`;
   const text = message.trim();
   if (!text) return "Vui lòng mô tả nhu cầu sử dụng của bạn.";
   if (text.length > MAX_MESSAGE_LENGTH) return `Mô tả nhu cầu tối đa ${MAX_MESSAGE_LENGTH} ký tự.`;
   return null;
 }
 
-/** READY và BUDGET_WARNING có đủ {budget, purpose} để gọi /builds/auto; trạng thái khác thì khách phải chọn tiếp. */
+/** Chỉ READY có đủ {budget, purpose} để gọi /builds/auto; trạng thái khác thì khách phải chọn tiếp. */
 export function buildableRequirement(analysis: AnalyzeResponse): AutoBuildRequest | null {
   const requirement = analysis.requirement;
-  if (analysis.status !== "READY" && analysis.status !== "BUDGET_WARNING") return null;
+  if (analysis.status !== "READY") return null;
   if (!requirement?.purpose || !requirement.budget) return null;
   return { budget: requirement.budget, purpose: requirement.purpose };
 }
@@ -137,6 +139,32 @@ export interface CartBuildSet {
   itemVariantIds?: string[];
   parts?: Array<Record<string, unknown>>;
 }
+
+/** Linh kiện chính hiện trên thẻ cấu hình đã lưu; bộ không có card rời thì ghi là đồ họa tích hợp. */
+export function savedBuildHighlights(saved: SavedBuild): { label: string; value: string }[] {
+  const named = (category: SlotCode): string | null => {
+    const item = saved.items.find((line) => line.category === category);
+    if (!item) return null;
+    return item.qty > 1 ? `${item.qty} × ${item.name}` : item.name;
+  };
+  return [
+    { label: "CPU", value: named("CPU") ?? "Chưa có" },
+    { label: "VGA", value: named("GPU") ?? "Đồ họa tích hợp" },
+    { label: "RAM", value: named("RAM") ?? "Chưa có" },
+    { label: "Màn hình", value: named("MONITOR") ?? "Chưa có" },
+  ];
+}
+
+/**
+ * Bộ đã lưu → dạng CartBuildSet để mở lại bằng đúng luồng "sửa bộ PC trong giỏ" (itemsFromCartSet → /validate).
+ * Backend không lưu ngân sách nên lấy tổng tiền lúc lưu: giá đã tăng thì bộ mở lại hiện "Vượt ngân sách".
+ */
+export const savedBuildToCartSet = (saved: SavedBuild): CartBuildSet => ({
+  id: saved.buildId,
+  name: `Cấu hình #${saved.buildId}`,
+  budget: saved.total,
+  parts: saved.items.map((item) => ({ ...item })),
+});
 
 /**
  * Đọc lại bộ PC đã thêm vào giỏ (localStorage techzone_pc_build_sets) để sửa tiếp.

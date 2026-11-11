@@ -1,10 +1,12 @@
 import { useEffect, useState, useRef } from "react";
 import { useStore } from "@/store";
 import { money } from "@/utils";
-import { Button, Heading, Notice, Panel, KV, Modal } from "@/components/ui";
+import { Button, Heading, Notice, Panel, KV, Modal, Icon } from "@/components/ui";
 import { Field } from "@/components/form";
 import { productSalesApi } from "../api/productSalesApi";
 import { PromotionListFilters } from "./PromotionListFilters";
+import { VoucherDates } from "./VoucherTableParts";
+import "./VoucherList.css";
 import {
   usePromotionListFilters,
   promotionListStatus,
@@ -33,7 +35,7 @@ function displaySaleDate(value) {
 
 function saleStatus(sale, now) {
   const status = promotionListStatus(sale, "sale", now);
-  return { label: listStatusLabels[status], tone: listStatusTones[status] };
+  return { label: listStatusLabels[status], tone: listStatusTones[status], key: status };
 }
 
 export function ProductSaleManagement() {
@@ -474,12 +476,12 @@ export function ProductSaleManagement() {
         </Modal>
       )}
       <section
-        className="promotion-list section"
+        className="promotion-list voucher-list section"
         aria-labelledby="product-sale-list-title"
       >
         <div className="promotion-list-header">
-          <h2 id="product-sale-list-title">
-            Lịch sale đã tạo ({items.length})
+          <h2 id="product-sale-list-title" aria-label={`Lịch sale đã tạo (${items.length})`}>
+            Lịch sale đã tạo <span className="voucher-total-badge" aria-label={`${items.length} lịch sale`}>{items.length}</span>
           </h2>
           <div className="promotion-list-tools">
             <span>
@@ -488,26 +490,14 @@ export function ProductSaleManagement() {
             </span>
           </div>
         </div>
-        <div className="promotion-table-scroll">
-          <table className="promotion-table product-sale-table">
-            <colgroup>
-              <col style={{ width: "6%" }} />
-              <col style={{ width: "20%" }} />
-              <col style={{ width: "11%" }} />
-              <col style={{ width: "10%" }} />
-              <col style={{ width: "18%" }} />
-              <col style={{ width: "11%" }} />
-              <col style={{ width: "12%" }} />
-              <col style={{ width: "12%" }} />
-            </colgroup>
+        <div className="promotion-table-scroll voucher-table-scroll" tabIndex={0} role="region" aria-label="Lịch sale đã tạo">
+          <table className="promotion-table product-sale-table promotion-voucher-table sale-presentation-table" aria-busy={loading}>
             <thead>
               <tr>
-                <th scope="col">ID</th>
-                <th scope="col">Sản phẩm & phạm vi</th>
-                <th scope="col">Loại giảm giá</th>
+                <th scope="col">Sản phẩm</th>
                 <th scope="col">Giá trị giảm</th>
                 <th scope="col">Thời gian (UTC+07)</th>
-                <th scope="col">Phiên bản áp dụng</th>
+                <th scope="col">Số SKU</th>
                 <th scope="col">Trạng thái</th>
                 <th scope="col">Thao tác</th>
               </tr>
@@ -515,16 +505,20 @@ export function ProductSaleManagement() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={8} className="promotion-empty">
-                    Đang tải lịch sale…
+                  <td colSpan={6} className="promotion-empty" role="status">
+                    <span className="voucher-screen-reader">Đang tải lịch sale…</span>
+                    {[1,2,3].map((row) => <div className="voucher-skeleton-row" aria-hidden="true" key={row}>{[1,2,3,4,5].map((cell) => <span key={cell} />)}</div>)}
                   </td>
                 </tr>
               ) : !listFilters.filtered.length ? (
                 <tr>
-                  <td colSpan={8} className="promotion-empty">
+                  <td colSpan={6} className="promotion-empty">
+                    <Icon name="layers" />
+                    <strong>
                     {items.length
                       ? "Không có lịch sale phù hợp với tìm kiếm và bộ lọc."
                       : "Chưa có sản phẩm được lên lịch sale."}
+                    </strong>
                   </td>
                 </tr>
               ) : (
@@ -532,54 +526,49 @@ export function ProductSaleManagement() {
                   const status = saleStatus(sale, listFilters.now);
                   return (
                     <tr key={sale.productId}>
-                      <td className="promotion-id">#{sale.productId}</td>
-                      <td>
-                        <strong className="promotion-code">
+                      <td className="voucher-code-cell sale-product-cell" data-label="Sản phẩm">
+                        <strong className="sale-product-name" title={sale.productName}>
                           {sale.productName}
                         </strong>
-                        <span className="promotion-description">
-                          Tất cả SKU của sản phẩm #{sale.productId}
+                        <span className="sale-product-scope">
+                          <Icon name="layers" />Áp dụng cho tất cả phiên bản
                         </span>
                       </td>
-                      <td>
-                        <span className="promotion-type">
-                          {sale.discountType === "fixed_amount"
-                            ? "Số tiền cố định"
-                            : "Phần trăm"}
-                        </span>
-                      </td>
-                      <td>
+                      <td className="voucher-value-cell" data-label="Giá trị giảm">
                         <strong className="promotion-value">
                           {sale.discountType === "fixed_amount"
-                            ? money(sale.discountValue)
+                            ? `${new Intl.NumberFormat("vi-VN").format(Number(sale.discountValue))} ₫`
                             : `${sale.discountValue ?? sale.percentage}%`}
                         </strong>
                       </td>
-                      <td className="promotion-dates">
-                        <span>Từ {displaySaleDate(sale.start)}</span>
-                        <span>Đến {displaySaleDate(sale.end)}</span>
+                      <td className="voucher-dates-cell" data-label="Thời gian (UTC+07)">
+                        <VoucherDates start={sale.start} end={sale.end} now={listFilters.now} format={displaySaleDate} />
                       </td>
-                      <td>
-                        <span className="promotion-count">
+                      <td className="sale-sku-cell" data-label="Số SKU">
+                        <span className="sale-sku-count">
                           {sale.variants.length} SKU
                         </span>
                       </td>
-                      <td>
+                      <td className="voucher-status-cell" data-label="Trạng thái">
                         <span
-                          className={`promotion-status promotion-status-${status.tone}`}
+                          className={`promotion-status voucher-status-${status.key}`}
                         >
-                          {status.label}
+                          <span className="voucher-status-dot" aria-hidden="true" />{status.label}
                         </span>
                       </td>
                       <td className="promotion-actions">
+                        <div className="voucher-row-actions">
                         <Button
-                          tone="secondary"
+                          tone="ghost"
+                          className="voucher-action-edit"
+                          title="Chỉnh sửa"
                           disabled={busy}
                           aria-label={`Chỉnh sale #${sale.productId}`}
                           onClick={() => lookup(sale.productId, true)}
                         >
-                          Chỉnh sửa
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m15 4 5 5M4 20l5-1L21 7a2 2 0 0 0-5-5L4 14Z" /></svg><span>Chỉnh sửa</span>
                         </Button>
+                        </div>
                       </td>
                     </tr>
                   );

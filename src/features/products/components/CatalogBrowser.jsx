@@ -32,11 +32,14 @@ export function CatalogBrowser() {
   const activeBtnRef = useRef(null);
 
   useEffect(() => {
-    if (activeBtnRef.current) {
-      activeBtnRef.current.scrollIntoView({
+    if (scrollRef.current && activeBtnRef.current) {
+      const container = scrollRef.current;
+      const btn = activeBtnRef.current;
+      const targetLeft =
+        btn.offsetLeft - container.offsetWidth / 2 + btn.offsetWidth / 2;
+      container.scrollTo({
+        left: Math.max(0, targetLeft),
         behavior: "smooth",
-        block: "nearest",
-        inline: "center",
       });
     }
   }, [page]);

@@ -17,6 +17,11 @@ export type SlotCode =
 
 // ---- Bước 1–3: phân tích nhu cầu ----
 
+export interface PcBuildConfig {
+  maxBuildPrice: number;
+  lowestMinBudget: number;
+}
+
 export interface AnalyzeRequest {
   budget: number;
   message: string;
@@ -24,7 +29,6 @@ export interface AnalyzeRequest {
 
 export type RequirementStatus =
   | "READY"
-  | "BUDGET_WARNING"
   | "NEED_CLARIFICATION"
   | "BUDGET_TOO_LOW"
   | "BUDGET_TOO_HIGH";
@@ -50,9 +54,6 @@ export interface AnalyzeResponse {
   maxBuildPrice: number | null;
   /** Chỉ có khi BUDGET_TOO_LOW: các mục đích vừa ngân sách khách nhập. */
   suggestedPurposes: PurposeOption[];
-  explanation: string | null;
-  /** Chỉ có khi BUDGET_WARNING. */
-  suggestedBudget: number | null;
   notes: string[];
 }
 
@@ -138,6 +139,15 @@ export interface SaveBuildResult {
   status: BuildStatus;
   total: number;
   difference: number;
+}
+
+/** Một bộ PC đã lưu (GET /api/pc-build/builds/saved): backend không lưu tên, ngày lưu hay ngân sách. */
+export interface SavedBuild {
+  buildId: number;
+  /** Tổng tiền lúc lưu. */
+  total: number;
+  /** `price` là giá lúc lưu; không có maxQty (mở lại thì /validate trả số thật). */
+  items: Omit<BuildItem, "maxQty">[];
 }
 
 /** Thân lỗi của GlobalExceptionHandler. */

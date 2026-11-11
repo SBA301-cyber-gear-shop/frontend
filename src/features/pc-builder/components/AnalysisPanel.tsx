@@ -5,7 +5,6 @@ import type { AnalyzeResponse, PurposeOption, RequirementStatus } from "../types
 
 const VIEW: Record<RequirementStatus, { tone: string; title: string }> = {
   READY: { tone: "success", title: "Shop đã hiểu nhu cầu của bạn" },
-  BUDGET_WARNING: { tone: "warning", title: "Ngân sách có thể chưa đạt kỳ vọng" },
   NEED_CLARIFICATION: { tone: "info", title: "Shop cần thêm thông tin" },
   BUDGET_TOO_LOW: { tone: "danger", title: "Ngân sách chưa đủ cho nhu cầu này" },
   BUDGET_TOO_HIGH: { tone: "warning", title: "Ngân sách vượt bộ PC cao cấp nhất của shop" },
@@ -31,20 +30,17 @@ export function AnalysisPanel({ analysis, isBusy, onUseBudget, onPickPurpose }: 
   }, [analysis]);
 
   const budgetAction =
-    analysis.status === "BUDGET_WARNING" && analysis.suggestedBudget
-      ? { label: `Phân tích lại với ${money(analysis.suggestedBudget)}`, value: analysis.suggestedBudget }
-      : analysis.status === "BUDGET_TOO_HIGH" && analysis.maxBuildPrice
-        ? { label: `Dùng ngân sách ${money(analysis.maxBuildPrice)}`, value: analysis.maxBuildPrice }
-        : analysis.status === "BUDGET_TOO_LOW" && analysis.minBudget && analysis.minBudget > budget
-          ? { label: `Tăng ngân sách lên ${money(analysis.minBudget)}`, value: analysis.minBudget }
-          : null;
+    analysis.status === "BUDGET_TOO_HIGH" && analysis.maxBuildPrice
+      ? { label: `Dùng ngân sách ${money(analysis.maxBuildPrice)}`, value: analysis.maxBuildPrice }
+      : analysis.status === "BUDGET_TOO_LOW" && analysis.minBudget && analysis.minBudget > budget
+        ? { label: `Tăng ngân sách lên ${money(analysis.minBudget)}`, value: analysis.minBudget }
+        : null;
 
   return (
     <div className="analysis-panel" id="analysisPanel" data-status={analysis.status}>
       <Notice tone={view.tone}>
         <strong className="analysis-title">{view.title}</strong>
         <p className="analysis-message">{analysis.message}</p>
-        {analysis.explanation && <p className="analysis-explanation">{analysis.explanation}</p>}
         {analysis.status === "NEED_CLARIFICATION" && (
           <p className="analysis-hint">Bổ sung mô tả nhu cầu ở ô phía trên rồi bấm "Đề xuất cấu hình với AI".</p>
         )}

@@ -1,0 +1,501 @@
+/* ==============================================================================
+   AI CONFIG MANAGEMENT — SYNCHRONIZED TECHZONE DESIGN SYSTEM
+   Centralized in frontend/src/assets/styles/ai-config.css
+   ============================================================================== */
+
+.ai-config-management {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  font-family: var(--font, "Be Vietnam Pro", sans-serif);
+}
+
+/* Toolbar tối giản chuẩn TechZone */
+.ai-toolbar-minimal {
+  gap: 12px;
+  align-items: center;
+}
+
+.search-box-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  min-width: 280px;
+  max-width: 420px;
+  flex: 1;
+}
+
+.search-box-wrap .icon {
+  position: absolute;
+  left: 12px;
+  width: 16px;
+  height: 16px;
+  color: var(--muted, #657185);
+  pointer-events: none;
+}
+
+.search-box-wrap .search-input {
+  width: 100%;
+  padding-left: 38px;
+  height: 40px;
+  font-size: 14px;
+}
+
+.filter-select {
+  height: 40px;
+  border: 1px solid var(--line, #e2e7ed);
+  border-radius: 7px;
+  padding: 0 14px;
+  background: #ffffff;
+  color: var(--ink, #152237);
+  font-size: 14px;
+  font-family: var(--font, "Be Vietnam Pro", sans-serif);
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.filter-select:focus {
+  outline: none;
+  border-color: var(--red, #d91f31);
+  box-shadow: 0 0 0 3px rgba(217, 31, 49, 0.1);
+}
+
+/* Table Card đồng bộ với bảng metadata */
+.ai-table-card {
+  background: #ffffff;
+  border: 1px solid var(--line, #e2e7ed);
+  border-radius: var(--radius, 12px);
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(21, 34, 55, 0.04);
+}
+
+.table-responsive {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.ai-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 14px;
+  font-family: var(--font, "Be Vietnam Pro", sans-serif);
+}
+
+.ai-table th {
+  background: #f7f9fb;
+  color: #718094;
+  font-size: 11px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  font-weight: 650;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--line, #e2e7ed);
+  white-space: nowrap;
+}
+
+.ai-table td {
+  padding: 14px 18px;
+  border-bottom: 1px solid #eaf0f5;
+  vertical-align: middle;
+  color: var(--ink, #152237);
+  font-family: var(--font, "Be Vietnam Pro", sans-serif);
+}
+
+.ai-table tbody tr:hover td {
+  background: #fafbfd;
+}
+
+.ai-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* Cột Chức năng & Mã định danh */
+.config-identity-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.config-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ai-icon-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: var(--soft-red, #fff0f2);
+  color: var(--red, #d91f31);
+  border: 1px solid #ffd0d5;
+  flex-shrink: 0;
+  transition: all 0.15s ease;
+}
+
+.ai-icon-chip .icon {
+  width: 14px;
+  height: 14px;
+}
+
+.ai-config-row:hover .ai-icon-chip {
+  background: var(--red, #d91f31);
+  color: #ffffff;
+  border-color: var(--red, #d91f31);
+}
+
+.config-name-text {
+  font-weight: 650;
+  color: var(--ink, #152237);
+  font-size: 14px;
+}
+
+.code-badge {
+  display: inline-block;
+  align-self: flex-start;
+  background: var(--bg, #f5f7fa);
+  color: var(--muted, #657185);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--line, #e2e7ed);
+  letter-spacing: 0.2px;
+}
+
+/* Badges Nhà cung cấp */
+.provider-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 5px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.provider-badge.gemini {
+  background: #e8f0fe;
+  color: #1a73e8;
+}
+
+.provider-badge.openai {
+  background: #e6f7ec;
+  color: #10a37f;
+}
+
+.provider-badge.anthropic {
+  background: #f3e8ff;
+  color: #7e22ce;
+}
+
+.provider-badge.deepseek {
+  background: #e0f2fe;
+  color: #0284c7;
+}
+
+.provider-badge.custom {
+  background: var(--bg, #f5f7fa);
+  color: var(--muted, #657185);
+  border: 1px solid var(--line, #e2e7ed);
+}
+
+.model-name-text {
+  font-size: 13px;
+  color: var(--ink, #152237);
+  font-weight: 600;
+  letter-spacing: 0.1px;
+}
+
+/* Cột Mô hình AI thẳng hàng */
+.model-identity-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* Action Buttons chuẩn TechZone Admin */
+.action-buttons-wrap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.btn-action-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 5px 11px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: var(--font, "Be Vietnam Pro", sans-serif);
+  border: 1px solid var(--line, #e2e7ed);
+  background: #ffffff;
+  color: var(--ink, #152237);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  line-height: 1.3;
+}
+
+.btn-action-icon:hover {
+  background: var(--bg, #f5f7fa);
+  border-color: #cbd5e1;
+}
+
+.btn-action-icon.danger {
+  color: var(--danger, #b52337);
+}
+
+.btn-action-icon.danger:hover {
+  background: var(--soft-red, #fff0f2);
+  border-color: #fca5a5;
+}
+
+.btn-action-icon.primary {
+  background: var(--red, #d91f31);
+  color: #ffffff;
+  border-color: var(--red, #d91f31);
+}
+
+.btn-action-icon.primary:hover {
+  background: #bc192a;
+  border-color: #bc192a;
+}
+
+.btn-action-icon .icon {
+  width: 13px;
+  height: 13px;
+}
+
+.toggle-switch-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ai-empty-state {
+  text-align: center;
+  padding: 44px 20px;
+}
+
+/* ==============================================================================
+   MODAL STYLES (EXPANDED & STREAMLINED)
+   ============================================================================== */
+
+.ai-config-form-modal {
+  max-width: 860px !important;
+  width: min(860px, calc(100% - 32px)) !important;
+  max-height: 94vh;
+  padding: 24px 28px;
+  font-family: var(--font, "Be Vietnam Pro", sans-serif);
+}
+
+.ai-config-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 6px;
+}
+
+.grid-2-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  align-items: start;
+}
+
+.ai-config-form .field,
+.ai-config-form .field+.field,
+.grid-2-col>.field,
+.grid-2-col>.field+.field {
+  margin-top: 0 !important;
+}
+
+.ai-config-form .field>label {
+  display: block;
+  font-size: 13px;
+  font-weight: 650;
+  margin-bottom: 6px;
+  line-height: 1.4;
+  color: var(--ink, #152237);
+}
+
+.ai-config-form input.input,
+.ai-config-form select.input {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 42px;
+  height: 42px;
+  font-size: 14px;
+}
+
+/* .req và .input-group trùng tên với form đăng nhập/đăng ký (login.css): luôn giới hạn trong .ai-config-form */
+.ai-config-form .req {
+  color: var(--red);
+  font-weight: bold;
+}
+
+.ai-config-form .input-group {
+  display: flex;
+  align-items: stretch;
+  border: 1px solid var(--line, #e2e7ed);
+  border-radius: 7px;
+  background: #ffffff;
+  overflow: hidden;
+  box-sizing: border-box;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+/* Khi focus vào bất kỳ phần tử nào bên trong input-group, bóng xanh bao phủ toàn bộ khung chứa cả input và nút ẩn/hiện */
+.ai-config-form .input-group:focus-within {
+  border-color: var(--focus, #246dd0);
+  outline: 3px solid var(--focus, #246dd0);
+  outline-offset: 3px;
+}
+
+.ai-config-form .input-group.has-error {
+  border-color: var(--red, #e53e3e);
+}
+
+.ai-config-form .input-group .input,
+.ai-config-form .input-group input.input {
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  flex: 1;
+  min-width: 0;
+  border-radius: 0 !important;
+  padding: 8px 12px;
+  height: 42px;
+}
+
+.ai-config-form .input-group .input:focus,
+.ai-config-form .input-group .input:focus-visible,
+.ai-config-form .input-group input.input:focus,
+.ai-config-form .input-group input.input:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.input-group-btn {
+  background: var(--bg, #f5f7fa);
+  border: none !important;
+  border-left: 1px solid var(--line, #e2e7ed) !important;
+  outline: none !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+  padding: 0 16px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink, #152237);
+  height: 42px;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s ease, color 0.15s ease;
+  white-space: nowrap;
+}
+
+.input-group-btn:hover {
+  background: var(--line, #e2e7ed);
+  color: var(--red, #d91f31);
+}
+
+.textarea-field {
+  resize: vertical;
+  line-height: 1.5;
+  font-family: inherit;
+  font-size: 14px;
+}
+
+.prompt-textarea {
+  min-height: 120px;
+  background: #fafbfd;
+  font-size: 13px;
+}
+
+.field-checkbox {
+  align-items: center;
+  gap: 10px;
+}
+
+.switch-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-weight: 550;
+  font-size: 14px;
+  color: var(--ink, #152237);
+}
+
+.switch-label input[type="checkbox"] {
+  width: 17px;
+  height: 17px;
+  cursor: pointer;
+  accent-color: var(--red, #d91f31);
+}
+
+/* Modal Actions Buttons */
+.ai-config-modal-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line, #e2e7ed);
+}
+
+.ai-config-modal-actions .btn {
+  height: 40px;
+  min-width: 110px;
+  padding: 0 18px;
+  font-size: 14px;
+  font-weight: 650;
+  border-radius: 7px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  box-sizing: border-box;
+}
+
+.ai-config-modal-actions .btn-secondary {
+  background: #ffffff;
+  border: 1px solid var(--line, #e2e7ed);
+  color: var(--ink, #152237);
+}
+
+.ai-config-modal-actions .btn-secondary:hover {
+  background: var(--bg, #f5f7fa);
+  border-color: #cbd5e1;
+}
+
+.ai-config-modal-actions .btn-primary {
+  background: var(--red, #d91f31);
+  border: 1px solid var(--red, #d91f31);
+  color: #ffffff;
+}
+
+.ai-config-modal-actions .btn-primary:hover:not(:disabled) {
+  background: #bc192a;
+  border-color: #bc192a;
+}

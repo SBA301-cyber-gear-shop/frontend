@@ -10,6 +10,7 @@ interface BuilderToolbarProps {
   onSubmit: () => void;
   isBusy: boolean;
   disabled?: boolean;
+  maxBuildPrice?: number | null;
 }
 
 export function BuilderToolbar({
@@ -20,7 +21,10 @@ export function BuilderToolbar({
   onSubmit,
   isBusy,
   disabled = false,
+  maxBuildPrice,
 }: BuilderToolbarProps) {
+  const maxLimit = maxBuildPrice && maxBuildPrice > 0 ? maxBuildPrice : MAX_BUDGET;
+
   // Enter gửi (Shift+Enter xuống dòng); đang chạy thì không gửi lại
   function submitOnEnter(e: KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key !== "Enter" || e.shiftKey) return;
@@ -32,7 +36,7 @@ export function BuilderToolbar({
     <div className="builder-toolbar">
       <div className="toolbar-grid two">
         <div className="field-group">
-          <label htmlFor="inputBudget">Ngân sách dự chi (₫) *</label>
+          <label htmlFor="inputBudget">Ngân sách dự chi (đ)</label>
           <input
             id="inputBudget"
             type="number"
@@ -40,17 +44,17 @@ export function BuilderToolbar({
             placeholder="VD: 25000000"
             value={budget}
             min={1}
-            max={MAX_BUDGET}
+            max={maxLimit}
             step={500000}
             aria-describedby="inputBudgetHint"
             onChange={(e) => onBudgetChange(e.target.value === "" ? "" : Number(e.target.value))}
           />
           <small id="inputBudgetHint" className="field-hint">
-            {typeof budget === "number" && budget > 0 ? money(budget) : `Tối đa ${money(MAX_BUDGET)}`}
+            {typeof budget === "number" && budget > 0 ? money(budget) : `Tối đa ${money(maxLimit)}`}
           </small>
         </div>
         <div className="field-group">
-          <label htmlFor="inputNeed">Bạn dùng máy để làm gì? *</label>
+          <label htmlFor="inputNeed">Nhu cầu sử dụng</label>
           <textarea
             id="inputNeed"
             className="field-input field-textarea"

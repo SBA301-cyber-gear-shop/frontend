@@ -1,4 +1,4 @@
-import { dateTime, money, formatShortOrderCode, formatOrderSuffix } from "@/utils";
+import { dateTime, money, formatShortOrderCode } from "@/utils";
 import { useEffect, useState } from "react";
 import { OrderSelector } from "./OrderSelector";
 import { ORDER_STATUS, PAYMENT_STATUS } from "../constants";
@@ -21,6 +21,21 @@ import { shippingApi } from "../api/shippingApi";
 import { ordersApi } from "../api/ordersApi";
 import { CashCollectionModal } from "./CashCollectionModal";
 import { CancelOrderModal } from "./CancelOrderModal";
+import { paymentDateTime, paymentMoney } from "./paymentDisplay";
+import "./PaymentSummary.css";
+
+function PaymentMoney({ value, negative = false }) {
+  return <span className="payment-money">{negative ? "−" : ""}{paymentMoney(value)}<span className="payment-currency">₫</span></span>;
+}
+
+function PaymentRow({ label, children, className = "" }) {
+  return <div className={`payment-row ${className}`}><dt>{label}</dt><dd>{children}</dd></div>;
+}
+
+function PaymentDate({ value }) {
+  const [date, time] = paymentDateTime(value).split(" · ");
+  return <span className="payment-date"><span>{date}{time && " ·"}</span>{" "}{time && <span>{time}</span>}</span>;
+}
 import { EditShippingAddressModal } from "./EditShippingAddressModal";
 
 export function OrderOperations({ handover = false }) {
@@ -66,9 +81,32 @@ export function OrderOperations({ handover = false }) {
   const [editAddressOpen, setEditAddressOpen] = useState(false);
   const [trackingInfo, setTrackingInfo] = useState(null);
   const [warranties, setWarranties] = useState({ order: null, cards: [], error: null, loading: false });
+  const [cashCollection, setCashCollection] = useState(null);
 
   const selectedCode = selected?.id;
   const selectedStatus = selected?.status;
+  const isCounterCash =
+    (selected?.deliveryType ?? "store") === "store" && selected?.method === "store";
+  const canCollect =
+    isCounterCash && selected?.payment === "PENDING" &&
+    !["canceled", "completed"].includes(selectedStatus);
+  const showCashCollection =
+    !demoMode && isCounterCash && selected?.payment === "SUCCESS" && selected.final > 0;
+  const collection = cashCollection?.code === selectedCode ? cashCollection : null;
+
+  useEffect(() => {
+    if (!showCashCollection || !selectedCode) return;
+    const controller = new AbortController();
+    ordersApi.cashCollection(selectedCode, controller.signal).then(
+      (receipt) => {
+        if (!controller.signal.aborted) setCashCollection({ code: selectedCode, receipt });
+      },
+      () => {
+        if (!controller.signal.aborted) setCashCollection({ code: selectedCode, error: true });
+      },
+    );
+    return () => controller.abort();
+  }, [selectedCode, showCashCollection]);
 
   useEffect(() => {
     if (selected?.deliveryType === "shipping" && selected?.trackingCode) {
@@ -219,15 +257,15 @@ export function OrderOperations({ handover = false }) {
         <div className="split section">
           <div className="stack">
             <Panel
+              className={`order-overview ${selected.status === "completed" ? "is-completed" : ""}`}
               title={
                 <div className="order-detail-header-code">
-                  <span>{formatShortOrderCode(selected.id)}</span>
-                  <span className="order-full-code-chip" title="Mã đơn đầy đủ">
-                    {selected.id}
+                  <span title={selected.id}>{formatShortOrderCode(selected.id)}</span>
                     <button
                       type="button"
                       className="order-copy-action-btn"
                       title="Sao chép toàn bộ mã đơn"
+                      aria-label="Sao chép mã đơn"
                       onClick={(e) => {
                         e.stopPropagation();
                         navigator.clipboard.writeText(selected.id);
@@ -237,18 +275,14 @@ export function OrderOperations({ handover = false }) {
                     >
                       {copied ? "✓ Đã chép" : <Icon name="copy" />}
                     </button>
-                  </span>
-                  <span className="order-ref-suffix">
-                    Đuôi: #{formatOrderSuffix(selected.id)}
-                  </span>
                 </div>
               }
               action={
-                <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+                <div className="order-detail-status">
                   {selected.deliveryType === "shipping" ? (
                     <Badge tone="info"><Icon name="truck" style={{ verticalAlign: "-2px", marginRight: "4px" }} /> GHN Express</Badge>
                   ) : (
-                    <Badge tone="neutral"><Icon name="store" style={{ verticalAlign: "-2px", marginRight: "4px" }} /> Tại quầy</Badge>
+                    <Badge tone="neutral"><Icon name="store" style={{ verticalAlign: "-2px", marginRight: "4px" }} /> Nhận tại cửa hàng</Badge>
                   )}
                   <Badge
                     tone={
@@ -262,13 +296,13 @@ export function OrderOperations({ handover = false }) {
                       }[selected.status] || "info"
                     }
                   >
-                    {ORDER_STATUS[selected.status]}
+                    {selected.status === "completed" && selected.deliveryType !== "shipping" ? "Đã nhận hàng" : ORDER_STATUS[selected.status]}
                   </Badge>
                 </div>
               }
             >
               <p className="small muted">
-                Đặt ngày {dateTime(selected.createdAt)}
+                Đặt ngày {paymentDateTime(selected.createdAt)}
               </p>
               <div className="section">
                 <Steps
@@ -302,8 +336,8 @@ export function OrderOperations({ handover = false }) {
             <Panel title="Hàng trong đơn">
               <OrderLines lines={selected.lines} products={data.products} />
               {!demoMode && selected.lines.map((line) => (
-                <div key={line.orderItemId} className="section small">
-                  <b>{line.name}</b> · Dòng đơn #{line.orderItemId} · Phiên bản #{line.id}
+                <div key={line.orderItemId} className="order-warranty-info small">
+                  <div className="order-warranty-heading">Bảo hành · {line.name}</div>
                   {selected.status !== "completed" ? (
                     <p>Chưa bàn giao; chưa có thẻ bảo hành.</p>
                   ) : warranties.order === selected.id && warranties.error ? (
@@ -313,7 +347,7 @@ export function OrderOperations({ handover = false }) {
                   ) : !warranties.cards.some((card) => card.orderItemId === line.orderItemId) ? (
                     <p>Không có thẻ bảo hành cho dòng hàng này.</p>
                   ) : warranties.order === selected.id && warranties.cards.filter((card) => card.orderItemId === line.orderItemId).map((card) => (
-                    <p key={card.id}>Thẻ #{card.id} · Serial {card.serialNumber} · Hạn {dateTime(card.endDate)} · {warrantyRemainingText(card)}{card.replacedBySerialNumber ? ` · Đổi sang ${card.replacedBySerialNumber}` : ""}</p>
+                    <p key={card.id}><span>Serial <b>{card.serialNumber}</b></span><span>Hạn {dateTime(card.endDate)} · {warrantyRemainingText(card)}{card.replacedBySerialNumber ? ` · Đổi sang ${card.replacedBySerialNumber}` : ""}</span></p>
                   ))}
                 </div>
               ))}
@@ -345,7 +379,7 @@ export function OrderOperations({ handover = false }) {
                 </div>
               )}
               <p className="small muted section">
-                {selected.note || "Không có ghi chú."}
+                <b>Ghi chú của khách: </b>{selected.note || "Không có ghi chú."}
               </p>
             </Panel>
             {selected.deliveryType === "shipping" && (
@@ -491,6 +525,17 @@ export function OrderOperations({ handover = false }) {
                 <p style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{selected.cancelReason || "Đơn cũ chưa ghi nhận lý do hủy."}</p>
               </Panel>
             )}
+            {!demoMode && selected.deliveryType === "shipping" && selected.status === "completed" && count > 0 && (
+              <Panel title="Serial thiết bị giao hàng">
+                <Notice>Nhập serial thật trên từng thiết bị để kích hoạt bảo hành.</Notice>
+                {warrantyLines.flatMap((line) => Array.from({ length: line.quantity }, () => line)).map((line, index) => (
+                  <Field key={index} label={line.name + " ? " + (index + 1)}
+                    value={serials[selected.id + "-" + index] || ""}
+                    onChange={(e) => setSerials({ ...serials, [selected.id + "-" + index]: e.target.value })} />
+                ))}
+                <Button disabled={busy} onClick={() => update("shippingSerials")}>Lưu serial</Button>
+              </Panel>
+            )}
             {handover && (
               <Panel
                 title={"Serial từng thiết bị · " + count + " thiết bị"}
@@ -559,34 +604,70 @@ export function OrderOperations({ handover = false }) {
             )}
           </div>
           <aside className="stack">
-            <Panel title="Thanh toán" className="summary">
-              <Badge
-                tone={selected.payment === "SUCCESS" ? "success" : "warning"}
-              >
+            <Panel title="Thanh toán" className="summary payment-summary payment-details-card" action={
+              <span role="status" className={`payment-status ${selected.payment === "SUCCESS" ? "is-success" : ""}`}>
+                <span aria-hidden="true">{selected.payment === "SUCCESS" ? "✓" : "●"}</span>
                 {PAYMENT_STATUS[selected.payment]}
-              </Badge>
-              <p className="small muted section">Cần thanh toán đủ</p>
-              <div className="price">{money(selected.final)}</div>
-              <div className="divider" />
-              <KV label="Tiền hàng">{money(selected.total)}</KV>
-              <KV label={"Giảm giá " + (selected.promotion || "")}>
-                {money(selected.discount)}
-              </KV>
-              {selected.shippingFee > 0 && (
-                <KV label="Phí giao hàng (GHN)">{money(selected.shippingFee)}</KV>
-              )}
-              <KV label="Thanh toán">
-                {selected.method === "cod"
+              </span>
+            }>
+              <div className="payment-total">
+                <span className="payment-total-label">Tổng thanh toán</span>
+                <strong className="payment-total-value"><PaymentMoney value={selected.final} /></strong>
+              </div>
+              <section className="payment-group">
+                <dl className="payment-list">
+                  <PaymentRow label="Tiền hàng"><PaymentMoney value={selected.total} /></PaymentRow>
+                  <PaymentRow label={"Giảm giá " + (selected.promotion || "")} className={Number(selected.discount) > 0 ? "is-discount" : "is-zero"}>
+                    <PaymentMoney value={selected.discount} negative={Number(selected.discount) > 0} />
+                  </PaymentRow>
+                  {selected.shippingFee > 0 && <PaymentRow label="Phí giao hàng (GHN)"><PaymentMoney value={selected.shippingFee} /></PaymentRow>}
+                  <PaymentRow label="Thành tiền" className="is-total"><PaymentMoney value={selected.final} /></PaymentRow>
+                </dl>
+              </section>
+            </Panel>
+            <Panel title="Thông tin thu tiền" className="summary payment-summary payment-collection-card">
+              <section className="payment-group">
+                <dl className="payment-list">
+                  <PaymentRow label="Thanh toán"><span className="payment-method"><span aria-hidden="true">{selected.method === "vnpay" ? "▣" : selected.method === "cod" ? "▰" : "⌂"}</span>{selected.method === "cod"
                   ? "COD (Thu tiền khi giao)"
                   : selected.method === "vnpay"
                     ? "VNPay"
                     : selected.method === "cash"
                       ? "Tiền mặt"
-                      : "Tại quầy"}
-              </KV>
-              <KV label="Thành tiền">{money(selected.final)}</KV>
-              {selected.payment !== "SUCCESS" &&
-                !["canceled", "completed"].includes(selected.status) && (
+                      : "Tại quầy"}</span></PaymentRow>
+                  {showCashCollection && collection?.receipt && <>
+                    <PaymentRow label="Thực nhận"><PaymentMoney value={collection.receipt.receivedAmount} /></PaymentRow>
+                    <PaymentRow label="Tiền thối" className={Number(collection.receipt.changeAmount) === 0 ? "is-zero" : ""}><PaymentMoney value={collection.receipt.changeAmount} /></PaymentRow>
+                  </>}
+                </dl>
+              </section>
+              {showCashCollection && (
+                <section className="payment-group payment-collector-group">
+                  {collection?.receipt ? (
+                    <dl className="payment-list">
+                      <PaymentRow label="Người xác nhận" className="is-collector">
+                        <span className="payment-collector" title={collection.receipt.collectorName || `Tài khoản #${collection.receipt.collectorUserId}`}>
+                          <span className="payment-avatar" aria-hidden="true">{(collection.receipt.collectorName || "T").trim().charAt(0).toLocaleUpperCase("vi")}</span>
+                          <span className="payment-collector-name">{collection.receipt.collectorName || `Tài khoản #${collection.receipt.collectorUserId}`}</span>
+                        </span>
+                      </PaymentRow>
+                      <PaymentRow label="Thời điểm thu"><PaymentDate value={collection.receipt.collectedAt} /></PaymentRow>
+                      {collection.receipt.reference && (
+                        <PaymentRow label="Mã chứng từ">{collection.receipt.reference}</PaymentRow>
+                      )}
+                    </dl>
+                  ) : (
+                    <p className="tiny muted section">
+                      {!collection
+                        ? "Đang tải thông tin thu tiền…"
+                        : collection.error
+                          ? "Không tải được thông tin thu tiền."
+                          : "Đơn này chưa có bản ghi người xác nhận thu tiền."}
+                    </p>
+                  )}
+                </section>
+              )}
+              {canCollect && (
                   <>
                     <Button
                       className="full"
@@ -603,7 +684,7 @@ export function OrderOperations({ handover = false }) {
                   </>
                 )}
             </Panel>
-            <Panel title="Bước tiếp theo" className="summary">
+            {selected.status !== "completed" && <Panel title="Bước tiếp theo" className="summary">
               {selected.deliveryType === "shipping" ? (
                 <>
                   {["pending", "confirmed"].includes(selected.status) && (
@@ -662,11 +743,6 @@ export function OrderOperations({ handover = false }) {
                       ✅ Xác nhận đã giao thành công
                     </Button>
                   )}
-                  {selected.status === "completed" && (
-                    <Notice tone="success">
-                      Đơn hàng giao qua GHN đã hoàn tất thành công.
-                    </Notice>
-                  )}
                 </>
               ) : (
                 <>
@@ -713,13 +789,6 @@ export function OrderOperations({ handover = false }) {
                       Tiếp tục bàn giao →
                     </Button>
                   )}
-                  {selected.status === "completed" && (
-                    <Notice tone="success">
-                      {warrantyLines.length
-                        ? "Đã bàn giao và kích hoạt bảo hành."
-                        : "Đã bàn giao đơn hàng."}
-                    </Notice>
-                  )}
                 </>
               )}
               {!demoMode &&
@@ -733,11 +802,11 @@ export function OrderOperations({ handover = false }) {
                     Hủy đơn hàng
                   </Button>
                 )}
-            </Panel>
+            </Panel>}
           </aside>
         </div>
       )}
-      {confirm && selected && (
+      {confirm && canCollect && (
         <CashCollectionModal
           key={selected.id}
           order={selected}

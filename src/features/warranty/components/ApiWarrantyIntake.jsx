@@ -14,9 +14,10 @@ import {
 } from "@/components/ui";
 import { Field } from "@/components/form";
 import { REQUEST_RESOLUTION, REQUEST_STATUS } from "../constants";
-import { cardBadge, day, today, warrantyRemainingText } from "../domain/requests";
+import { cardBadge, day, groupByPc, today, warrantyRemainingText } from "../domain/requests";
 import { useAftersales } from "../hooks/useAftersales";
-import { RequestDetail, RequestHistory } from "./RequestHistory";
+import { HistoryCounts, RequestDetail, RequestHistory } from "./RequestHistory";
+import { deviceChain, historyCounts } from "../domain/deviceHistory";
 
 const EMPTY_INTAKE = {
   issueDescription: "",
@@ -26,9 +27,9 @@ const EMPTY_INTAKE = {
   expectedReturnDate: "",
 };
 // Linh kiện tạo được phiếu: thẻ còn hoạt động, còn hạn, chưa có phiếu đang mở.
-const selectable = (c) => c.status === "active" && c.valid && !c.openRequest;
+const selectable = (c) => c.status === "active" && c.valid && !c.openRequest && !c.replacementPendingReturn;
 // Linh kiện hết hạn được tiếp nhận để kiểm tra ngoài bảo hành.
-const extraable = (c) => c.status === "active" && !c.valid && !c.openRequest;
+const extraable = (c) => c.status === "active" && !c.valid && !c.openRequest && !c.replacementPendingReturn;
 
 // Nhóm kết quả tra cứu theo đơn hàng; trong mỗi đơn, linh kiện cùng cấu hình PC gom thành "Bộ PC", còn lại là "Mua lẻ".
 function groupByOrder(cards) {
@@ -74,17 +75,13 @@ function OrderIntake({
   order: o,
   open,
   onToggle,
-  preselected,
   onHistory,
   onOpenIntake,
   onCreate,
   receipts,
 }) {
-  const [selected, setSelected] = useState(() => new Set(preselected)),
+  const [selected, setSelected] = useState(() => new Set()),
     [extra, setExtra] = useState(() => new Set()),
-    // Phụ kiện nhận giữ: linh kiện quầy giữ lại, và pcCustomId của từng bộ PC nhận nguyên bộ.
-    [kept, setKept] = useState(() => new Set(preselected)),
-    [fullPc, setFullPc] = useState(() => new Set()),
     [form, setForm] = useState(() => ({
       ...EMPTY_INTAKE,
       contactName: o.pickupName || "",
@@ -92,8 +89,6 @@ function OrderIntake({
     })),
     [verified, setVerified] = useState(false);
   const orderCards = o.groups.flatMap((g) => g.cards);
-  // Chỉ nhóm bộ PC mới có lựa chọn nhận nguyên bộ; nhóm mua lẻ thì không.
-  const pcGroups = o.groups.filter((g) => g.pcId);
   const historyCount = orderCards.reduce(
     (n, c) => n + (c.requests || []).length,
     0,
@@ -108,12 +103,8 @@ function OrderIntake({
   function toggle(setter, current, card) {
     const on = !current.has(card.id);
     setter((prev) => flip(prev, card.id, on));
-    // Linh kiện tick ở đơn là thiết bị khách để lại, nên tự chọn luôn ở phụ kiện nhận giữ.
-    setKept((prev) => flip(prev, card.id, on));
-    // Bỏ một linh kiện thì bộ PC chứa nó không còn là nguyên bộ.
-    if (!on) setFullPc((prev) => flip(prev, card.pcCustomId, false));
   }
-  // Chọn hoặc bỏ cả bộ PC: tick mọi linh kiện của bộ và ghi "nguyên bộ PC" ở phụ kiện nhận giữ.
+  // Chọn hoặc bỏ các linh kiện đủ điều kiện tiếp nhận trong bộ PC.
   function pickPc(g, on) {
     const apply = (prev, pred) => {
       const next = new Set(prev);
@@ -124,19 +115,9 @@ function OrderIntake({
     };
     setSelected((prev) => apply(prev, selectable));
     setExtra((prev) => apply(prev, extraable));
-    setKept((prev) => apply(prev, () => true));
-    setFullPc((prev) => flip(prev, g.pcId, on));
   }
-  // Ghi chú phụ kiện gửi lên API được ghép từ lựa chọn trong dropdown.
-  const accessories =
-    [
-      ...pcGroups
-        .filter((g) => fullPc.has(g.pcId))
-        .map((g) => "Nguyên bộ PC #" + g.pcId),
-      ...orderCards
-        .filter((c) => kept.has(c.id) && !fullPc.has(c.pcCustomId))
-        .map((c) => c.productName + " (" + c.serialNumber + ")"),
-    ].join(", ") || "Không có";
+  const keptCards = orderCards.filter((c) => selected.has(c.id) && selectable(c));
+  const accessories = keptCards.map((c) => c.productName + " (" + c.serialNumber + ")").join(", ") || "Không có";
   function submit(e) {
     e.preventDefault();
     onCreate({
@@ -149,7 +130,8 @@ function OrderIntake({
   const pcPick = (g) => (
     <input
       type="checkbox"
-      checked={fullPc.has(g.pcId)}
+      checked={g.cards.some((c) => selectable(c) || extraable(c)) && g.cards.filter((c) => selectable(c) || extraable(c)).every((c) => selected.has(c.id) || extra.has(c.id))}
+      disabled={!g.cards.some((c) => selectable(c) || extraable(c))}
       onChange={(e) => pickPc(g, e.target.checked)}
     />
   );
@@ -237,6 +219,7 @@ function OrderIntake({
                     </div>
                     <div className="intake-part-status">
                       <Badge tone={cardBadge(c)[0]}>{cardBadge(c)[1]}</Badge>
+                      {c.replacementPendingReturn && <span>Thiết bị thay thế chưa trả khách; chưa thể tiếp nhận mới.</span>}
                       <span>Hạn {day(c.endDate)} · {warrantyRemainingText(c)}</span>
                       {c.openRequest && (
                         <button
@@ -287,25 +270,11 @@ function OrderIntake({
                 <details className="intake-dropdown">
                   <summary className="input">{accessories}</summary>
                   <div className="intake-dropdown-menu">
-                    {pcGroups.map((g) => (
-                      <label className="filter-option" key={g.key}>
-                        {pcPick(g)}
-                        <b>Nhận nguyên bộ PC #{g.pcId}</b>
-                      </label>
-                    ))}
-                    {orderCards.map((c) => (
-                      <label className="filter-option" key={c.id}>
-                        <input
-                          type="checkbox"
-                          disabled={fullPc.has(c.pcCustomId)}
-                          checked={kept.has(c.id)}
-                          onChange={() =>
-                            setKept((prev) => flip(prev, c.id, !prev.has(c.id)))
-                          }
-                        />
+                    {keptCards.map((c) => (
+                      <div className="filter-option" key={c.id}>
                         {c.productName}
                         <small className="mono">{c.serialNumber}</small>
-                      </label>
+                      </div>
                     ))}
                   </div>
                 </details>
@@ -368,7 +337,6 @@ export function ApiWarrantyIntake() {
     [asked, setAsked] = useState(""),
     [cards, setCards] = useState(null),
     // Linh kiện chọn sẵn khi tra đúng serial; mỗi đơn đọc phần của mình khi dựng lại.
-    [preselect, setPreselect] = useState(() => new Set()),
     // Đơn nào mở thì tự mở, không ảnh hưởng đơn khác; mỗi lần tra cứu dựng lại các đơn bằng round.
     [openOrders, setOpenOrders] = useState(
       () =>
@@ -416,15 +384,6 @@ export function ApiWarrantyIntake() {
       );
       setAsked(q);
       setCards(found);
-      // Chọn sẵn thẻ khớp trực tiếp (ví dụ đúng serial khách mang tới), chỉ khi chúng cùng một đơn.
-      const pick = found.filter((c) => c.matched && selectable(c));
-      setPreselect(
-        new Set(
-          new Set(pick.map((c) => c.orderId)).size === 1
-            ? pick.map((c) => c.id)
-            : [],
-        ),
-      );
       setRound((r) => r + 1);
       // Tra ra đúng một đơn thì mở sẵn; tải lại sau thao tác hoặc tải lại trang thì giữ nguyên các đơn đang mở.
       if (keepIntakeId == null && !keepOpen)
@@ -546,10 +505,6 @@ export function ApiWarrantyIntake() {
               order={o}
               open={openOrders.has(o.orderId)}
               onToggle={() => toggleOrder(o.orderId)}
-              preselected={o.groups
-                .flatMap((g) => g.cards)
-                .filter((c) => preselect.has(c.id))
-                .map((c) => c.id)}
               onHistory={() => setHistory(o)}
               onOpenIntake={(id) =>
                 openIntake(id).catch((err) => notify(err.message, "danger"))
@@ -578,7 +533,7 @@ export function ApiWarrantyIntake() {
                   <KV label="Tiếp nhận lúc">{dateTime(intake.createdAt)}</KV>
                   <KV label="Ngày hẹn trả">{day(intake.expectedReturnDate)}</KV>
                   <h4 className="section">Thiết bị nhận</h4>
-                  {intake.requests.map((r) => (
+                  {groupByPc(intake.requests).map((group) => <div key={group.id ?? "loose"}><h5>{group.label}</h5>{group.items.map((r) => (
                     <p className="small" key={r.id}>
                       <b className="mono">{r.requestCode}</b> · {r.productName} · <span className="mono">{r.serialNumber}</span>
                       {" · "}Thẻ #{r.warrantyCardId} · Bảo hành: {day(r.warrantyStartDate)} – {day(r.warrantyEndDate)} (hạn hiện tại hoặc dự kiến sau sửa)
@@ -586,14 +541,14 @@ export function ApiWarrantyIntake() {
                       {r.replacementSerialNumber && ` · Đổi sang ${r.replacementSerialNumber}, hạn mới ${day(r.replacementWarrantyEndDate)}`}
                       {r.replacementWarrantyRemainingDays != null && ` · Còn ${r.replacementWarrantyRemainingDays} ngày tính từ hôm nay`}
                     </p>
-                  ))}
+                  ))}</div>)}
                   <p className="section">{intake.issueDescription}</p>
                   <KV label="Ngoại quan">{intake.conditionNote}</KV>
                   <KV label="Phụ kiện">{intake.accessoriesNote}</KV>
                   <div className="row wrap-row section"><Button onClick={printReceipt}>In biên nhận</Button></div>
                 </div>
               </details>
-              {intake.requests.map((r) => (
+              {groupByPc(intake.requests).map((group) => <div key={group.id ?? "loose"}><h4>{group.label}</h4>{group.items.map((r) => (
                 <div className="ticket-preview intake-request-row" key={r.id}>
                   <b className="mono">{r.requestCode}</b>
                   <span className="small intake-request-product">
@@ -652,7 +607,7 @@ export function ApiWarrantyIntake() {
                     </button>
                   </div>
                 </div>
-              ))}
+              ))}</div>)}
               {partActions && (
                 <div className="section">
                   <Field label="Ghi chú bàn giao hoặc lý do">
@@ -729,6 +684,7 @@ export function ApiWarrantyIntake() {
       {history && (
         <Modal
           title={"Lịch sử bảo hành · đơn " + history.orderCode}
+          className="tech-history"
           onClose={() => setHistory(null)}
         >
           {history.groups
@@ -739,6 +695,20 @@ export function ApiWarrantyIntake() {
                   {c.productName} ·{" "}
                   <span className="mono">{c.serialNumber}</span>
                 </h3>
+                {(() => {
+                  const all = history.groups.flatMap((g) => g.cards);
+                  const chain = deviceChain(all, c);
+                  const own = historyCounts([c]);
+                  const total = historyCounts(chain);
+                  return <>
+                    <div className="tech-history-chain"><span>Serial này</span><strong>{c.serialNumber}</strong></div>
+                    <HistoryCounts counts={own} />
+                    {chain.length > 1 && <>
+                      <div className="tech-history-chain"><span>Chuỗi serial</span><strong>{chain.map((item) => item.serialNumber).join(" → ")}</strong></div>
+                      <HistoryCounts counts={total} />
+                    </>}
+                  </>;
+                })()}
                 {c.repairedCount >= 3 && (
                   <Notice tone="warning">
                     Thiết bị đã sửa {c.repairedCount} lần. Cân nhắc đổi thiết bị
@@ -759,6 +729,7 @@ export function ApiWarrantyIntake() {
       {detail && (
         <Modal
           title={"Phiếu " + detail.requestCode}
+          className="tech-history"
           onClose={() => setDetail(null)}
         >
           <RequestDetail ticket={detail} />

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { useStore } from "@/store";
 import { cartApi } from "@/features/cart";
 import { money } from "@/utils";
@@ -22,6 +22,7 @@ import type {
   BuildItem,
   BuildItemRequest,
   BuildResult,
+  PcBuildConfig,
   PurposeOption,
   ReplacementOption,
 } from "../types/pcBuilder.types";
@@ -109,15 +110,20 @@ export function usePcBuilder() {
   const editBuildId = searchParams.get("editBuildId");
   const [requests] = useState(() => createBuildRequests());
   const [draft] = useState(readGuestDraft);
-  // Bộ PC từ giỏ hàng ("Sửa trong bộ lắp ráp"); khôi phục bản nháp sau đăng nhập được ưu tiên
-  const [cartSet] = useState(() =>
-    draft || !editBuildId ? null : readCartSets().find((set) => String(set.id) === editBuildId) ?? null,
-  );
+  // Bộ mở lại từ tab "Cấu hình đã lưu" đi qua router state (dạng CartBuildSet, xem savedBuildToCartSet)
+  const savedSet = (useLocation().state as { savedSet?: CartBuildSet } | null)?.savedSet ?? null;
+  // Bộ PC đã lưu hoặc từ giỏ hàng ("Sửa trong bộ lắp ráp"); khôi phục bản nháp sau đăng nhập được ưu tiên
+  const [cartSet] = useState<CartBuildSet | null>(() => {
+    if (draft) return null;
+    if (savedSet) return savedSet;
+    return editBuildId ? readCartSets().find((set) => String(set.id) === editBuildId) ?? null : null;
+  });
   const [cartItems] = useState(() => itemsFromCartSet(cartSet));
 
   // Form
   const [budget, setBudget] = useState<number | "">(draft?.budget ?? cartItems?.budget ?? "");
   const [message, setMessage] = useState(draft?.message ?? "");
+  const [config, setConfig] = useState<PcBuildConfig | null>(null);
 
   // Kết quả
   const [phase, setPhase] = useState<BuilderPhase>(draft ? "done" : cartItems ? "loading" : "idle");
@@ -147,6 +153,21 @@ export function usePcBuilder() {
   useEffect(() => () => requests.cancelAll(), [requests]);
 
   useEffect(() => {
+    let active = true;
+    pcBuilderApi
+      .getConfig()
+      .then((data) => {
+        if (active) setConfig(data);
+      })
+      .catch((err) => {
+        console.warn("[PC Builder] Không lấy được cấu hình PC:", err);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
     if (!draft) return;
     sessionStorage.removeItem(GUEST_BUILD_KEY);
     requests.track(toItemRequests(draft.build.items));
@@ -169,6 +190,8 @@ export function usePcBuilder() {
       {
         onSuccess: (outcome: Outcome) => {
           applyOutcome(outcome);
+          // Bộ vừa mở từ tab "Cấu hình đã lưu" chưa bị sửa nên vẫn đang là bản đã lưu
+          if (cartSet === savedSet && typeof cartSet.id === "number") setSavedBuildId(cartSet.id);
           notify(`✨ Đã nạp cấu hình "${name}" vào bộ lắp ráp.`, "success");
         },
         onError: applyError,
@@ -228,12 +251,12 @@ export function usePcBuilder() {
     void requests.suggest(call, { onSuccess: applyOutcome, onError: applyError });
   }
 
-  /** Bấm "Đề xuất": analyze, rồi tự gọi /builds/auto khi READY hoặc BUDGET_WARNING. */
+  /** Bấm "Đề xuất": analyze, rồi tự gọi /builds/auto khi READY. */
   function submit(budgetOverride?: number) {
     if (requests.isSuggesting) return;
     const value = budgetOverride ?? numericBudget;
     const text = message.trim();
-    const invalid = checkInput(value, text);
+    const invalid = checkInput(value, text, config?.maxBuildPrice);
     if (invalid) {
       notify(invalid, "danger");
       return;
@@ -413,7 +436,7 @@ export function usePcBuilder() {
         ...(confirmOverBudget ? { confirmOverBudget: true } : {}),
       });
       setSavedBuildId(result.buildId);
-      notify(`💾 Đã lưu cấu hình #${result.buildId} vào tài khoản của bạn.`, "success");
+      notify(`💾 Đã lưu cấu hình #${result.buildId}. Xem lại ở tab "Cấu hình đã lưu".`, "success");
     } catch (err) {
       const apiError = toApiError(err);
       if (apiError.code === "OVER_BUDGET_NOT_CONFIRMED") {
@@ -456,16 +479,34 @@ export function usePcBuilder() {
     setIsAdding(true);
     let added = 0;
     try {
+      let buildId = savedBuildId;
+      if (!buildId) {
+        try {
+          const res = await pcBuilderApi.save({
+            budget: current.budget,
+            items: toItemRequests(current.items),
+            confirmOverBudget: true,
+          });
+          buildId = res.buildId;
+          setSavedBuildId(buildId);
+        } catch (e) {
+          console.warn("[PC Builder] Không thể tự động lưu cấu hình trước khi thêm vào giỏ:", e);
+        }
+      }
+
       const quantities = new Map<number, number>();
       for (const item of current.items) quantities.set(item.id, (quantities.get(item.id) || 0) + item.qty);
+      const batchItems = Array.from(quantities.entries()).map(([variantId, qty]) => ({
+        productVariantId: variantId,
+        quantity: qty,
+      }));
+
       const updated = await mutateCart(async () => {
-        for (const [variantId, qty] of quantities) {
-          await cartApi.add(String(variantId), qty);
-          added++;
-        }
+        await cartApi.addBatch(batchItems, buildId);
+        added = batchItems.length;
       });
       if (!updated) return;
-      rememberCartSet(current);
+      rememberCartSet(current, buildId);
       notify("Đã thêm các linh kiện vào giỏ hàng.");
       navigate("/gio-hang");
     } catch (err) {
@@ -479,10 +520,10 @@ export function usePcBuilder() {
   }
 
   /** Giỏ hàng gom các linh kiện này thành một bộ PC (chỉ lưu ở trình duyệt). */
-  function rememberCartSet(current: BuildResult) {
+  function rememberCartSet(current: BuildResult, activeBuildId?: number | null) {
     try {
       const set: CartBuildSet & { createdAt: number } = {
-        id: savedBuildId ?? "set_" + Date.now(),
+        id: activeBuildId ?? savedBuildId ?? "set_" + Date.now(),
         name: "Bộ PC AI Build" + (message.trim() ? ": " + message.trim().slice(0, 30) : ""),
         budget: current.budget,
         itemVariantIds: current.items.map((item) => String(item.id)),
@@ -503,6 +544,7 @@ export function usePcBuilder() {
   }
 
   return {
+    config,
     demoMode,
     budget,
     setBudget,

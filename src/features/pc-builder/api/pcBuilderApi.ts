@@ -6,10 +6,12 @@ import type {
   ApiErrorBody,
   AutoBuildRequest,
   BuildResult,
+  PcBuildConfig,
   ReplacementOption,
   ReplacementRequest,
   SaveBuildRequest,
   SaveBuildResult,
+  SavedBuild,
   ValidateBuildRequest,
 } from "../types/pcBuilder.types";
 
@@ -72,6 +74,16 @@ export function toPcBuildApiError(error: unknown): unknown {
   );
 }
 
+async function get<T>(url: string, signal?: AbortSignal): Promise<T> {
+  try {
+    const { data } = await axiosClient.get<ApiResponseWrapper<T>>(url, { signal });
+    if (data == null || data.data == null) throw new Error("Không nhận được dữ liệu từ máy chủ");
+    return data.data;
+  } catch (error) {
+    throw toPcBuildApiError(error);
+  }
+}
+
 async function post<T>(url: string, payload: unknown, signal?: AbortSignal): Promise<T> {
   try {
     const { data } = await axiosClient.post<ApiResponseWrapper<T>>(url, payload, { signal });
@@ -83,6 +95,14 @@ async function post<T>(url: string, payload: unknown, signal?: AbortSignal): Pro
 }
 
 export const pcBuilderApi = {
+  /**
+   * Lấy cấu hình ban đầu (mức ngân sách tối đa và tối thiểu từ Database kho thực tế).
+   * Endpoint: GET /api/pc-build/config
+   */
+  getConfig({ signal }: RequestOptions = {}): Promise<PcBuildConfig> {
+    return get<PcBuildConfig>(endpoints.pcBuilder.config, signal);
+  },
+
   /**
    * Bước 1–3: AI đọc nhu cầu, kiểm ngân sách tối thiểu và kỳ vọng hiệu năng.
    * Endpoint: POST /api/pc-build/requirements/analyze
@@ -126,5 +146,14 @@ export const pcBuilderApi = {
    */
   save(payload: SaveBuildRequest): Promise<SaveBuildResult> {
     return post<SaveBuildResult>(endpoints.pcBuilder.save, payload);
+  },
+
+  /**
+   * Các bộ PC tài khoản đang đăng nhập đã lưu, mới nhất trước (cần đăng nhập, 401 khi thiếu token).
+   * Endpoint: GET /api/pc-build/builds/saved
+   */
+  async listSaved({ signal }: RequestOptions = {}): Promise<SavedBuild[]> {
+    const list = await get<SavedBuild[]>(endpoints.pcBuilder.saved, signal);
+    return Array.isArray(list) ? list : [];
   },
 };
