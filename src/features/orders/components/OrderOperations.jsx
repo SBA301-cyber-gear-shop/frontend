@@ -2,7 +2,7 @@ import { dateTime, money, formatShortOrderCode } from "@/utils";
 import { useEffect, useState } from "react";
 import { OrderSelector } from "./OrderSelector";
 import { ORDER_STATUS, PAYMENT_STATUS } from "../constants";
-import { OrderLines } from "@/features/products";
+import { CheckoutProductReview } from "./CheckoutProductReview";
 import { warrantyRemainingText } from "@/features/warranty";
 import {
   Badge,
@@ -334,7 +334,7 @@ export function OrderOperations({ handover = false }) {
             </Panel>
 
             <Panel title="Hàng trong đơn">
-              <OrderLines lines={selected.lines} products={data.products} />
+              <CheckoutProductReview lines={selected.lines} products={data.products} />
               {!demoMode && selected.lines.map((line) => (
                 <div key={line.orderItemId} className="order-warranty-info small">
                   <div className="order-warranty-heading">Bảo hành · {line.name}</div>

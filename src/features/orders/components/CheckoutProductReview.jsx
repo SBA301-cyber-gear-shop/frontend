@@ -33,6 +33,7 @@ export function CheckoutProductReview({ lines = [], products = [] }) {
   const { groupedSets, looseItems } = useMemo(() => {
     const sets = [];
     const claimedKeys = new Set();
+    const getLineKey = (line) => String(line.orderItemId ?? line.cartItemId ?? line.id);
 
     // 1. Nhóm theo pcCustomId từ Backend (nguồn chuẩn xác nhất)
     const pcGroupMap = new Map();
@@ -42,7 +43,7 @@ export function CheckoutProductReview({ lines = [], products = [] }) {
           pcGroupMap.set(line.pcCustomId, []);
         }
         pcGroupMap.get(line.pcCustomId).push(line);
-        claimedKeys.add(String(line.cartItemId ?? line.id));
+        claimedKeys.add(getLineKey(line));
       }
     }
 
@@ -79,7 +80,7 @@ export function CheckoutProductReview({ lines = [], products = [] }) {
 
         const setVariants = new Set(buildSet.itemVariantIds.map(String));
         const matchingLines = lines.filter(
-          (line) => !claimedKeys.has(String(line.cartItemId ?? line.id)) && setVariants.has(String(line.id))
+          (line) => !claimedKeys.has(getLineKey(line)) && setVariants.has(String(line.id))
         );
 
         if (matchingLines.length >= setVariants.size && matchingLines.length >= 2) {
@@ -102,13 +103,13 @@ export function CheckoutProductReview({ lines = [], products = [] }) {
             totalSetPrice,
             totalPieces,
           });
-          matchingLines.forEach((l) => claimedKeys.add(String(l.cartItemId ?? l.id)));
+          matchingLines.forEach((l) => claimedKeys.add(getLineKey(l)));
         }
       }
     }
 
     // 3. Toàn bộ các dòng còn lại là hàng mua lẻ
-    const loose = lines.filter((line) => !claimedKeys.has(String(line.cartItemId ?? line.id)));
+    const loose = lines.filter((line) => !claimedKeys.has(getLineKey(line)));
 
     return { groupedSets: sets, looseItems: loose };
   }, [lines, products, pcBuildSets]);
@@ -197,7 +198,7 @@ export function CheckoutProductReview({ lines = [], products = [] }) {
                     const lineTotal = unitPrice * quantity;
 
                     return (
-                      <div key={item.cartItemId ?? item.id} className="cart-pc-set-row">
+                      <div key={item.orderItemId ?? item.cartItemId ?? item.id} className="cart-pc-set-row">
                         <div className="cart-col-item">
                           <span className="cart-role-badge">{roleLabel}</span>
                           <Art
@@ -280,7 +281,7 @@ export function CheckoutProductReview({ lines = [], products = [] }) {
                 const lineTotal = unitPrice * quantity;
 
                 return (
-                  <div className="cart-pc-set-row" key={l.cartItemId ?? l.id}>
+                  <div className="cart-pc-set-row" key={l.orderItemId ?? l.cartItemId ?? l.id}>
                     <div className="cart-col-item">
                       <Art
                         type={p?.category}
