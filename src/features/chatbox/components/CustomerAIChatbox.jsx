@@ -476,6 +476,10 @@ export function CustomerAIChatbox() {
   const messagesContainerRef = useRef(null);
   const messagesEndRef = useRef(null);
   const lastStaffMsgIdRef = useRef(0);
+  const messagesRef = useRef(messages);
+  messagesRef.current = messages;
+  const chatModeRef = useRef(chatMode);
+  chatModeRef.current = chatMode;
 
   useEffect(() => {
     sessionStorage.setItem("cyberbot_open", isOpen ? "true" : "false");
@@ -531,13 +535,15 @@ export function CustomerAIChatbox() {
     }
   }, [messages, loading, isOpen]);
 
-  // Polling tự động chuyển từ WAITING sang ACTIVE khi Staff bấm Accept
+  // Polling tự động chuyển từ WAITING sang ACTIVE khi Staff bấm Accept & nhận tin nhắn realtime từ chuyên viên
   useEffect(() => {
     if (!conversationId) return;
 
-    // Polling khi đang ở chế độ staff HOẶC khi đang trong hàng chờ WAITING
-    const isWaiting = messages.some((m) => m.messageType === "staff_waiting");
+    // Kiểm tra xem có đang ở chế độ staff HOẶC có tin nhắn chờ staff không
+    const isWaiting = messagesRef.current.some((m) => m.messageType === "staff_waiting");
     if (chatMode !== "staff" && !isWaiting) return;
+
+    console.log(`[CyberBot LiveChat] Bắt đầu polling chuyên viên cho conversationId: ${conversationId}, mode: ${chatMode}`);
 
     const interval = setInterval(async () => {
       try {
@@ -545,7 +551,7 @@ export function CustomerAIChatbox() {
         if (!pollData) return;
 
         // 1. Nếu Staff vừa bấm Accept (Trạng thái chuyển từ WAITING -> ACTIVE)
-        if (pollData.status === "ACTIVE" && chatMode !== "staff") {
+        if (pollData.status === "ACTIVE" && chatModeRef.current !== "staff") {
           setChatMode("staff");
           setActiveStaff({
             id: 1,
@@ -566,7 +572,7 @@ export function CustomerAIChatbox() {
         }
 
         // 2. Nếu phiên bị đóng (CLOSED)
-        if (pollData.status === "CLOSED" && chatMode === "staff") {
+        if (pollData.status === "CLOSED" && chatModeRef.current === "staff") {
           setChatMode("ai");
           setActiveStaff(null);
           setMessages((prev) => [
@@ -592,6 +598,22 @@ export function CustomerAIChatbox() {
 
           const staffMsgs = pollData.messages.filter((m) => m.senderType === "STAFF");
           if (staffMsgs.length > 0) {
+            console.log(`[CyberBot LiveChat] Nhận ${staffMsgs.length} tin nhắn mới từ chuyên viên:`, staffMsgs);
+
+            // Tự động chuyển mode sang staff nếu chuyên viên chủ động gửi tin nhắn trước khi status cập nhật
+            if (chatModeRef.current !== "staff") {
+              setChatMode("staff");
+              if (pollData.assignedStaffName) {
+                setActiveStaff({
+                  id: 1,
+                  name: pollData.assignedStaffName,
+                  role: "Chuyên viên tư vấn & CSKH TechZone",
+                  phone: "1900 8888",
+                  status: "online",
+                });
+              }
+            }
+
             setMessages((prev) => {
               const existingIds = new Set(prev.map((p) => p.id));
               const toAppend = staffMsgs
@@ -602,7 +624,7 @@ export function CustomerAIChatbox() {
                   text: sm.content,
                   messageType: "staff_reply",
                   staffInfo: {
-                    name: sm.senderName || "Chuyên viên CSKH",
+                    name: sm.senderName || pollData.assignedStaffName || "Chuyên viên CSKH",
                     role: "Chuyên viên tư vấn",
                   },
                 }));
@@ -612,12 +634,15 @@ export function CustomerAIChatbox() {
           }
         }
       } catch (err) {
-        // im lặng bỏ qua lỗi poll
+        console.error("[CyberBot LiveChat Polling Error]:", err);
       }
-    }, 2500);
+    }, 2000);
 
-    return () => clearInterval(interval);
-  }, [chatMode, conversationId, activeStaff, messages]);
+    return () => {
+      clearInterval(interval);
+      console.log(`[CyberBot LiveChat] Dừng polling cho conversationId: ${conversationId}`);
+    };
+  }, [conversationId, chatMode]);
 
   const handleSend = async (textToSend = input) => {
     const query = (textToSend || "").trim();
