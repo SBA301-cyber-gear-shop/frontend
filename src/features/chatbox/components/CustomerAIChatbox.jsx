@@ -481,6 +481,17 @@ export function CustomerAIChatbox() {
   const chatModeRef = useRef(chatMode);
   chatModeRef.current = chatMode;
 
+  // Kiểm tra trạng thái đang chờ chuyên viên tiếp nhận (dùng kiểu nguyên thủy boolean cho useEffect dependency)
+  const isWaitingStaff = useMemo(() => {
+    if (chatMode === "staff") return false;
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const mt = messages[i]?.messageType;
+      if (mt === "staff_waiting" || mt === "handover_proposal") return true;
+      if (mt === "staff_ended" || mt === "staff_connected") return false;
+    }
+    return false;
+  }, [messages, chatMode]);
+
   // Vị trí nút Chatbot có thể kéo thả (Draggable)
   const [btnPosition, setBtnPosition] = useState(() => {
     try {
@@ -654,20 +665,20 @@ export function CustomerAIChatbox() {
   // Polling tự động chuyển từ WAITING sang ACTIVE khi Staff bấm Accept & nhận tin nhắn realtime từ chuyên viên
   useEffect(() => {
     if (!conversationId) return;
+    if (chatMode !== "staff" && !isWaitingStaff) return;
 
-    // Kiểm tra xem có đang ở chế độ staff HOẶC có tin nhắn chờ staff không
-    const isWaiting = messagesRef.current.some((m) => m.messageType === "staff_waiting");
-    if (chatMode !== "staff" && !isWaiting) return;
+    let isCancelled = false;
+    console.log(`[CyberBot LiveChat] Bắt đầu polling chuyên viên cho conversationId: ${conversationId}, mode: ${chatMode}, waiting: ${isWaitingStaff}`);
 
-    console.log(`[CyberBot LiveChat] Bắt đầu polling chuyên viên cho conversationId: ${conversationId}, mode: ${chatMode}`);
-
-    const interval = setInterval(async () => {
+    const pollOnce = async () => {
+      if (isCancelled) return;
       try {
         const pollData = await chatboxApi.pollStaffMessages(conversationId, lastStaffMsgIdRef.current);
-        if (!pollData) return;
+        if (!pollData || isCancelled) return;
 
         // 1. Nếu Staff vừa bấm Accept (Trạng thái chuyển từ WAITING -> ACTIVE)
         if (pollData.status === "ACTIVE" && chatModeRef.current !== "staff") {
+          chatModeRef.current = "staff";
           setChatMode("staff");
           setActiveStaff({
             id: 1,
@@ -676,58 +687,82 @@ export function CustomerAIChatbox() {
             phone: "1900 8888",
             status: "online",
           });
-          setMessages((prev) => [
-            ...prev,
-            {
-              id: "staff-assigned-" + Date.now(),
-              sender: "bot",
-              text: `👨‍💼 **Chuyên viên ${pollData.assignedStaffName || "CSKH"} đã tiếp nhận phiên hỗ trợ và sẵn sàng chat trực tiếp cùng bạn!**`,
-              messageType: "staff_connected",
-            },
-          ]);
+          setMessages((prev) => {
+            // Kiểm tra xem đã có thông báo tiếp nhận sau lần chờ gần nhất chưa để tránh lặp
+            let alreadyConnected = false;
+            for (let i = prev.length - 1; i >= 0; i--) {
+              if (prev[i]?.messageType === "staff_connected") {
+                alreadyConnected = true;
+                break;
+              }
+              if (prev[i]?.messageType === "staff_waiting" || prev[i]?.messageType === "handover_proposal") {
+                break;
+              }
+            }
+            if (alreadyConnected) return prev;
+            return [
+              ...prev,
+              {
+                id: "staff-assigned-" + Date.now(),
+                sender: "bot",
+                text: `👨‍💼 **Chuyên viên ${pollData.assignedStaffName || "CSKH"} đã tiếp nhận phiên hỗ trợ và sẵn sàng chat trực tiếp cùng bạn!**`,
+                messageType: "staff_connected",
+                quickActions: [
+                  { label: "Kết thúc & Quay lại CyberBot", action: "end_staff_session" },
+                ],
+              },
+            ];
+          });
         }
 
         // 2. Nếu phiên bị đóng (CLOSED)
-        if (pollData.status === "CLOSED" && chatModeRef.current === "staff") {
-          setChatMode("ai");
-          setActiveStaff(null);
-          setMessages((prev) => [
-            ...prev,
-            {
-              id: Date.now().toString(),
-              sender: "bot",
-              text: "Chuyên viên đã kết thúc phiên hỗ trợ. CyberBot đã sẵn sàng tiếp tục đồng hành cùng bạn!",
-              quickActions: [
-                { label: "Đơn hàng gần nhất", action: "ask", route: "Đơn hàng gần nhất của tôi thế nào?" },
-                { label: "Kiểm tra bảo hành", action: "ask", route: "Linh kiện của tôi còn bảo hành bao lâu?" },
-                { label: "Thử AI Build PC", action: "navigate", route: "/build-pc" },
-              ],
-            },
-          ]);
+        if (pollData.status === "CLOSED") {
+          if (chatModeRef.current === "staff" || isWaitingStaff) {
+            chatModeRef.current = "ai";
+            setChatMode("ai");
+            setActiveStaff(null);
+            setMessages((prev) => {
+              const lastMsg = prev[prev.length - 1];
+              if (lastMsg?.messageType === "staff_ended") return prev;
+              return [
+                ...prev,
+                {
+                  id: "staff-ended-" + Date.now(),
+                  sender: "bot",
+                  text: "Chuyên viên đã kết thúc phiên hỗ trợ. CyberBot đã sẵn sàng tiếp tục đồng hành cùng bạn!",
+                  messageType: "staff_ended",
+                  quickActions: [
+                    { label: "Đơn hàng gần nhất", action: "ask", route: "Đơn hàng gần nhất của tôi thế nào?" },
+                    { label: "Kiểm tra bảo hành", action: "ask", route: "Linh kiện của tôi còn bảo hành bao lâu?" },
+                    { label: "Thử AI Build PC", action: "navigate", route: "/build-pc" },
+                  ],
+                },
+              ];
+            });
+          }
           return;
         }
 
         // 3. Đọc tin nhắn mới của Staff
         if (pollData.messages && pollData.messages.length > 0) {
           const latestId = Math.max(...pollData.messages.map((m) => m.id));
-          lastStaffMsgIdRef.current = latestId;
+          lastStaffMsgIdRef.current = Math.max(lastStaffMsgIdRef.current, latestId);
 
           const staffMsgs = pollData.messages.filter((m) => m.senderType === "STAFF");
           if (staffMsgs.length > 0) {
             console.log(`[CyberBot LiveChat] Nhận ${staffMsgs.length} tin nhắn mới từ chuyên viên:`, staffMsgs);
 
-            // Tự động chuyển mode sang staff nếu chuyên viên chủ động gửi tin nhắn trước khi status cập nhật
+            // Tự động chuyển mode sang staff nếu chuyên viên chủ động gửi tin nhắn
             if (chatModeRef.current !== "staff") {
+              chatModeRef.current = "staff";
               setChatMode("staff");
-              if (pollData.assignedStaffName) {
-                setActiveStaff({
-                  id: 1,
-                  name: pollData.assignedStaffName,
-                  role: "Chuyên viên tư vấn & CSKH TechZone",
-                  phone: "1900 8888",
-                  status: "online",
-                });
-              }
+              setActiveStaff({
+                id: 1,
+                name: pollData.assignedStaffName || staffMsgs[0]?.senderName || "Chuyên viên tư vấn",
+                role: "Chuyên viên tư vấn & CSKH TechZone",
+                phone: "1900 8888",
+                status: "online",
+              });
             }
 
             setMessages((prev) => {
@@ -752,13 +787,18 @@ export function CustomerAIChatbox() {
       } catch (err) {
         console.error("[CyberBot LiveChat Polling Error]:", err);
       }
-    }, 2000);
+    };
+
+    // Gọi kiểm tra ngay lập tức lần đầu không cần đợi 2s
+    pollOnce();
+    const interval = setInterval(pollOnce, 2000);
 
     return () => {
+      isCancelled = true;
       clearInterval(interval);
       console.log(`[CyberBot LiveChat] Dừng polling cho conversationId: ${conversationId}`);
     };
-  }, [conversationId, chatMode]);
+  }, [conversationId, chatMode, isWaitingStaff]);
 
   const handleSend = async (textToSend = input) => {
     const query = (textToSend || "").trim();
@@ -796,13 +836,21 @@ export function CustomerAIChatbox() {
       }
 
       if (data.messageType === "staff_connected") {
+        chatModeRef.current = "staff";
         setChatMode("staff");
         if (data.staffInfo) {
           setActiveStaff(data.staffInfo);
         }
       } else if (data.messageType === "staff_ended") {
+        chatModeRef.current = "ai";
         setChatMode("ai");
         setActiveStaff(null);
+      } else if (data.messageType === "staff_sent" && chatModeRef.current !== "staff") {
+        chatModeRef.current = "staff";
+        setChatMode("staff");
+        if (data.staffInfo) {
+          setActiveStaff(data.staffInfo);
+        }
       }
 
       const validProducts = (data.products || []).filter((p) => (p.stock ?? 0) > 0);

@@ -34,7 +34,7 @@ export function StaffLiveSupport() {
   const fetchSessions = async (silent = false) => {
     if (!silent) setLoading(true);
     try {
-      const data = await staffChatApi.getSessions(filterStatus);
+      const data = await staffChatApi.getSessions("ALL");
       setSessions(data || []);
 
       if (selectedSession) {
@@ -72,7 +72,7 @@ export function StaffLiveSupport() {
     }, 2500);
 
     return () => clearInterval(interval);
-  }, [filterStatus, selectedSession?.conversationId]);
+  }, [selectedSession?.conversationId]);
 
   const handleSelectSession = (s: SupportSession) => {
     setSelectedSession(s);
@@ -131,8 +131,11 @@ export function StaffLiveSupport() {
 
   const waitingCount = sessions.filter((s) => s.status === "WAITING").length;
   const activeCount = sessions.filter((s) => s.status === "ACTIVE").length;
+  const closedCount = sessions.filter((s) => s.status === "CLOSED").length;
+  const totalCount = sessions.length;
 
   const filteredSessions = sessions.filter((s) => {
+    if (filterStatus !== "ALL" && s.status !== filterStatus) return false;
     if (!searchQuery) return true;
     const q = searchQuery.toLowerCase();
     return (
@@ -190,10 +193,10 @@ export function StaffLiveSupport() {
                   className={`staff-tab-btn ${filterStatus === tab ? "is-active" : ""}`}
                   onClick={() => setFilterStatus(tab)}
                 >
-                  {tab === "ALL" && "Tất cả"}
+                  {tab === "ALL" && `Tất cả (${totalCount})`}
                   {tab === "WAITING" && `Chờ (${waitingCount})`}
                   {tab === "ACTIVE" && `Đang chat (${activeCount})`}
-                  {tab === "CLOSED" && "Đã đóng"}
+                  {tab === "CLOSED" && `Đã đóng (${closedCount})`}
                 </button>
               ))}
             </div>
