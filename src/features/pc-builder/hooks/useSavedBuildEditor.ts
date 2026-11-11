@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useStore } from "@/store";
+import { cartApi } from "@/features/cart";
 import { pcBuilderApi } from "../api/pcBuilderApi";
 import {
   MAX_BUDGET,
@@ -11,7 +13,7 @@ import {
   toItemRequests,
 } from "../domain/buildLines";
 import { createBuildRequests } from "./buildRequests";
-import { toApiError, type ReplaceState } from "./usePcBuilder";
+import { rememberCartSet, toApiError, type ReplaceState } from "./usePcBuilder";
 import type { BuildItem, BuildItemRequest, BuildResult, ReplacementOption, SavedBuild } from "../types/pcBuilder.types";
 
 /** Bộ đã lưu không có ngân sách: kiểm với trần ngân sách để /validate chỉ báo xung đột phần cứng, không báo vượt tiền. */
@@ -22,7 +24,8 @@ const NO_BUDGET = MAX_BUDGET;
  * đổi món qua /replacements như bộ lắp ráp, "Lưu thay đổi" ghi đè bằng PUT /builds/saved/{id}.
  */
 export function useSavedBuildEditor(saved: SavedBuild, onSaved: () => void) {
-  const { notify } = useStore();
+  const { notify, data, mutateCart, reloadCart } = useStore();
+  const navigate = useNavigate();
   const [requests] = useState(() => createBuildRequests());
   const [build, setBuild] = useState<BuildResult | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -31,6 +34,7 @@ export function useSavedBuildEditor(saved: SavedBuild, onSaved: () => void) {
   const [checkError, setCheckError] = useState<string | null>(null);
   const [replace, setReplace] = useState<ReplaceState | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [isAdding, setIsAdding] = useState(false);
 
   useEffect(() => () => requests.cancelAll(), [requests]);
 
@@ -103,7 +107,8 @@ export function useSavedBuildEditor(saved: SavedBuild, onSaved: () => void) {
   }
 
   const isDirty = build ? buildKey(toItemRequests(build.items)) !== buildKey(toItemRequests(saved.items)) : false;
-  const blockedReason = !build
+  /** Lý do chưa thêm giỏ được: chưa có kết quả /validate mới nhất hoặc đang xung đột. */
+  const cartBlockedReason = !build
     ? "Đang tải cấu hình"
     : isChecking
       ? "Đang kiểm tra lại cấu hình"
@@ -111,12 +116,61 @@ export function useSavedBuildEditor(saved: SavedBuild, onSaved: () => void) {
         ? "Chưa kiểm tra được cấu hình mới nhất"
         : build.status === "INCOMPATIBLE"
           ? "Cấu hình có linh kiện không tương thích"
-          : !isDirty
-            ? "Chưa có thay đổi nào"
-            : null;
+          : null;
+  const blockedReason = cartBlockedReason ?? (!isDirty ? "Chưa có thay đổi nào" : null);
+
+  /**
+   * Thêm bộ vào giỏ dưới pc_custom của bộ đã lưu. Đang sửa dở thì lưu trước để giỏ và bộ đã lưu khớp nhau;
+   * bộ đã có trong giỏ thì thay hẳn vì backend cộng dồn số lượng khi thêm trùng.
+   */
+  async function addToCart() {
+    if (!build || cartBlockedReason || isSaving || isAdding) return;
+    const buildId = saved.buildId;
+    const items = toItemRequests(build.items);
+    setIsAdding(true);
+    let savedNow = false;
+    let cartTouched = false;
+    try {
+      if (isDirty) {
+        await pcBuilderApi.updateSaved(buildId, { items });
+        savedNow = true;
+      }
+      const inCart = (data.cart as { pcCustomId?: number | null }[]).some((line) => line.pcCustomId === buildId);
+      const updated = await mutateCart(async () => {
+        cartTouched = true;
+        if (inCart) await cartApi.removePcSet(buildId);
+        await cartApi.addBatch(
+          items.map((item) => ({ productVariantId: item.variantId, quantity: item.qty })),
+          buildId,
+        );
+      });
+      if (!updated) return;
+      rememberCartSet({
+        id: buildId,
+        name: `Cấu hình #${buildId}`,
+        itemVariantIds: build.items.map((item) => String(item.id)),
+        parts: build.items.map((item) => ({ ...item })),
+        createdAt: Date.now(),
+      });
+      notify(inCart ? `Đã cập nhật cấu hình #${buildId} trong giỏ hàng.` : "Đã thêm cấu hình vào giỏ hàng.", "success");
+      navigate("/gio-hang");
+    } catch (err) {
+      const apiError = toApiError(err);
+      console.warn("[PC Builder] Lỗi thêm cấu hình đã lưu vào giỏ:", err);
+      if (cartTouched) await reloadCart();
+      if (!savedNow) {
+        notify(`❌ Không thêm được vào giỏ hàng: ${saveErrorText(apiError.message, apiError.data)}`, "danger");
+        return;
+      }
+      notify(`Đã lưu thay đổi nhưng chưa thêm được vào giỏ hàng: ${apiError.message}`, "warning");
+      onSaved();
+    } finally {
+      setIsAdding(false);
+    }
+  }
 
   async function save() {
-    if (!build || blockedReason || isSaving) return;
+    if (!build || blockedReason || isSaving || isAdding) return;
     setIsSaving(true);
     try {
       await pcBuilderApi.updateSaved(saved.buildId, { items: toItemRequests(build.items) });
@@ -143,7 +197,10 @@ export function useSavedBuildEditor(saved: SavedBuild, onSaved: () => void) {
     replace,
     isDirty,
     blockedReason,
+    cartBlockedReason,
     isSaving,
+    isAdding,
+    addToCart,
     changeQty,
     openReplace,
     closeReplace,

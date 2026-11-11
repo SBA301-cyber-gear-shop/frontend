@@ -23,7 +23,8 @@ export function SavedBuildModal({ build: saved, onSaved, onClose }: SavedBuildMo
     <>
       <Modal title={`Cấu hình #${saved.buildId}`} onClose={onClose} className="wide saved-build-modal">
         <p className="saved-modal-sub">
-          Giá và tồn kho hiện tại. Đổi linh kiện hoặc số lượng rồi bấm "Lưu thay đổi"; đóng popup là bỏ thay đổi.
+          Giá và tồn kho hiện tại. Đổi linh kiện hoặc số lượng rồi bấm "Lưu thay đổi", hoặc thêm cả bộ vào giỏ để
+          đặt mua; đóng popup là bỏ thay đổi.
         </p>
 
         {editor.loadError ? (
@@ -44,7 +45,7 @@ export function SavedBuildModal({ build: saved, onSaved, onClose }: SavedBuildMo
               title="Linh kiện trong cấu hình"
               items={build.items}
               verdict={verdict}
-              disabled={editor.isSaving}
+              disabled={editor.isSaving || editor.isAdding}
               onReplace={editor.openReplace}
               onChangeQty={editor.changeQty}
             />
@@ -86,11 +87,22 @@ export function SavedBuildModal({ build: saved, onSaved, onClose }: SavedBuildMo
                   Đóng
                 </Button>
                 <Button
+                  tone="secondary"
                   onClick={() => void editor.save()}
-                  disabled={Boolean(editor.blockedReason) || editor.isSaving}
+                  disabled={Boolean(editor.blockedReason) || editor.isSaving || editor.isAdding}
                   title={editor.blockedReason ?? undefined}
                 >
                   {editor.isSaving ? "Đang lưu…" : "Lưu thay đổi"}
+                </Button>
+                <Button
+                  onClick={() => void editor.addToCart()}
+                  disabled={Boolean(editor.cartBlockedReason) || editor.isSaving || editor.isAdding}
+                  title={
+                    editor.cartBlockedReason ??
+                    (editor.isDirty ? "Lưu thay đổi vào cấu hình rồi thêm vào giỏ hàng" : undefined)
+                  }
+                >
+                  {editor.isAdding ? "Đang thêm vào giỏ…" : editor.isDirty ? "Lưu & thêm vào giỏ" : "Thêm vào giỏ hàng"}
                 </Button>
               </div>
             </div>

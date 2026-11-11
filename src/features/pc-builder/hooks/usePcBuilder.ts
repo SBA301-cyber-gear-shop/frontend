@@ -103,6 +103,19 @@ function readCartSets(): CartBuildSet[] {
   }
 }
 
+/**
+ * Ghi thông tin bộ PC cho giỏ hàng và checkout (vai trò từng món). Bộ cùng id (cùng pc_customs) được thay:
+ * hai dòng trùng id làm checkout báo "Bộ PC chưa được chọn đầy đủ linh kiện".
+ */
+export function rememberCartSet(set: CartBuildSet & { createdAt: number }) {
+  try {
+    const others = readCartSets().filter((item) => String(item.id) !== String(set.id));
+    localStorage.setItem(PC_SETS_KEY, JSON.stringify([...others, set]));
+  } catch (err) {
+    console.error(err);
+  }
+}
+
 export function usePcBuilder() {
   const { user, notify, demoMode, mutateCart, reloadCart } = useStore();
   const navigate = useNavigate();
@@ -501,7 +514,7 @@ export function usePcBuilder() {
         added = batchItems.length;
       });
       if (!updated) return;
-      rememberCartSet(current, buildId);
+      rememberBuildInCart(current, buildId);
       notify("Đã thêm các linh kiện vào giỏ hàng.");
       navigate("/gio-hang");
     } catch (err) {
@@ -515,20 +528,15 @@ export function usePcBuilder() {
   }
 
   /** Giỏ hàng gom các linh kiện này thành một bộ PC (chỉ lưu ở trình duyệt). */
-  function rememberCartSet(current: BuildResult, activeBuildId?: number | null) {
-    try {
-      const set: CartBuildSet & { createdAt: number } = {
-        id: activeBuildId ?? savedBuildId ?? "set_" + Date.now(),
-        name: "Bộ PC AI Build" + (message.trim() ? ": " + message.trim().slice(0, 30) : ""),
-        budget: current.budget,
-        itemVariantIds: current.items.map((item) => String(item.id)),
-        parts: current.items.map((item) => ({ ...item })),
-        createdAt: Date.now(),
-      };
-      localStorage.setItem(PC_SETS_KEY, JSON.stringify([...readCartSets(), set]));
-    } catch (err) {
-      console.error(err);
-    }
+  function rememberBuildInCart(current: BuildResult, activeBuildId?: number | null) {
+    rememberCartSet({
+      id: activeBuildId ?? savedBuildId ?? "set_" + Date.now(),
+      name: "Bộ PC AI Build" + (message.trim() ? ": " + message.trim().slice(0, 30) : ""),
+      budget: current.budget,
+      itemVariantIds: current.items.map((item) => String(item.id)),
+      parts: current.items.map((item) => ({ ...item })),
+      createdAt: Date.now(),
+    });
   }
 
   function confirmContinue() {
