@@ -25,6 +25,7 @@ const blank = () => ({
   discountValue: "2",
   start: localDate(),
   end: localDate(86400000),
+  variantIds: null,
 });
 
 function displaySaleDate(value) {
@@ -84,6 +85,7 @@ export function ProductSaleManagement() {
             discountValue: String(data.discountValue ?? data.percentage),
             start: data.start.slice(0, 16),
             end: data.end.slice(0, 16),
+            variantIds: data.variantIds ?? null,
           }
         : blank(),
     );
@@ -171,6 +173,10 @@ export function ProductSaleManagement() {
       setError("Thời gian kết thúc phải sau bắt đầu.");
       return;
     }
+    if (Array.isArray(form.variantIds) && form.variantIds.length === 0) {
+      setError("Vui lòng chọn ít nhất một phiên bản áp dụng sale.");
+      return;
+    }
     pending.current = true;
     setBusy(true);
     setError("");
@@ -211,7 +217,7 @@ export function ProductSaleManagement() {
       <Heading
         title="Sale theo mã sản phẩm"
         eyebrow="QUẢN TRỊ / KHUYẾN MÃI"
-        sub="Giảm trực tiếp từ giá gốc theo thời gian, áp dụng cho tất cả phiên bản của mã sản phẩm."
+        sub="Lên lịch giảm giá cho toàn bộ hoặc các phiên bản được chọn của sản phẩm."
         action={
           <Button disabled={busy} onClick={create}>
             Tạo lịch sale mới
@@ -397,6 +403,25 @@ export function ProductSaleManagement() {
                           onChange={(event) => set("end", event.target.value)}
                         />
                       </div>
+                      <fieldset className="sale-variant-picker section" disabled={busy}>
+                        <legend>Phiên bản áp dụng</legend>
+                        <label className={`sale-variant-option sale-variant-all ${form.variantIds === null ? "is-selected" : ""}`}>
+                          <input type="checkbox" checked={form.variantIds === null}
+                            onChange={(event) => set("variantIds", event.target.checked ? null : product.variants.map((variant) => variant.id))} />
+                          <span><strong>Tất cả phiên bản</strong><small>Áp dụng cho mọi SKU của sản phẩm</small></span>
+                        </label>
+                        <div className="sale-variant-options">
+                        {product.variants.map((variant) => (
+                          <label className={`sale-variant-option ${form.variantIds === null || form.variantIds.includes(variant.id) ? "is-selected" : ""}`} key={variant.id}>
+                            <input type="checkbox" checked={form.variantIds === null || form.variantIds.includes(variant.id)}
+                              onChange={(event) => set("variantIds", event.target.checked
+                                ? [...(form.variantIds ?? []), variant.id]
+                                : (form.variantIds ?? product.variants.map((item) => item.id)).filter((id) => id !== variant.id))} />
+                            <span><strong>#{variant.id} · {variant.name || "Phiên bản tiêu chuẩn"}</strong><small>Giá thường {money(variant.regularPrice)}</small></span>
+                          </label>
+                        ))}
+                        </div>
+                      </fieldset>
                       <label className="filter-option section">
                         <input
                           type="checkbox"
@@ -424,7 +449,7 @@ export function ProductSaleManagement() {
                       </Button>
                     </Panel>
                     <Panel title="Xem trước giá các phiên bản">
-                      {product.variants.map((variant) => (
+                      {product.variants.filter((variant) => form.variantIds === null || form.variantIds.includes(variant.id)).map((variant) => (
                         <div key={variant.id} className="section">
                           <strong>
                             #{variant.id} ·{" "}
@@ -531,7 +556,7 @@ export function ProductSaleManagement() {
                           {sale.productName}
                         </strong>
                         <span className="sale-product-scope">
-                          <Icon name="layers" />Áp dụng cho tất cả phiên bản
+                          <Icon name="layers" />{sale.variantIds === null || sale.variantIds === undefined ? "Tất cả phiên bản" : "Phiên bản đã chọn"}
                         </span>
                       </td>
                       <td className="voucher-value-cell" data-label="Giá trị giảm">
@@ -546,7 +571,7 @@ export function ProductSaleManagement() {
                       </td>
                       <td className="sale-sku-cell" data-label="Số SKU">
                         <span className="sale-sku-count">
-                          {sale.variants.length} SKU
+                          {sale.variantIds?.length ?? sale.variants.length} SKU
                         </span>
                       </td>
                       <td className="voucher-status-cell" data-label="Trạng thái">

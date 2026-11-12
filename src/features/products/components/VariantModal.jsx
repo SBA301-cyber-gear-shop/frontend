@@ -86,8 +86,8 @@ export function VariantModal({ variant, requiredSpecs = [], onSave, onClose }) {
       return;
     }
 
-    if (invalidPrice.price || invalidPrice.originalPrice) {
-      setError((invalidPrice.price || invalidPrice.originalPrice).error);
+    if (invalidPrice.price) {
+      setError(invalidPrice.price.error);
       return;
     }
 
@@ -98,10 +98,6 @@ export function VariantModal({ variant, requiredSpecs = [], onSave, onClose }) {
     }
 
     const origPriceNum = Number(form.originalPrice);
-    if (origPriceNum > 0 && origPriceNum < priceNum) {
-      setError("Giá gốc tham chiếu không được nhỏ hơn giá bán.");
-      return;
-    }
 
     const stockNum = Number(form.stockQuantity);
     if (!Number.isInteger(stockNum) || stockNum < 0) {
@@ -130,7 +126,7 @@ export function VariantModal({ variant, requiredSpecs = [], onSave, onClose }) {
         sku: form.serialCode.trim().toUpperCase(),
         variant: form.variantName,
         price: priceNum,
-        originalPrice: origPriceNum > 0 ? origPriceNum : null,
+        originalPrice: origPriceNum >= priceNum ? origPriceNum : null,
         stockQuantity: stockNum,
         stock: stockNum,
         imageUrl: form.imageUrl.trim(),
@@ -203,65 +199,6 @@ export function VariantModal({ variant, requiredSpecs = [], onSave, onClose }) {
                       : "")
                   }
                   onChange={(e) => handlePriceInput("price", e)}
-                  style={{
-                    paddingRight: "2.5rem",
-                    fontWeight: 600,
-                    fontSize: "15px",
-                    fontVariantNumeric: "tabular-nums",
-                  }}
-                />
-                <span
-                  style={{
-                    position: "absolute",
-                    right: "0.85rem",
-                    fontWeight: 700,
-                    color: "var(--ink-muted, #64748b)",
-                    pointerEvents: "none",
-                    userSelect: "none",
-                  }}
-                >
-                  ₫
-                </span>
-              </div>
-            )}
-          </Field>
-          <Field
-            label="Giá gốc tham chiếu (₫)"
-            error={invalidPrice.originalPrice?.error}
-            hint={
-              invalidPrice.originalPrice ? undefined : form.originalPrice > 0 ? (
-                <span style={{ color: "var(--ink-muted, #64748b)" }}>
-                  Gốc: <del>{money(form.originalPrice)}</del>
-                </span>
-              ) : (
-                "Để hiển thị giá gạch ngang (nếu có)"
-              )
-            }
-          >
-            {(id) => (
-              <div
-                style={{
-                  position: "relative",
-                  display: "flex",
-                  alignItems: "center",
-                }}
-              >
-                <input
-                  id={id}
-                  className="input full"
-                  type="text"
-                  inputMode="numeric"
-                  placeholder="VD: 2.000.000"
-                  aria-invalid={Boolean(invalidPrice.originalPrice)}
-                  value={
-                    invalidPrice.originalPrice?.text ??
-                    (form.originalPrice
-                      ? new Intl.NumberFormat("vi-VN").format(
-                          form.originalPrice,
-                        )
-                      : "")
-                  }
-                  onChange={(e) => handlePriceInput("originalPrice", e)}
                   style={{
                     paddingRight: "2.5rem",
                     fontWeight: 600,
