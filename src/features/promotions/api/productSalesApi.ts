@@ -12,6 +12,7 @@ export interface ProductSale {
   start: string | null;
   end: string | null;
   active: boolean;
+  variantIds?: number[] | null;
   variants: {
     id: number;
     name: string;
@@ -58,6 +59,7 @@ export const productSalesApi = {
       discountValue: number;
       start: string;
       end: string;
+      variantIds?: number[] | null;
     },
   ): Promise<ProductSale> {
     const { data } = await axiosClient.put(`${base}/${productId}`, payload);

@@ -150,3 +150,15 @@
 .voucher-list .voucher-audience { max-width: 100%; }
 .voucher-list .voucher-date-range { min-width: 0; }
 .voucher-list .voucher-date-range time { min-width: 0; }
+.sale-variant-picker { min-width: 0; padding: 0; border: 0; }
+.sale-variant-picker legend { padding: 0; margin-bottom: 12px; color: var(--ink); font-size: 15px; font-weight: 700; }
+.sale-variant-options { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: 10px; margin-top: 10px; }
+.sale-variant-option { display: flex; align-items: flex-start; gap: 12px; min-width: 0; padding: 13px 14px; border: 1px solid var(--line); border-radius: 10px; background: #fff; cursor: pointer; transition: border-color .18s, background .18s; }
+.sale-variant-option:hover { border-color: #e2a5ae; }
+.sale-variant-option.is-selected { border-color: #e8b3bb; background: #fff7f8; }
+.sale-variant-option input { flex: 0 0 auto; width: 17px; height: 17px; margin: 2px 0 0; accent-color: var(--red); }
+.sale-variant-option span { display: grid; gap: 4px; min-width: 0; }
+.sale-variant-option strong { color: var(--ink); font-size: 14px; overflow-wrap: anywhere; }
+.sale-variant-option small { color: var(--muted); font-size: 12px; line-height: 1.4; }
+.sale-variant-option:focus-within { outline: 2px solid var(--red); outline-offset: 2px; }
+.sale-variant-picker:disabled .sale-variant-option { opacity: .65; cursor: not-allowed; }
