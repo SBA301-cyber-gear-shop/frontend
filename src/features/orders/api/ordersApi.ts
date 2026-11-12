@@ -47,7 +47,6 @@ function orderView(order) {
   };
 }
 
-const codePath = (base, code) => `${base}/${encodeURIComponent(code)}`;
 export const ordersApi = {
   async warrantyCards(code: string, signal?: AbortSignal) {
     const { data } = await axiosClient.get(endpoints.aftersales.cards, { params: { q: code }, signal });
@@ -64,7 +63,7 @@ export const ordersApi = {
     return data.map(orderView);
   },
   async one(code: string, signal?: AbortSignal) {
-    const { data } = await axiosClient.get(codePath(endpoints.orders, code), {
+    const { data } = await axiosClient.get(endpoints.orderPaths.detail(code), {
       signal,
     });
     return orderView(data);
@@ -78,39 +77,39 @@ export const ordersApi = {
   },
   async advance(code: string, status: string) {
     const { data } = await axiosClient.patch(
-      `${codePath(endpoints.orderOperations, code)}/status`,
+      endpoints.orderPaths.status(code),
       { status },
     );
     return orderView(data);
   },
   async shippingSerials(code: string, devices: { orderItemId: number; serialNumber: string }[]) {
-    const { data } = await axiosClient.post(`${codePath(endpoints.orderOperations, code)}/shipping-serials`, { devices });
+    const { data } = await axiosClient.post(endpoints.orderPaths.shippingSerials(code), { devices });
     return orderView(data);
   },
   async collect(code: string, receivedAmount: number, reference: string) {
     const { data } = await axiosClient.post(
-      `${codePath(endpoints.orderOperations, code)}/collect`,
+      endpoints.orderPaths.collect(code),
       { receivedAmount, reference },
     );
     return orderView(data);
   },
   async cashCollection(code: string, signal?: AbortSignal) {
     const { data } = await axiosClient.get(
-      `${codePath(endpoints.orderOperations, code)}/cash-collection`,
+      endpoints.orderPaths.cashCollection(code),
       { signal },
     );
     return data || null;
   },
   async handover(code: string, payload) {
     const { data } = await axiosClient.post(
-      `${codePath(endpoints.orderOperations, code)}/handover`,
+      endpoints.orderPaths.handover(code),
       payload,
     );
     return orderView(data);
   },
   async cancel(code: string, reason = "", operations = false) {
     const { data } = await axiosClient.post(
-      `${codePath(operations ? endpoints.orderOperations : endpoints.orders, code)}/cancel`,
+      operations ? endpoints.orderPaths.staffCancel(code) : endpoints.orderPaths.cancel(code),
       operations ? { reason } : undefined,
     );
     return orderView(data);

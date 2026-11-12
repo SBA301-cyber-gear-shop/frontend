@@ -1,4 +1,4 @@
-import { axiosClient } from "@/services";
+import { axiosClient, endpoints } from "@/services";
 import { apiCache, type CacheOptions } from "@/services/apiCache";
 
 const view = (promotion) => ({
@@ -12,22 +12,22 @@ const view = (promotion) => ({
 
 export const promotionsApi = {
   async staffList(signal?: AbortSignal) {
-    const { data } = await axiosClient.get("/api/operations/promotions", { signal });
+    const { data } = await axiosClient.get(endpoints.promotions.staff, { signal });
     return data.map(view);
   },
   async mine(signal?: AbortSignal) {
-    const { data } = await axiosClient.get("/api/me/vouchers", { signal });
+    const { data } = await axiosClient.get(endpoints.promotions.mine, { signal });
     return data;
   },
   async recipients(id: number, search: string, assignedOnly: boolean, signal?: AbortSignal) {
-    const { data } = await axiosClient.get(`/api/admin/promotions/${id}/recipients`, { params: { search, assignedOnly }, signal });
+    const { data } = await axiosClient.get(endpoints.promotions.recipients(id), { params: { search, assignedOnly }, signal });
     return data;
   },
   async grant(id: number, userIds: number[]) {
-    await axiosClient.post(`/api/admin/promotions/${id}/recipients`, { userIds });
+    await axiosClient.post(endpoints.promotions.recipients(id), { userIds });
   },
   async revoke(id: number, userId: number) {
-    await axiosClient.delete(`/api/admin/promotions/${id}/recipients/${userId}`);
+    await axiosClient.delete(endpoints.promotions.recipient(id, userId));
   },
   async history(
     id: number,
@@ -35,7 +35,7 @@ export const promotionsApi = {
     signal?: AbortSignal,
   ) {
     const { data } = await axiosClient.get(
-      `/api/admin/promotions/${id}/usages`,
+      endpoints.promotions.usages(id),
       { params, signal },
     );
     return data;
@@ -44,7 +44,7 @@ export const promotionsApi = {
     return apiCache.fetchWithCache(
       "admin_promotions",
       async () => {
-        const { data } = await axiosClient.get("/api/admin/promotions", {
+        const { data } = await axiosClient.get(endpoints.promotions.admin, {
           signal,
         });
         return data.map(view);
@@ -57,7 +57,7 @@ export const promotionsApi = {
     return apiCache.fetchWithCache(
       "public_promotions",
       async () => {
-        const { data } = await axiosClient.get("/api/promotions", { signal });
+        const { data } = await axiosClient.get(endpoints.promotions.public, { signal });
         return data.map(view);
       },
       { ttl: 180_000, storage: "session", ...options },
@@ -82,8 +82,8 @@ export const promotionsApi = {
       audience: promotion.audience || "PUBLIC",
     };
     const { data } = promotion.id
-      ? await axiosClient.put(`/api/admin/promotions/${promotion.id}`, payload)
-      : await axiosClient.post("/api/admin/promotions", payload);
+      ? await axiosClient.put(endpoints.promotions.detail(promotion.id), payload)
+      : await axiosClient.post(endpoints.promotions.admin, payload);
 
     apiCache.invalidate("admin_promotions");
     apiCache.invalidate("public_promotions");
