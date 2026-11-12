@@ -174,6 +174,7 @@ test("admin views voucher usage history with customer details filters pagination
 });
 
 test("promotion manages scheduled product sale by product ID for every SKU", async ({ page }) => {
+  await page.clock.setFixedTime(new Date("2026-11-08T05:00:00+07:00"));
   await page.addInitScript(() => {
     sessionStorage.setItem("techzone-token", "admin-test-token");
     sessionStorage.setItem("techzone-session", JSON.stringify({ id: 1, name: "Admin", role: "Admin" }));
@@ -243,7 +244,7 @@ test("promotion manages scheduled product sale by product ID for every SKU", asy
   await expect(saleTable.getByRole("row").filter({ hasText: "Laptop kiểm thử" })).toContainText("Từ 08/11/2026");
   await expect(saleTable.getByRole("row").filter({ hasText: "Laptop kiểm thử" })).toContainText("Đang áp dụng");
   expect(await page.locator(".promotion-table-scroll").evaluate((element) => element.scrollWidth <= element.clientWidth)).toBeTruthy();
-  expect(saved[0]).toEqual({ enabled: true, discountType: "percentage", discountValue: 2, start: "2026-11-08T00:00", end: "2026-11-09T00:00" });
+  expect(saved[0]).toEqual({ enabled: true, discountType: "percentage", discountValue: 2, start: "2026-11-08T00:00", end: "2026-11-09T00:00", variantIds: null });
   await page.screenshot({ path: "test-results/product-sale-desktop.png", fullPage: true });
   await page.setViewportSize({ width: 390, height: 844 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBeTruthy();
@@ -254,16 +255,18 @@ test("promotion manages scheduled product sale by product ID for every SKU", asy
   await expect(page.getByRole("dialog").getByRole("heading", { name: "#200 · Laptop kiểm thử", exact: true })).toBeVisible();
   await page.getByLabel("Loại giảm giá sale", { exact: true }).selectOption("fixed_amount");
   await page.getByLabel("Số tiền giảm (₫)", { exact: true }).fill("5000");
+  await page.getByRole("checkbox", { name: /#2002 · 16GB/ }).uncheck();
+  await expect(page.getByText(/35\.000/)).toHaveCount(0);
   await expect(page.getByText(/15\.000/)).toBeVisible();
-  await expect(page.getByText(/35\.000/)).toBeVisible();
   await page.getByLabel("Số tiền giảm (₫)", { exact: true }).fill("50000");
-  await expect(page.getByRole("dialog").getByText(/^0\s*₫$/)).toHaveCount(2);
+  await expect(page.getByRole("dialog").getByText(/^0\s*₫$/)).toHaveCount(1);
   await page.getByLabel("Số tiền giảm (₫)", { exact: true }).fill("5000");
   await page.screenshot({ path: "test-results/product-sale-editor-mobile.png", fullPage: true });
   await page.getByRole("checkbox", { name: "Kích hoạt lịch sale", exact: true }).uncheck();
   await page.getByRole("button", { name: "Lưu lịch sale", exact: true }).click();
   await expect.poll(() => saved.length).toBe(2);
   expect(saved[1].enabled).toBe(false);
+  expect(saved[1].variantIds).toEqual([2001]);
   await page.reload();
   await page.getByRole("button", { name: "Sale theo mã sản phẩm", exact: true }).click();
   await page.getByRole("button", { name: "Chỉnh sale #200", exact: true }).click();

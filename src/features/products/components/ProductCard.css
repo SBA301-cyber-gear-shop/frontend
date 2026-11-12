@@ -22,10 +22,10 @@
 .product-card .category { margin-top: 14px; }
 .product-card h3 { min-height: 0; margin-bottom: 6px; }
 .product-card .variant { min-height: 0; margin: 0; }
-.product-card .product-feedback { margin: 8px 0 12px; }
+.product-card .product-feedback { margin: auto 0 12px; padding-top: 8px; }
 .product-card-out-of-stock {
   align-self: flex-start;
-  margin-bottom: 12px;
+  margin: 8px 0 0;
   padding: 4px 9px;
   border-radius: 5px;
   background: #f2f4f7;
@@ -33,7 +33,7 @@
   font-size: 12px;
   line-height: 1.4;
 }
-.product-card .buy { margin-top: auto; }
+.product-card .buy { margin-top: 0; }
 .product-card:hover, .product-card:focus-within {
   transform: translateY(-4px);
   border-color: #d2dae5;

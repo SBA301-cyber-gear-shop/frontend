@@ -1,4 +1,4 @@
-import { axiosClient } from "@/services";
+import { axiosClient, endpoints } from "@/services";
 import { apiCache, type CacheOptions } from "@/services/apiCache";
 
 export const reviewsApi = {
@@ -6,18 +6,18 @@ export const reviewsApi = {
     return new URL(url, axiosClient.defaults.baseURL || window.location.origin).href;
   },
   async editor(orderItemId: number, signal?: AbortSignal) {
-    const { data } = await axiosClient.get(`/api/order-items/${orderItemId}/review`, { signal });
+    const { data } = await axiosClient.get(endpoints.reviews.orderItem(orderItemId), { signal });
     return data;
   },
   async media(reviewId: string, signal?: AbortSignal) {
-    const { data } = await axiosClient.get(`/api/reviews/${encodeURIComponent(reviewId)}/media`, { signal });
+    const { data } = await axiosClient.get(endpoints.reviews.media(reviewId), { signal });
     return data;
   },
   async saveWithMedia(orderItemId: number, rating: number, comment: string, retainedMediaIds: number[], files: File[]) {
     const payload = new FormData();
     payload.append("payload", new Blob([JSON.stringify({ review: { rating, comment }, retainedMediaIds })], { type: "application/json" }));
     files.forEach((file) => payload.append("files", file));
-    await axiosClient.put(`/api/order-items/${orderItemId}/review`, payload, { headers: { "Content-Type": undefined } });
+    await axiosClient.put(endpoints.reviews.orderItem(orderItemId), payload, { headers: { "Content-Type": undefined } });
     apiCache.invalidate("reviews_variant_");
     apiCache.invalidate("catalog_products");
   },
@@ -26,7 +26,7 @@ export const reviewsApi = {
       `reviews_variant_${variantId}`,
       async () => {
         const { data } = await axiosClient.get(
-          `/api/products/${encodeURIComponent(variantId)}/reviews`,
+          endpoints.reviews.product(variantId),
           { signal },
         );
         return data;
@@ -35,7 +35,7 @@ export const reviewsApi = {
     );
   },
   async save(orderItemId: number, rating: number, comment: string) {
-    await axiosClient.put(`/api/order-items/${orderItemId}/review`, {
+    await axiosClient.put(endpoints.reviews.orderItem(orderItemId), {
       rating,
       comment,
     });
