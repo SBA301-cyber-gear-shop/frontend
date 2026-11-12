@@ -1,7 +1,6 @@
 import { useState, useEffect, Fragment } from "react";
 import { Button, Badge, Icon } from "@/components/ui";
 import { money } from "@/utils";
-import { CategoryHardwareIcon } from "./CategoryHardwareIcon";
 import { CreatePurposeModal } from "./CreatePurposeModal";
 import type {
   TemplateSlot,
@@ -582,14 +581,7 @@ export function UnifiedMetadataTable({
                           </span>
                         </td>
                         <td>
-                          <div className="component-category-cell">
-                            <span className="cat-icon-badge">
-                              <CategoryHardwareIcon name={slot.categoryName} size={16} />
-                            </span>
-                            <div className="cat-name-stack">
-                              <span className="cat-name-text">{slot.categoryName}</span>
-                            </div>
-                          </div>
+                          <span className="cat-name-text">{slot.categoryName}</span>
                         </td>
                         <td style={{ textAlign: "center" }}>
                           <select
@@ -694,14 +686,7 @@ export function UnifiedMetadataTable({
 
                         {/* 2. Component Category với icon phần cứng đồng bộ TechZone */}
                         <td>
-                          <div className="component-category-cell">
-                            <span className="cat-icon-badge">
-                              <CategoryHardwareIcon name={slot.categoryName} size={16} />
-                            </span>
-                            <div className="cat-name-stack">
-                              <span className="cat-name-text">{slot.categoryName}</span>
-                            </div>
-                          </div>
+                          <span className="cat-name-text">{slot.categoryName}</span>
                         </td>
 
                         {/* 3. Is Required sử dụng Badge chính thức của hệ thống */}

@@ -1,7 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { Modal, Button, Badge, Icon } from "@/components/ui";
 import { money } from "@/utils";
-import { CategoryHardwareIcon } from "./CategoryHardwareIcon";
 import type { TemplateSlot, BudgetProfilePurpose } from "../types";
 
 interface CreatePurposeModalProps {
@@ -257,12 +256,7 @@ export function CreatePurposeModal({
                       </span>
                     </td>
                     <td>
-                      <div className="component-category-cell">
-                        <span className="cat-icon-badge">
-                          <CategoryHardwareIcon name={slot.categoryName} size={15} />
-                        </span>
-                        <span className="cat-name-text">{slot.categoryName}</span>
-                      </div>
+                      <span className="cat-name-text">{slot.categoryName}</span>
                     </td>
                     <td style={{ textAlign: "right" }}>
                       <div className="share-input-cell row end gap6 items-center">
