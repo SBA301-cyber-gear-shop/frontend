@@ -7,6 +7,20 @@ interface OrderStatsSectionProps {
   monthlyOrders: MonthlyOrderStats[];
 }
 
+const formatDateLabel = (raw: string, isDaily: boolean): string => {
+  if (!raw) return "";
+  const parts = raw.split("-");
+  if (isDaily && parts.length === 3) {
+    // Chuyển YYYY-MM-DD sang DD/MM/YYYY
+    return `${parts[2]}/${parts[1]}/${parts[0]}`;
+  }
+  if (!isDaily && parts.length === 2) {
+    // Chuyển YYYY-MM sang MM/YYYY
+    return `${parts[1]}/${parts[0]}`;
+  }
+  return raw;
+};
+
 export const OrderStatsSection: FC<OrderStatsSectionProps> = ({
   dailyOrders,
   monthlyOrders,
@@ -97,7 +111,9 @@ export const OrderStatsSection: FC<OrderStatsSectionProps> = ({
 
                 return (
                   <tr key={timeLabel}>
-                    <td className="font-semibold text-primary">{timeLabel}</td>
+                    <td className="font-semibold text-primary date-col-cell">
+                      {formatDateLabel(timeLabel, viewMode === "daily")}
+                    </td>
                     <td className="text-center font-bold">{row.totalOrders}</td>
                     <td>
                       <div className="mini-stacked-bar" title={`Hoàn thành: ${row.completedOrders}, Đang xử lý: ${row.processingOrders}, Hủy: ${row.canceledOrders}`}>

@@ -145,7 +145,7 @@ export const AdminAnalyticsDashboard: FC = () => {
           {/* Tab 1: Overview & Revenue */}
           {activeTab === "overview" && (
             <div className="analytics-tab-pane">
-              <RevenueChart data={data.monthlyRevenue} />
+              <RevenueChart data={data.monthlyRevenue} expectedMonths={months} />
               <div className="analytics-grid-two">
                 <TopProductsTable products={data.topProducts} />
                 <OrderStatsSection

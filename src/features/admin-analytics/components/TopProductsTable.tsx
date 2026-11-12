@@ -24,6 +24,7 @@ export const TopProductsTable: FC<TopProductsTableProps> = ({ products }) => {
             <tr>
               <th className="text-center" style={{ width: 60 }}>Hạng</th>
               <th>Tên sản phẩm / Linh kiện</th>
+              <th>Danh mục</th>
               <th className="text-center">Số lượng bán</th>
               <th className="text-right">Doanh thu tích lũy</th>
             </tr>
@@ -31,7 +32,7 @@ export const TopProductsTable: FC<TopProductsTableProps> = ({ products }) => {
           <tbody>
             {products.length === 0 ? (
               <tr>
-                <td colSpan={4} className="text-center py-6 muted">
+                <td colSpan={5} className="text-center py-6 muted">
                   Chưa có sản phẩm nào được bán ra.
                 </td>
               </tr>
@@ -54,6 +55,9 @@ export const TopProductsTable: FC<TopProductsTableProps> = ({ products }) => {
                     </td>
                     <td>
                       <span className="font-semibold text-primary">{item.productName}</span>
+                    </td>
+                    <td>
+                      <span className="category-pill">{item.categoryName || "Linh kiện"}</span>
                     </td>
                     <td className="text-center font-bold text-accent">
                       {item.quantitySold} <span className="small text-muted font-normal">món</span>

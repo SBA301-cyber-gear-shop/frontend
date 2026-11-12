@@ -69,6 +69,7 @@ export interface PromotionAnalytics {
 
 export interface TopSellingProduct {
   productName: string;
+  categoryName?: string;
   quantitySold: number;
   totalRevenue: number;
 }
