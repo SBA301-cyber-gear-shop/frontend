@@ -22,11 +22,13 @@ export function ProductCard({ product: p }) {
         <h3>{p.name}</h3>
       </Link>
       <p className="variant">{p.variant}</p>
-      <ProductFeedback product={p} />
       {p.stock <= 0 && <span className="product-card-out-of-stock">Hết hàng</span>}
+      <ProductFeedback product={p} />
       <div className="buy">
         <div>
-          {Number(p.originalPrice) > Number(p.price) && <span className="old-price">{money(p.originalPrice)}</span>}
+          <span className="old-price" aria-hidden={!(Number(p.originalPrice) > Number(p.price))}>
+            {Number(p.originalPrice) > Number(p.price) ? money(p.originalPrice) : "\u00a0"}
+          </span>
           <div className="price">{money(p.price)}</div>
         </div>
         <Link to={"/san-pham/" + p.id}>Xem chi tiết</Link>

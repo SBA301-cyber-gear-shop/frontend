@@ -38,7 +38,7 @@ test("catalog shows a discount badge only when the sale price is lower", async (
   };
   const products = [
     { ...base, id: 101, name: "RAM giảm giá", originalPrice: 2000000 },
-    { ...base, id: 102, name: "RAM giá thường", originalPrice: 1850000 },
+    { ...base, id: 102, name: "RAM giá thường với tên sản phẩm dài hơn nhiều để xuống dòng", originalPrice: 1850000 },
   ];
   await page.route("**/api/**", (route) => {
     const path = new URL(route.request().url()).pathname;
@@ -46,6 +46,9 @@ test("catalog shows a discount badge only when the sale price is lower", async (
     return route.fulfill({ json: path === "/api/products" ? products : [] });
   });
   await page.goto("/san-pham");
+  await expect(page.locator(".product-card .product-feedback")).toHaveCount(2);
+  const positions = await page.locator(".product-card .product-feedback").evaluateAll((items) => items.map((item) => item.getBoundingClientRect().top));
+  expect(Math.abs(positions[0] - positions[1])).toBeLessThan(2);
   const saleCard = page.locator(".product-card").filter({ hasText: "RAM giảm giá" });
   const ribbon = saleCard.getByText("Giảm 7,5%");
   await expect(ribbon).toBeVisible();
